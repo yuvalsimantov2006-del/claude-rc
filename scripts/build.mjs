@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const root=path.resolve(import.meta.dirname,'..');
+const font=name=>fs.readFileSync(path.join(root,'vendor',name)).toString('base64');
+const css=`@font-face{font-family:Ofek;src:url(data:font/ttf;base64,${font('hebrew-regular.ttf')}) format('truetype');font-weight:400 600;font-display:swap}@font-face{font-family:Ofek;src:url(data:font/ttf;base64,${font('hebrew-bold.ttf')}) format('truetype');font-weight:700 900;font-display:swap}\n`+fs.readFileSync(path.join(root,'src/styles.css'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/polish.css'),'utf8');
+const files=['finance.js','data.js','icons.js','charts.js','savings.js','app.js'];
+const js=files.map(file=>fs.readFileSync(path.join(root,'src',file),'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport\s+(?=(const|function|class|let))/g,'')).join('\n');
+new Function(js);
+const favicon=fs.readFileSync(path.join(root,'public/favicon.svg'),'utf8');
+const html=`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101012"><meta name="description" content="אופק — ניהול פיננסי אישי בעברית. תנועות, השקעות, תשואות, תקציבים ויעדי חיסכון."><title>אופק — המרחב הפיננסי שלך</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(favicon)}"><style>${css}</style></head><body><div id="root"></div><script>(()=>{${js.replace(/<\/script/gi,'<\\/script')}\n})();</script></body></html>`;
+fs.mkdirSync(path.join(root,'dist'),{recursive:true});fs.writeFileSync(path.join(root,'dist/index.html'),html);fs.writeFileSync(path.join(root,'index.html'),html);console.log(`Built standalone app: ${Buffer.byteLength(html).toLocaleString()} bytes. No external requests or dependencies.`);
