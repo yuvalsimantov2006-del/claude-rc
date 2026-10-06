@@ -7,7 +7,7 @@ import {AI_MODELS,AI_TOOLS,AI_CHAT_KEY,AI_LETTERS_KEY,ATTACHMENT_LIMIT,aiSetting
 // Rendered inside the shell from app.js and built on its shared helpers (e, icon, btn, card…).
 
 const copilot={messages:null,busy:false,live:null,attachments:[],abort:null,pending:new Map(),error:null,draft:'',lastContext:'',status:''};
-const toolLabels={get_financial_overview:'סקר את התמונה הפיננסית',query_transactions:'חיפש בתנועות',spending_breakdown:'ניתח את ההוצאות',get_investments:'בדק את תיק ההשקעות',simulate_future:'הריץ סימולציית עתיד',render_chart:'צייר גרף',propose_transactions:'מכין הצעה לתנועות',propose_budget:'מכין הצעת תקציב',propose_goal:'מכין תוכנית חיסכון'};
+const toolLabels={get_financial_overview:'סקר את התמונה הפיננסית',query_transactions:'חיפש בתנועות',spending_breakdown:'ניתח את ההוצאות',get_investments:'בדק את תיק ההשקעות',simulate_future:'הריץ סימולציית עתיד',render_chart:'צייר גרף',propose_transactions:'מכין הצעה לתנועות',propose_budget:'מכין הצעת תקציב',propose_goal:'מכין תוכנית חיסכון',get_cashflow_forecast:'בדק את התזרים הצפוי',money_calculator:'הפעיל מחשבון פיננסי',get_split_groups:'בדק את חלוקות ההוצאות',propose_split_expense:'מכין הוצאה משותפת',propose_bill:'מכין תשלום קבוע',propose_wishlist_item:'מכין פריט לרשימת המשאלות'};
 const aiPrompts={
   month:'איך אני עומד החודש לעומת החודשים הקודמים? מה בולט?',
   save:'איפה אני יכול לחסוך 1,000 ₪ בחודש בלי לוותר על מה שחשוב לי? תן הצעות קונקרטיות לפי ההוצאות שלי.',
@@ -17,9 +17,12 @@ const aiPrompts={
   invest:'תנתח את תיק ההשקעות שלי: ביצועים, פיזור וסיכונים. בלי המלצה על נייר ספציפי.',
   health:'הציון הפיננסי שלי מוצג באפליקציה. מה שלושת הצעדים שישפרו אותו הכי הרבה בחצי השנה הקרובה?',
   recurring:'עבור על החיובים החוזרים שלי. מה כדאי לבדוק, לבטל או למקח עליו? כמה אחסוך בשנה?',
-  anomalies:'מה החריגות בהוצאות החודש ולמה כדאי לשים לב אליהן?'
+  anomalies:'מה החריגות בהוצאות החודש ולמה כדאי לשים לב אליהן?',
+  bills:'האם צפוי לי מינוס בעו״ש בחודשיים הקרובים? עבור על התשלומים הקבועים שלי ותגיד מה אפשר להוזיל או לבטל.',
+  split:'סכם לי את חלוקות ההוצאות: מי חייב למי וכמה, ונסח הודעה קצרה ונעימה לכל קבוצה כדי לסגור חשבון.',
+  salary:'חשב את השכר נטו שלי לפי ההכנסה שאני מקבל, הסבר לי את התלוש ומה יכול להגדיל את הנטו.'
 };
-const aiSuggestions=[['month','TrendingUp','איך החודש שלי?'],['save','PiggyBank','איפה לחסוך 1,000 ₪'],['chart','BarChart3','גרף הוצאות חצי שנתי'],['fire','FlaskConical','מתי חופש כלכלי?'],['budget','Wallet','תקציב חכם עבורי'],['invest','Activity','ניתוח תיק ההשקעות']];
+const aiSuggestions=[['month','TrendingUp','איך החודש שלי?'],['save','PiggyBank','איפה לחסוך 1,000 ₪'],['chart','BarChart3','גרף הוצאות חצי שנתי'],['fire','FlaskConical','מתי חופש כלכלי?'],['budget','Wallet','תקציב חכם עבורי'],['invest','Activity','ניתוח תיק ההשקעות'],['bills','CalendarDays','האם צפוי לי מינוס?'],['split','Users','מי חייב למי?']];
 const voiceSupported=()=>!!(window.SpeechRecognition||window.webkitSpeechRecognition);
 const modelName=id=>(AI_MODELS.find(m=>m[0]===id)||AI_MODELS[0])[1].split(' · ')[0];
 try{if(localStorage.getItem('ofek-privacy'))document.documentElement.classList.add('privacy');}catch{}
@@ -73,7 +76,7 @@ function proposalRows(kind,items,id,selectable){
 }
 function proposalCard(b,live){
   const pending=copilot.pending.get(b.id),result=toolResultFor(b.id),parsed=parsedResult(result),input=b.input||{};
-  const kind=b.name==='propose_transactions'?'transactions':b.name==='propose_budget'?'budget':'goal';
+  const kind={propose_transactions:'transactions',propose_budget:'budget',propose_goal:'goal',propose_split_expense:'split',propose_bill:'bill',propose_wishlist_item:'wish'}[b.name]||'goal';
   if(!pending&&!result)return `<div class="ai-proposal waiting">${icon('Sparkles',16)}<span>${live?'Claude מכין הצעה…':'ההצעה לא הושלמה.'}</span></div>`;
   if(result?.is_error)return `<div class="ai-tool">${icon('Info',13)}<span>ההצעה לא הייתה תקינה ו־Claude תיקן אותה</span></div>`;
   const req=pending?.request,status=pending?'':parsed?.approved?badge(kind==='transactions'?`נשמרו ${parsed.saved} תנועות`:'נשמר באישורך','green'):badge('נדחה — לא נשמר דבר','neutral');
@@ -81,8 +84,11 @@ function proposalCard(b,live){
   if(kind==='transactions'){const items=req?.items||input.transactions||[];title=`${items.length} תנועות מוכנות להוספה`;body=(req?.note||input.note?`<p class="muted">${e(req?.note||input.note)}</p>`:'')+proposalRows(kind,items,b.id,!!pending)+(req?.errors?.length?notice(`${req.errors.length} שורות לא תקינות לא נכללו.`):'');}
   if(kind==='budget'){const category=req?.category||input.category,limit=req?.limit||input.monthly_limit;title=`תקציב ל${category}`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(limit)}</b><span>בחודש${req?.existing?` · במקום ${money(req.existing)}`:''}</span></div>${input.reason?`<p class="muted">${e(input.reason)}</p>`:''}`;}
   if(kind==='goal'){const g=req?.goal||input;title=`תוכנית חיסכון: ${g.name}`;body=`<div class="goal-details">${[['הפקדה חודשית',money(g.monthly)],['עד תאריך',validDateText(g.date)],['סכום יעד',g.target?money(g.target):'תחזית אוטומטית'],['כבר נחסך',money(g.saved||0)]].map(([l,v])=>`<div><span>${l}</span><b>${e(v)}</b></div>`).join('')}</div>`;}
+  if(kind==='split'){const x=req?.expense||{description:input.description,amount:Number(input.amount)||0},members=req?.members||[],who=id=>{const m=members.find(v=>v.id===id);return m?(m.me?'אני':m.name):'';};title=`הוצאה משותפת ב״${req?.groupName||input.group||''}״`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(x.amount,'ILS',x.amount%1?2:0)}</b><span>${e(x.description)}</span></div><p class="muted">שילם/ה: ${e(req?who(x.paidBy):input.paid_by||'')} · מתחלק בין: ${e(req?(x.participants?.length?x.participants.map(who).join(', '):'כל חברי הקבוצה'):(input.participants||[]).join(', ')||'כל חברי הקבוצה')}</p>`;}
+  if(kind==='bill'){const x=req?.bill||input;title=`תשלום קבוע: ${x.name||''}`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(Number(x.amount)||0)}</b><span>${e(freqLabels[x.frequency]||'כל חודש')} · ב־${e(x.day)} לחודש${x.autopay?' · חיוב אוטומטי':''}</span></div>`;}
+  if(kind==='wish'){const x=req?.item||input;title=`לרשימת המשאלות: ${x.name||''}`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(Number(x.price)||0)}</b><span>תקופת צינון של ${COOLING_DAYS} ימים</span></div>${x.note?`<p class="muted">${e(x.note)}</p>`:''}`;}
   const actions=pending?`<div class="actions">${btn(kind==='transactions'?'אישור והוספה':'אישור ושמירה','ai-approve:'+b.id,'Check','primary')}${btn('לא תודה','ai-decline:'+b.id)}</div>`:'';
-  return `<div class="ai-proposal ${pending?'pending':''}"><div class="ai-proposal-head"><span class="asset-icon ${pending?'gold':'purple'}">${icon(kind==='transactions'?'ScanLine':kind==='budget'?'Wallet':'Target',18)}</span><b>${e(title)}</b>${status}</div>${body}${actions}</div>`;
+  return `<div class="ai-proposal ${pending?'pending':''}"><div class="ai-proposal-head"><span class="asset-icon ${pending?'gold':'purple'}">${icon({transactions:'ScanLine',budget:'Wallet',goal:'Target',split:'Users',bill:'Receipt',wish:'ShoppingBag'}[kind],18)}</span><b>${e(title)}</b>${status}</div>${body}${actions}</div>`;
 }
 const validDateText=d=>{try{return dateLabel(d);}catch{return d||'—';}};
 function toolBlock(b,live){
@@ -196,6 +202,9 @@ function applyProposal(req,selected){
     if(existing)existing.limit=req.limit;else next.budgets.push({id:uid(),category:req.category,limit:req.limit});
     commit(next,`התקציב ל${req.category} נשמר`);return 1;
   }
+  if(req.kind==='split'){const g=(next.groups||[]).find(x=>x.id===req.groupId);if(!g)throw Error('הקבוצה כבר לא קיימת.');g.expenses.push({id:uid(),...req.expense});commit(next,`ההוצאה נוספה לקבוצה ״${g.name}״`);return 1;}
+  if(req.kind==='bill'){next.bills=[...(next.bills||[]),{id:uid(),...req.bill}];commit(next,`״${req.bill.name}״ נוסף ללוח התשלומים`);return 1;}
+  if(req.kind==='wish'){next.wishlist=[...(next.wishlist||[]),{id:uid(),...req.item,added:today(),status:'waiting'}];commit(next,`״${req.item.name}״ נוסף לרשימת המשאלות`);return 1;}
   next.goals.push({id:uid(),...req.goal});commit(next,`תוכנית החיסכון ״${req.goal.name}״ נוספה`);return 1;
 }
 
@@ -391,6 +400,11 @@ function paletteItems(q){
   const actions=[
     {icon:'Plus',title:'תנועה חדשה',run:()=>{closeDialog();openEntity('transaction');}},
     {icon:'ScanLine',title:'סריקת קבלה או דף חשבון',sub:aiReady()?'Claude יחלץ את התנועות':'דורש חיבור Claude',run:()=>{closeDialog();navigate('copilot');if(aiReady())setTimeout(()=>document.querySelector('#ai-file')?.click(),60);}},
+    {icon:'Receipt',title:'תשלום קבוע חדש',sub:'שכירות, ארנונה, ביטוח, מנוי',run:()=>{closeDialog();navigate('bills');openBillForm();}},
+    {icon:'Users',title:'הוצאה משותפת עם חברים',sub:'חלוקת הוצאות בקבוצה',run:()=>{closeDialog();navigate('split');}},
+    {icon:'ShoppingBag',title:'האם כדאי לקנות?',sub:'בדיקה מול התקציב והיעדים',run:()=>{closeDialog();navigate('wishlist');setTimeout(()=>document.querySelector('[data-buy="price"]')?.focus(),60);}},
+    {icon:'Calculator',title:'מחשבון שכר נטו 2026',run:()=>{closeDialog();toolState().tab='salary';navigate('tools');}},
+    {icon:'Landmark',title:'מחשבון משכנתא והלוואות',run:()=>{closeDialog();toolState().tab='loan';navigate('tools');}},
     {icon:'Mail',title:'המכתב החודשי מ־Claude',run:()=>{closeDialog();navigate('insights');}},
     {icon:document.documentElement.classList.contains('privacy')?'Eye':'EyeOff',title:document.documentElement.classList.contains('privacy')?'הצגת סכומים':'מצב פרטיות — הסתרת סכומים',run:()=>{closeDialog();togglePrivacy();}},
     {icon:'CalendarDays',title:'עדכון השקעות חודשי',run:()=>{closeDialog();navigate('monthly');}},

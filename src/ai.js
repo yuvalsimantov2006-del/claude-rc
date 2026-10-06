@@ -1,5 +1,6 @@
 import {today,toILS,balances,portfolioValue,assetValue,assetProfit,monthlySummary,categorySpend,monthOffset,performance,validDate} from './finance.js';
-import {healthScore,detectRecurring,detectAnomalies,monthPace,monteCarlo,monthlySeries,averageMonth} from './smart.js';
+import {healthScore,detectRecurring,detectAnomalies,monthPace,monteCarlo,monthlySeries,averageMonth,shiftDate} from './smart.js';
+import {IL_TAX_2026,netSalary,grossForNet,loanSchedule,debtPayoff,feeImpact,purchaseCheck,cashflowForecast,safeToSpend,groupSummary,monthlyFixed,scheduledItems,wishlistSummary,BILL_STEPS} from './money.js';
 
 // Claude integration. The app is a single static file with no build-time dependencies,
 // so it talks to the Messages API with fetch + server-sent events instead of the SDK.
@@ -37,6 +38,8 @@ How to work:
 - You can draw charts inside the chat with render_chart. Use one when a trend, comparison or breakdown is clearer visually (keep labels short, Hebrew, at most 12 points).
 - To change data you must use a propose_* tool. The user sees a confirmation card and decides; never claim something was saved until the tool result says it was approved.
 - When the user attaches a receipt, invoice, bank or credit-card statement (image, PDF or CSV): read it carefully, extract every transaction (date, amount, merchant/description, a category from the user's category list) and call propose_transactions once with all of them. Skip lines that are totals, balances or duplicates of transactions already in the data. If the year is missing, infer it from context and never use a future date.
+- Ofek also runs a bills calendar with a cash-flow forecast, shared-expense groups (trips, roommates) and a wishlist with a 30-day cooling-off period. Use get_cashflow_forecast for questions like "will I be overdrawn?" or "how much can I spend?", get_split_groups for who owes whom, and money_calculator for Israeli net salary (2026 brackets, credit points, National Insurance), mortgages and loans (incl. CPI-linked), debt payoff strategies, pension-fee impact and "should I buy it?" checks.
+- When the user wants to split a shared receipt, call propose_split_expense; when you discover a fixed payment, offer propose_bill; when the user hesitates about a purchase, suggest propose_wishlist_item instead of buying now.
 - You are not a licensed investment advisor. For investment questions, explain principles, risks and the user's own numbers; avoid recommending a specific security, and mention this briefly only when relevant.
 - Formatting: short paragraphs, **bold** for key figures, "-" bullets, numbered steps, "###" small headings and simple Markdown tables. No HTML.`;
 
@@ -56,6 +59,9 @@ export function financialContext(d,month=today().slice(0,7),now=today()){
     'budgets_this_month: '+(d.budgets.map(x=>`${x.category} ${round(categorySpend(d,x.category,month))}/${round(x.limit)}`).join('; ')||'none'),
     'goals: '+(d.goals.map(g=>`${g.name} saved ${round(g.saved)}${g.target?` of ${round(g.target)}`:''}, ${round(g.monthly)}/mo until ${g.date}`).join('; ')||'none'),
     'investments: '+(d.assets.map(a=>`${a.ticker||a.name} ${round(toILS(assetValue(a),a.currency,d.fx))} ₪`).join('; ')||'none'),
+    (d.bills||[]).length?`fixed_payments: ${round(monthlyFixed(d))} ₪/month · next 30 days: `+scheduledItems(d,shiftDate(now,1),shiftDate(now,30)).filter(x=>!x.paid).slice(0,8).map(x=>`${x.date} ${x.name} ${x.type==='income'?'+':'−'}${round(x.amount)}`).join('; '):'',
+    (d.groups||[]).length?'split_groups: '+d.groups.map(g=>{const x=groupSummary(g);return `${g.name} (total ${round(x.total)}, user balance ${round(x.myBalance)})`;}).join('; '):'',
+    (d.wishlist||[]).length?(w=>`wishlist: ${w.count} waiting (${round(w.waiting)} ₪), skipped so far ${round(w.skipped)} ₪`)(wishlistSummary(d)):'',
     `categories: ${d.categories.join(', ')}`,
     `transactions_on_record: ${d.transactions.length} (${d.transactions.length?d.transactions.map(t=>t.date).sort()[0]:'—'} → ${d.transactions.length?d.transactions.map(t=>t.date).sort().at(-1):'—'})`,
     `selected_month_in_app: ${month}`
@@ -77,6 +83,12 @@ export const AI_TOOLS=[
   {name:'propose_transactions',description:'Propose adding one or more transactions (e.g. extracted from a receipt or statement, or dictated by the user). The user reviews and approves or declines; the result says what happened.',input_schema:S({transactions:{type:'array',items:txItem},note:str('Optional short note shown above the list, e.g. the document source')},['transactions'])},
   {name:'propose_budget',description:'Propose creating or updating a monthly budget for a category. Requires user approval.',input_schema:S({category:str('Category name'),monthly_limit:num('₪ per month'),reason:str('One short sentence why')},['category','monthly_limit'])},
   {name:'propose_goal',description:'Propose a new savings plan. Requires user approval.',input_schema:S({name:str('Hebrew name'),type:{type:'string',enum:['קרן חירום','רכב','חופשה','דירה','לימודים','מטרה אישית']},target:num('Optional target ₪'),saved:num('Already saved ₪, default 0'),monthly:num('Planned monthly deposit ₪'),date:str('Target date YYYY-MM-DD')},['name','monthly','date'])}
+  ,{name:'get_cashflow_forecast',description:'Upcoming fixed payments and incomes (bills calendar and recurring transactions), projected bank+cash balance day by day, the lowest point, overdraft risk, and how much is safe to spend per day for the rest of this month. Read-only.',input_schema:S({days:{type:'integer',description:'Days ahead, 7-120, default 60'}})},
+  {name:'money_calculator',description:'Israeli money calculators. salary: net pay from gross (or gross needed for a net target) with 2026 tax brackets, credit points, National Insurance, health tax and pension. loan: mortgage/loan schedule (spitzer or equal principal, optional CPI linkage and extra monthly payments). debt_payoff: avalanche vs snowball over the user\'s tracked debts. fees: impact of pension/savings management fees vs a low-fee benchmark. purchase: should-I-buy check of a price against this user\'s budget, cushion and goals.',input_schema:S({calculator:{type:'string',enum:['salary','loan','debt_payoff','fees','purchase']},gross_salary:num('Monthly gross ₪'),net_salary_target:num('Find the gross needed for this monthly net'),credit_points:num('Default 2.25; women usually 2.75'),pension_rate:num('Employee pension rate, default 0.06'),study_fund_rate:num('Employee study-fund rate, e.g. 0.025'),principal:num('Loan amount ₪'),annual_rate_percent:num('Annual interest %, e.g. 4.8'),years:num('Loan term or projection years'),method:{type:'string',enum:['shpitzer','equal']},cpi_linked:{type:'boolean'},inflation_percent:num('Expected annual CPI %, default 2.5'),extra_monthly:num('Extra monthly payment ₪ (loan or debts)'),price:num('Purchase price ₪'),installments:{type:'integer',description:'Number of payments for a purchase'},balance:num('Current savings balance ₪ (fees)'),monthly_deposit:num('Monthly deposit ₪ (fees)'),annual_return_percent:num('Gross annual return %, default 5'),accumulation_fee_percent:num('Annual fee on balance %, e.g. 0.5'),deposit_fee_percent:num('Fee on deposits %, e.g. 2')},['calculator'])},
+  {name:'get_split_groups',description:'Shared-expense groups (trips, roommates, events): members, recent expenses, balances and the minimal transfers to settle up. Read-only.',input_schema:S({})},
+  {name:'propose_split_expense',description:'Propose adding a shared expense to a split group, e.g. from a restaurant receipt. Split equally among participants (default: all members). The user approves.',input_schema:S({group:str('Group name or id'),description:str('What was paid for'),amount:num('Total ₪'),paid_by:str('Name of the member who paid; "אני" for the user'),participants:{type:'array',items:{type:'string'},description:'Names sharing the cost; default all members'},date:str('YYYY-MM-DD; default today')},['group','description','amount','paid_by'])},
+  {name:'propose_bill',description:'Propose adding a fixed payment or income to the bills calendar (rent, arnona, insurance, subscriptions, salary). The user approves.',input_schema:S({name:str('Hebrew name'),amount:num('₪ per occurrence'),frequency:{type:'string',enum:['monthly','bimonthly','quarterly','yearly']},day:{type:'integer',description:'Day of month 1-31'},type:{type:'string',enum:['expense','income']},category:str('Category'),autopay:{type:'boolean',description:'Charged automatically (standing order or card)'},start_month:str('YYYY-MM of a known occurrence, needed for non-monthly bills')},['name','amount','frequency','day'])},
+  {name:'propose_wishlist_item',description:'Propose adding an item to the wishlist with a 30-day cooling-off period instead of buying it now. The user approves.',input_schema:S({name:str('Item'),price:num('Price ₪'),note:str('Why it is wanted, a link, or alternatives')},['name','price'])}
 ].map(t=>({...t,eager_input_streaming:true}));
 
 const sumILS=(d,list)=>list.reduce((s,t)=>s+toILS(t.amount,t.currency||'ILS',t.fx||d.fx),0);
@@ -151,6 +163,68 @@ export async function executeAiTool(name,input,ctx){
     if(!input.name||!(monthly>=0)||!validDate(input.date)||input.date<=now)throw new Error('name, monthly >= 0 and a future date are required');
     if(target!=null&&!(target>0))throw new Error('target must be positive when given');
     const outcome=await ctx.approve({id:ctx.toolUseId,kind:'goal',goal:{name:String(input.name),type:input.type||'מטרה אישית',target,saved,monthly,date:input.date,accountId:''}});
+    return outcome.approved?{approved:true}:{approved:false,message:'The user declined.'};
+  }
+  if(name==='get_cashflow_forecast'){
+    const days=Math.max(7,Math.min(120,Number(input.days)||60)),f=cashflowForecast(d,{days,now}),s=safeToSpend(d,now);
+    return {today:now,safe_to_spend_per_day:round(s.perDay),left_in_monthly_target:round(s.available),fixed_payments_left_this_month:round(s.upcomingFixed),days_left_in_month:s.daysLeft,liquid_balance_now:round(f.start),projected_balance_at_end:round(f.end),lowest_point:{date:f.lowest.date,balance:round(f.lowest.balance)},overdraft_date:f.overdraft,variable_spending_per_day:round(f.variableDaily),fixed_monthly_costs:round(f.fixed),income_is_estimated_from_history:f.estimatedIncome,upcoming:f.items.slice(0,30).map(x=>({date:x.date,name:x.name,amount:round(x.amount),type:x.type,autopay:x.autopay,source:x.source}))};
+  }
+  if(name==='money_calculator'){
+    const c=input.calculator,fin=(v,fallback)=>Number.isFinite(v)?v:fallback;
+    if(c==='salary'){
+      const opts={creditPoints:fin(input.credit_points,2.25),pensionRate:fin(input.pension_rate,.06),studyFundRate:fin(input.study_fund_rate,0)};
+      const gross=Number.isFinite(input.net_salary_target)?grossForNet(input.net_salary_target,opts):Number(input.gross_salary);
+      const x=netSalary({...opts,gross});
+      return {tax_year:IL_TAX_2026.year,gross:round(x.gross),net:round(x.net),income_tax:round(x.tax),national_insurance:round(x.ni),health_tax:round(x.health),pension_employee:round(x.pension),study_fund_employee:round(x.studyFund),credit_points_value:round(x.credits),pension_tax_credit:round(x.pensionCredit),mandatory_deductions_rate:x.effectiveRate,marginal_tax_rate:x.marginal,net_per_hour:round(x.hourly),note:'Estimate for a resident employee; excludes taxable benefits, reimbursements and personal credits beyond the points given.'};
+    }
+    if(c==='loan'){
+      const base={principal:input.principal,annualRate:input.annual_rate_percent,years:input.years,method:input.method||'shpitzer',cpiLinked:!!input.cpi_linked,inflation:fin(input.inflation_percent,2.5)};
+      const a=loanSchedule(base),b=Number(input.extra_monthly)>0?loanSchedule({...base,extraMonthly:Number(input.extra_monthly)}):null;
+      return {first_payment:round(a.firstPayment),max_payment:round(a.maxPayment),months:a.months,total_interest:round(a.totalInterest),total_cpi_indexation:round(a.totalIndexation),total_paid:round(a.totalPaid),with_extra_payment:b?{months:b.months,months_saved:a.months-b.months,interest_and_indexation_saved:round(a.totalInterest+a.totalIndexation-b.totalInterest-b.totalIndexation)}:null};
+    }
+    if(c==='debt_payoff'){
+      const debts=d.accounts.filter(a=>a.kind==='debt'&&a.balance>0).map(a=>({name:a.name,balance:toILS(a.balance,a.currency,d.fx),rate:a.interest,payment:toILS(a.payment,a.currency,d.fx)}));
+      if(!debts.length)return {message:'No debts are tracked in Ofek.'};
+      const extra=Number(input.extra_monthly)||0,pack=r=>({feasible:r.feasible,months:r.months,total_interest:r.totalInterest==null?null:round(r.totalInterest),payoff_order:r.order.map(o=>`${o.name} (month ${o.month})`)});
+      return {debts,monthly_budget:round(debts.reduce((s,x)=>s+x.payment,0)+extra),avalanche:pack(debtPayoff(debts,{extra,strategy:'avalanche'})),snowball:pack(debtPayoff(debts,{extra,strategy:'snowball'}))};
+    }
+    if(c==='fees'){
+      const f=feeImpact({balance:fin(input.balance,0),monthly:fin(input.monthly_deposit,0),years:fin(input.years,30),annualReturn:fin(input.annual_return_percent,5),accumulationFee:fin(input.accumulation_fee_percent,.5),depositFee:fin(input.deposit_fee_percent,2)});
+      return {final_with_these_fees:round(f.yours.final),final_with_low_fees:round(f.better.final),cost_of_these_fees:round(f.difference),fees_paid:round(f.yours.fees),low_fee_benchmark:'0.15% of balance, 1% of deposits',contributed:round(f.contributed)};
+    }
+    if(c==='purchase'){
+      const x=purchaseCheck(d,{price:input.price,installments:input.installments||1,now});
+      return {price:x.price,installments:x.installments,monthly_cost:round(x.monthlyCost),work_hours:x.hours==null?null:Math.round(x.hours),left_in_monthly_target:round(x.available),share_of_what_is_left:x.shareOfAvailable,emergency_months_after:x.coverAfter,opportunity_cost_10y:round(x.opportunity10),opportunity_cost_20y:round(x.opportunity20),opportunity_note:'If invested at 5% real per year',delays_goal:x.goal,verdict:x.verdict};
+    }
+    throw new Error('calculator must be salary, loan, debt_payoff, fees or purchase');
+  }
+  if(name==='get_split_groups'){
+    return {groups:(d.groups||[]).map(g=>{const x=groupSummary(g),who=id=>g.members.find(m=>m.id===id)?.name||id;return {id:g.id,name:g.name,members:g.members.map(m=>m.me?`${m.name} (the user)`:m.name),total:round(x.total),balances:Object.fromEntries(Object.entries(x.net).map(([id,v])=>[who(id),round(v)])),settle_up:x.transfers.map(t=>`${who(t.from)} → ${who(t.to)}: ${t.amount} ₪`),recent_expenses:(g.expenses||[]).slice(-15).map(e=>({date:e.date,description:e.description,amount:e.amount,paid_by:who(e.paidBy)}))};})};
+  }
+  if(name==='propose_split_expense'){
+    const groups=d.groups||[],ref=String(input.group||'').trim(),g=groups.find(x=>x.id===ref||x.name===ref)||groups.find(x=>ref&&(x.name.includes(ref)||ref.includes(x.name)));
+    if(!g)throw new Error(`No split group "${ref}". Existing groups: ${groups.map(x=>x.name).join(', ')||'none'}`);
+    const member=who=>{const r=String(who||'').trim();if(/^(אני|me|i|user|המשתמש)$/i.test(r))return g.members.find(m=>m.me);return g.members.find(m=>m.name===r)||g.members.find(m=>r&&(m.name.includes(r)||r.includes(m.name)));};
+    const payer=member(input.paid_by),amount=Math.round(Number(input.amount)*100)/100;
+    if(!payer)throw new Error(`paid_by "${input.paid_by}" is not a member of ${g.name}: ${g.members.map(m=>m.name).join(', ')}`);
+    if(!(amount>0))throw new Error('amount must be positive');
+    const participants=(Array.isArray(input.participants)?input.participants:[]).map(p=>{const m=member(p);if(!m)throw new Error(`participant "${p}" is not a member of ${g.name}`);return m.id;});
+    const date=validDate(input.date||'')&&input.date<=now?input.date:now;
+    const expense={description:String(input.description||'הוצאה משותפת').slice(0,120),amount,paidBy:payer.id,date,...(participants.length?{participants:[...new Set(participants)]}:{})};
+    const outcome=await ctx.approve({id:ctx.toolUseId,kind:'split',groupId:g.id,groupName:g.name,members:g.members,expense});
+    return outcome.approved?{approved:true}:{approved:false,message:'The user declined.'};
+  }
+  if(name==='propose_bill'){
+    const amount=Number(input.amount),day=Math.round(Number(input.day)),frequency=BILL_STEPS[input.frequency]?input.frequency:'monthly';
+    if(!input.name||!(amount>0)||!(day>=1&&day<=31))throw new Error('name, a positive amount and a day between 1 and 31 are required');
+    const bill={name:String(input.name).slice(0,80),amount,currency:'ILS',frequency,day,type:input.type==='income'?'income':'expense',category:String(input.category||(input.type==='income'?'משכורת':'חשבונות')),autopay:!!input.autopay,accountId:resolveAccount(d)?.id||'',paid:[],...(/^\d{4}-(0[1-9]|1[0-2])$/.test(input.start_month||'')?{startMonth:input.start_month}:{})};
+    const outcome=await ctx.approve({id:ctx.toolUseId,kind:'bill',bill});
+    return outcome.approved?{approved:true}:{approved:false,message:'The user declined.'};
+  }
+  if(name==='propose_wishlist_item'){
+    const price=Number(input.price);
+    if(!input.name||!(price>0))throw new Error('name and a positive price are required');
+    const outcome=await ctx.approve({id:ctx.toolUseId,kind:'wish',item:{name:String(input.name).slice(0,80),price,note:String(input.note||'').slice(0,200),priority:2,url:''}});
     return outcome.approved?{approved:true}:{approved:false,message:'The user declined.'};
   }
   throw new Error('Unknown tool '+name);
