@@ -28,6 +28,8 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disab
 const errors=[];
 async function newPage(viewport){
   const context=await browser.newContext({viewport,locale:'he-IL'});
+  // The one-time "what's new" tour is covered by its own checks; keep it out of the way here.
+  await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','3.0');}catch{}});
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
   page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
@@ -38,7 +40,7 @@ async function newPage(viewport){
 
 const page=await newPage({width:1440,height:1000});
 await page.getByRole('heading',{name:'התמונה הפיננסית שלך'}).waitFor();
-assert.ok(await page.locator('.dashboard-smart .score-ring').count(),'health ring on dashboard');
+assert.ok(await page.locator('[data-widget="health"] .score-ring').count(),'health ring on dashboard');
 await page.screenshot({path:path.join(shots,'01-dashboard.png'),fullPage:true});
 
 for(const [route,heading] of [['insights','התובנות שלך'],['lab','מעבדת העתיד'],['budgets','התקציבים שלך'],['copilot','אופק AI'],['settings','הגדרות וגיבוי']]){

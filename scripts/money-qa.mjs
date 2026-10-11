@@ -25,6 +25,8 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disab
 const errors=[];
 async function newPage(viewport){
   const context=await browser.newContext({viewport,locale:'he-IL'});
+  // The one-time "what's new" tour is covered by its own checks; keep it out of the way here.
+  await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','3.0');}catch{}});
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
   page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
@@ -40,7 +42,7 @@ const settle=()=>page.waitForTimeout(350);
 // Grouped navigation and dashboard row.
 await page.getByRole('heading',{name:'התמונה הפיננסית שלך'}).waitFor();
 assert.equal(await page.locator('.sidebar nav .nav-label').count(),3);
-assert.ok(await page.locator('.dashboard-money .safe-number').count(),'safe-to-spend on dashboard');
+assert.ok(await page.locator('[data-widget="safe"] .safe-number').count(),'safe-to-spend on dashboard');
 await page.screenshot({path:path.join(shots,'m01-dashboard.png'),fullPage:true});
 
 // Bills & cash-flow.

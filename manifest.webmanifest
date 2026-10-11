@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "אופק — המרחב הפיננסי שלך",
+  "short_name": "אופק",
+  "description": "ניהול פיננסי אישי בעברית: תנועות, תזרים, השקעות, יעדים ותקציבים — עם Claude.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./?source=app",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101012",
+  "theme_color": "#101012",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "הוספת תנועה", "short_name": "הוספה", "url": "./?quick=1", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "עדכון חודשי", "short_name": "עדכון", "url": "./#monthly", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "תחזית תזרים", "short_name": "תזרים", "url": "./#bills", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "קליטה חכמה", "short_name": "קליטה", "url": "./#capture", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

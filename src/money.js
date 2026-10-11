@@ -1,5 +1,6 @@
 import {today,toILS,balances,monthlySummary,monthOffset} from './finance.js';
 import {daysInMonth,shiftDate,averageMonth} from './smart.js';
+import {savingsDepositDate,effectiveGoalSavings} from './savings.js';
 
 // Money toolkit: Israeli payroll, loans, debt payoff, pension fees, maaser, shared expenses,
 // bills & cash-flow and purchase decisions. Pure functions over the data object, no DOM.
@@ -217,25 +218,56 @@ export function estimatedIncome(d,from,to,now=today()){
   return items;
 }
 
-export function cashflowForecast(d,{days=60,now=today()}={}){
-  days=Math.max(7,Math.min(180,Math.round(days)));
+// Planned monthly deposits to savings goals that move money out of the bank (to a savings or
+// investment account, or set aside by hand). Goals funded inside a bank or cash account are skipped:
+// that money never leaves the account. Deposits stop once a goal reaches its target.
+export function goalDepositItems(d,from,to,now=today()){
+  const items=[];
+  for(const g of d.goals||[]){
+    const account=d.accounts.find(a=>a.id===g.accountId);
+    if(!(g.monthly>0)||!(g.date>now)||(account&&['bank','cash'].includes(account.kind)))continue;
+    let saved=effectiveGoalSavings(d,g);
+    for(let k=1;k<=600;k++){
+      const date=savingsDepositDate(now,k);
+      if(date>to||date>g.date)break;
+      if(g.target>0&&saved>=g.target)break;
+      saved+=g.monthly;
+      if(date>=from)items.push({key:`goal-${g.id}@${date}`,date,name:`הפקדה ל${g.name}`,amount:g.monthly,type:'transfer',category:'חיסכון',source:'goal',goalId:g.id,autopay:false,paid:false});
+    }
+  }
+  return items;
+}
+
+// Day-by-day projection of bank + cash: fixed payments and incomes, recurring transactions,
+// planned goal deposits and average variable spending, with a summary for every month.
+export function cashflowForecast(d,{days=60,now=today(),includeGoals=true,includeVariable=true}={}){
+  days=Math.max(7,Math.min(400,Math.round(days)));
   const start=sumBy(d.accounts.filter(a=>['bank','cash'].includes(a.kind)),a=>toILS(a.balance,a.currency,d.fx));
   const from=shiftDate(now,1),end=shiftDate(now,days);
   let items=scheduledItems(d,from,end).filter(x=>!x.paid);
   const hasIncome=items.some(x=>x.type==='income')||(d.bills||[]).some(b=>b.type==='income'&&b.active!==false)||d.transactions.some(t=>t.recurring&&!t.recurringParent&&t.type==='income');
   const estimated=hasIncome?[]:estimatedIncome(d,from,end,now);
-  items=[...items,...estimated].sort((a,b)=>a.date.localeCompare(b.date));
-  const avg=averageMonth(d,now.slice(0,7),3),fixed=monthlyFixed(d),variableDaily=Math.max(0,avg.expenses-fixed)/30.4;
+  items=[...items,...estimated,...(includeGoals?goalDepositItems(d,from,end,now):[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const avg=averageMonth(d,now.slice(0,7),3),fixed=monthlyFixed(d),variableDaily=includeVariable?Math.max(0,avg.expenses-fixed)/30.4:0;
+  const byDate=new Map();for(const x of items){if(!byDate.has(x.date))byDate.set(x.date,[]);byDate.get(x.date).push(x);}
   let balance=start,lowest={date:now,balance:start},overdraft=null;
-  const points=[{date:now,balance}];
+  const points=[{date:now,balance,events:[]}],months=new Map();
   for(let i=1;i<=days;i++){
-    const date=shiftDate(now,i);balance-=variableDaily;
-    for(const x of items)if(x.date===date)balance+=x.type==='income'?x.amount:-x.amount;
-    points.push({date,balance});
+    const date=shiftDate(now,i),events=byDate.get(date)||[],month=date.slice(0,7);
+    if(!months.has(month))months.set(month,{month,start:balance,income:0,fixed:0,deposits:0,variable:0,end:balance,lowest:{date,balance},days:0});
+    const m=months.get(month);
+    balance-=variableDaily;m.variable+=variableDaily;m.days++;
+    for(const x of events){
+      if(x.type==='income'){balance+=x.amount;m.income+=x.amount;}
+      else if(x.type==='transfer'){balance-=x.amount;m.deposits+=x.amount;}
+      else{balance-=x.amount;m.fixed+=x.amount;}
+    }
+    m.end=balance;if(balance<m.lowest.balance)m.lowest={date,balance};
+    points.push({date,balance,events});
     if(balance<lowest.balance)lowest={date,balance};
     if(balance<0&&!overdraft)overdraft=date;
   }
-  return {start,end:balance,points,lowest,overdraft,items,variableDaily,fixed,estimatedIncome:estimated.length>0,days};
+  return {start,end:balance,points,lowest,overdraft,items,variableDaily,fixed,estimatedIncome:estimated.length>0,days,months:[...months.values()],deposits:sumBy(items.filter(x=>x.type==='transfer'),x=>x.amount)};
 }
 
 // How much can be spent per day for the rest of the month without breaking the monthly target.

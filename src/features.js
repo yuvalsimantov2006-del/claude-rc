@@ -1,5 +1,6 @@
 import {uid,today,money,pct,dateLabel,monthLabel,balances,monthlySummary,applyTransaction} from './finance.js';
 import {palette,graph,donut,barChart,fanChart,scoreRing} from './charts.js';
+import {markDuplicates} from './capture.js';
 import {healthScore,detectRecurring,detectAnomalies,monthPace,monteCarlo,fireNumber,yearsToTarget,whatIfCut,parseQuickEntry,suggestCategory,averageMonth} from './smart.js';
 import {AI_MODELS,AI_TOOLS,AI_CHAT_KEY,AI_LETTERS_KEY,ATTACHMENT_LIMIT,aiSettings,saveAiSettings,aiReady,financialContext,runAgent,attachmentBlock,storableConversation,markdownLite} from './ai.js';
 
@@ -7,7 +8,7 @@ import {AI_MODELS,AI_TOOLS,AI_CHAT_KEY,AI_LETTERS_KEY,ATTACHMENT_LIMIT,aiSetting
 // Rendered inside the shell from app.js and built on its shared helpers (e, icon, btn, card…).
 
 const copilot={messages:null,busy:false,live:null,attachments:[],abort:null,pending:new Map(),error:null,draft:'',lastContext:'',status:''};
-const toolLabels={get_financial_overview:'סקר את התמונה הפיננסית',query_transactions:'חיפש בתנועות',spending_breakdown:'ניתח את ההוצאות',get_investments:'בדק את תיק ההשקעות',simulate_future:'הריץ סימולציית עתיד',render_chart:'צייר גרף',propose_transactions:'מכין הצעה לתנועות',propose_budget:'מכין הצעת תקציב',propose_goal:'מכין תוכנית חיסכון',get_cashflow_forecast:'בדק את התזרים הצפוי',money_calculator:'הפעיל מחשבון פיננסי',get_split_groups:'בדק את חלוקות ההוצאות',propose_split_expense:'מכין הוצאה משותפת',propose_bill:'מכין תשלום קבוע',propose_wishlist_item:'מכין פריט לרשימת המשאלות'};
+const toolLabels={get_financial_overview:'סקר את התמונה הפיננסית',query_transactions:'חיפש בתנועות',spending_breakdown:'ניתח את ההוצאות',get_investments:'בדק את תיק ההשקעות',simulate_future:'הריץ סימולציית עתיד',render_chart:'צייר גרף',propose_transactions:'מכין הצעה לתנועות',propose_budget:'מכין הצעת תקציב',propose_goal:'מכין תוכנית חיסכון',get_cashflow_forecast:'בדק את התזרים הצפוי',money_calculator:'הפעיל מחשבון פיננסי',get_split_groups:'בדק את חלוקות ההוצאות',propose_split_expense:'מכין הוצאה משותפת',propose_bill:'מכין תשלום קבוע',propose_wishlist_item:'מכין פריט לרשימת המשאלות',propose_investment_update:'מכין עדכון השקעות',simulate_scenario:'הריץ סימולציית ״מה יקרה אם״'};
 const aiPrompts={
   month:'איך אני עומד החודש לעומת החודשים הקודמים? מה בולט?',
   save:'איפה אני יכול לחסוך 1,000 ₪ בחודש בלי לוותר על מה שחשוב לי? תן הצעות קונקרטיות לפי ההוצאות שלי.',
@@ -20,6 +21,7 @@ const aiPrompts={
   anomalies:'מה החריגות בהוצאות החודש ולמה כדאי לשים לב אליהן?',
   bills:'האם צפוי לי מינוס בעו״ש בחודשיים הקרובים? עבור על התשלומים הקבועים שלי ותגיד מה אפשר להוזיל או לבטל.',
   split:'סכם לי את חלוקות ההוצאות: מי חייב למי וכמה, ונסח הודעה קצרה ונעימה לכל קבוצה כדי לסגור חשבון.',
+  risk:'נתח את הסיכון והפיזור בתיק ההשקעות שלי: ריכוז, חשיפה לדולר ותרחישי ירידה. מה הייתי צריך לשקול? בלי המלצה על נייר ספציפי.',
   salary:'חשב את השכר נטו שלי לפי ההכנסה שאני מקבל, הסבר לי את התלוש ומה יכול להגדיל את הנטו.'
 };
 const aiSuggestions=[['month','TrendingUp','איך החודש שלי?'],['save','PiggyBank','איפה לחסוך 1,000 ₪'],['chart','BarChart3','גרף הוצאות חצי שנתי'],['fire','FlaskConical','מתי חופש כלכלי?'],['budget','Wallet','תקציב חכם עבורי'],['invest','Activity','ניתוח תיק ההשקעות'],['bills','CalendarDays','האם צפוי לי מינוס?'],['split','Users','מי חייב למי?']];
@@ -72,23 +74,25 @@ function aiChartCard(input){
 }
 function proposalRows(kind,items,id,selectable){
   if(kind!=='transactions')return '';
-  return `<div class="table-wrap"><table class="ai-proposal-table"><thead><tr>${selectable?'<th aria-label="בחירה"></th>':''}<th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סכום</th></tr></thead><tbody>${items.map((t,i)=>`<tr>${selectable?`<td><input type="checkbox" checked data-ai-row="${e(id)}" value="${i}" aria-label="לכלול את ${e(t.description||t.category)}"></td>`:''}<td class="muted">${dateLabel(t.date)}</td><td><b>${e(t.description||'—')}</b>${t.accountId?`<small class="muted">${e(data.accounts.find(a=>a.id===t.accountId)?.name||t.account||'')}</small>`:''}</td><td><span class="category-pill">${e(t.category)}</span>${data.categories.includes(t.category)?'':'<small class="muted">קטגוריה חדשה</small>'}</td><td><b dir="ltr" class="${t.type==='income'?'positive':''}">${t.type==='income'?'+':'−'}${money(t.amount,t.currency||'ILS',t.amount%1?2:0)}</b></td></tr>`).join('')}</tbody></table></div>`;
+  const checked=markDuplicates(data,items.map(t=>({...t,amount:Number(t.amount)||0})));
+  return `<div class="table-wrap"><table class="ai-proposal-table"><thead><tr>${selectable?'<th aria-label="בחירה"></th>':''}<th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סכום</th></tr></thead><tbody>${items.map((t,i)=>{const dup=checked[i].status;return `<tr>${selectable?`<td><input type="checkbox" ${dup==='duplicate'?'':'checked'} data-ai-row="${e(id)}" value="${i}" aria-label="לכלול את ${e(t.description||t.category)}"></td>`:''}<td class="muted">${dateLabel(t.date)}</td><td><b>${e(t.description||'—')}</b>${dup==='duplicate'?`<small class="negative">כבר קיימת: ${e(checked[i].matchedLabel)}</small>`:dup==='possible'?'<small class="muted">ייתכן כפילות — בדוק</small>':''}${t.accountId?`<small class="muted">${e(data.accounts.find(a=>a.id===t.accountId)?.name||t.account||'')}</small>`:''}</td><td><span class="category-pill">${e(t.category)}</span>${data.categories.includes(t.category)?'':'<small class="muted">קטגוריה חדשה</small>'}</td><td><b dir="ltr" class="${t.type==='income'?'positive':''}">${t.type==='income'?'+':'−'}${money(t.amount,t.currency||'ILS',t.amount%1?2:0)}</b></td></tr>`;}).join('')}</tbody></table></div>`;
 }
 function proposalCard(b,live){
   const pending=copilot.pending.get(b.id),result=toolResultFor(b.id),parsed=parsedResult(result),input=b.input||{};
-  const kind={propose_transactions:'transactions',propose_budget:'budget',propose_goal:'goal',propose_split_expense:'split',propose_bill:'bill',propose_wishlist_item:'wish'}[b.name]||'goal';
+  const kind={propose_transactions:'transactions',propose_budget:'budget',propose_goal:'goal',propose_split_expense:'split',propose_bill:'bill',propose_wishlist_item:'wish',propose_investment_update:'holdings'}[b.name]||'goal';
   if(!pending&&!result)return `<div class="ai-proposal waiting">${icon('Sparkles',16)}<span>${live?'Claude מכין הצעה…':'ההצעה לא הושלמה.'}</span></div>`;
   if(result?.is_error)return `<div class="ai-tool">${icon('Info',13)}<span>ההצעה לא הייתה תקינה ו־Claude תיקן אותה</span></div>`;
-  const req=pending?.request,status=pending?'':parsed?.approved?badge(kind==='transactions'?`נשמרו ${parsed.saved} תנועות`:'נשמר באישורך','green'):badge('נדחה — לא נשמר דבר','neutral');
+  const req=pending?.request,status=pending?'':parsed?.approved?badge(kind==='transactions'?`נשמרו ${parsed.saved} תנועות`:kind==='holdings'?'הועבר לעדכון החודשי':'נשמר באישורך','green'):badge('נדחה — לא נשמר דבר','neutral');
   let title,body='';
   if(kind==='transactions'){const items=req?.items||input.transactions||[];title=`${items.length} תנועות מוכנות להוספה`;body=(req?.note||input.note?`<p class="muted">${e(req?.note||input.note)}</p>`:'')+proposalRows(kind,items,b.id,!!pending)+(req?.errors?.length?notice(`${req.errors.length} שורות לא תקינות לא נכללו.`):'');}
   if(kind==='budget'){const category=req?.category||input.category,limit=req?.limit||input.monthly_limit;title=`תקציב ל${category}`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(limit)}</b><span>בחודש${req?.existing?` · במקום ${money(req.existing)}`:''}</span></div>${input.reason?`<p class="muted">${e(input.reason)}</p>`:''}`;}
   if(kind==='goal'){const g=req?.goal||input;title=`תוכנית חיסכון: ${g.name}`;body=`<div class="goal-details">${[['הפקדה חודשית',money(g.monthly)],['עד תאריך',validDateText(g.date)],['סכום יעד',g.target?money(g.target):'תחזית אוטומטית'],['כבר נחסך',money(g.saved||0)]].map(([l,v])=>`<div><span>${l}</span><b>${e(v)}</b></div>`).join('')}</div>`;}
   if(kind==='split'){const x=req?.expense||{description:input.description,amount:Number(input.amount)||0},members=req?.members||[],who=id=>{const m=members.find(v=>v.id===id);return m?(m.me?'אני':m.name):'';};title=`הוצאה משותפת ב״${req?.groupName||input.group||''}״`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(x.amount,'ILS',x.amount%1?2:0)}</b><span>${e(x.description)}</span></div><p class="muted">שילם/ה: ${e(req?who(x.paidBy):input.paid_by||'')} · מתחלק בין: ${e(req?(x.participants?.length?x.participants.map(who).join(', '):'כל חברי הקבוצה'):(input.participants||[]).join(', ')||'כל חברי הקבוצה')}</p>`;}
   if(kind==='bill'){const x=req?.bill||input;title=`תשלום קבוע: ${x.name||''}`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(Number(x.amount)||0)}</b><span>${e(freqLabels[x.frequency]||'כל חודש')} · ב־${e(x.day)} לחודש${x.autopay?' · חיוב אוטומטי':''}</span></div>`;}
+  if(kind==='holdings'){const items=req?.items||(input.holdings||[]).map(h=>({name:h.asset,next:h.price??h.value,currency:'ILS'}));title=`עדכון ${items.length} נכסים בתיק`;body=`<div class="table-wrap"><table class="ai-proposal-table"><thead><tr><th>נכס</th><th>עכשיו</th><th>חדש</th><th>שינוי</th></tr></thead><tbody>${items.map(x=>`<tr><td><b>${e(x.name)}</b></td><td dir="ltr">${x.old!=null?money(x.old,x.currency,2):'—'}</td><td dir="ltr"><b>${money(Number(x.next)||0,x.currency,2)}</b></td><td dir="ltr" class="${(x.change||0)>=0?'positive':'negative'}">${x.change==null?'—':pct(x.change)}</td></tr>`).join('')}</tbody></table></div>${req?.fx?`<p class="muted">שער דולר מהדוח: ${money(req.fx,'ILS',3)}</p>`:''}${req?.unmatched?.length?`<p class="muted">לא זוהו: ${e(req.unmatched.join(', '))}</p>`:''}${!pending&&parsed?.approved?btn('למסך העדכון החודשי','navigate:monthly','CalendarDays'):''}`;}
   if(kind==='wish'){const x=req?.item||input;title=`לרשימת המשאלות: ${x.name||''}`;body=`<div class="ai-proposal-figure"><b dir="ltr">${money(Number(x.price)||0)}</b><span>תקופת צינון של ${COOLING_DAYS} ימים</span></div>${x.note?`<p class="muted">${e(x.note)}</p>`:''}`;}
-  const actions=pending?`<div class="actions">${btn(kind==='transactions'?'אישור והוספה':'אישור ושמירה','ai-approve:'+b.id,'Check','primary')}${btn('לא תודה','ai-decline:'+b.id)}</div>`:'';
-  return `<div class="ai-proposal ${pending?'pending':''}"><div class="ai-proposal-head"><span class="asset-icon ${pending?'gold':'purple'}">${icon({transactions:'ScanLine',budget:'Wallet',goal:'Target',split:'Users',bill:'Receipt',wish:'ShoppingBag'}[kind],18)}</span><b>${e(title)}</b>${status}</div>${body}${actions}</div>`;
+  const actions=pending?`<div class="actions">${btn(kind==='transactions'?'אישור והוספה':kind==='holdings'?'העברה לעדכון החודשי':'אישור ושמירה','ai-approve:'+b.id,'Check','primary')}${btn('לא תודה','ai-decline:'+b.id)}</div>`:'';
+  return `<div class="ai-proposal ${pending?'pending':''}"><div class="ai-proposal-head"><span class="asset-icon ${pending?'gold':'purple'}">${icon({transactions:'ScanLine',budget:'Wallet',goal:'Target',split:'Users',bill:'Receipt',wish:'ShoppingBag',holdings:'TrendingUp'}[kind],18)}</span><b>${e(title)}</b>${status}</div>${body}${actions}</div>`;
 }
 const validDateText=d=>{try{return dateLabel(d);}catch{return d||'—';}};
 function toolBlock(b,live){
@@ -202,6 +206,7 @@ function applyProposal(req,selected){
     if(existing)existing.limit=req.limit;else next.budgets.push({id:uid(),category:req.category,limit:req.limit});
     commit(next,`התקציב ל${req.category} נשמר`);return 1;
   }
+  if(req.kind==='holdings'){const chosen=req.items.filter((_,i)=>!selected||selected.includes(i));if(ui.page==='monthly')captureMonthly();initMonthly();for(const x of chosen)ui.monthly.values[x.assetId]=x.next;if(req.fx)ui.monthly.fx=req.fx;if(req.date)ui.monthly.date=req.date;ui.monthly.imported=chosen.map(x=>x.assetId);toast(`${chosen.length} נכסים הועברו לעדכון החודשי — בדוק ושמור תמונת מצב`);return chosen.length;}
   if(req.kind==='split'){const g=(next.groups||[]).find(x=>x.id===req.groupId);if(!g)throw Error('הקבוצה כבר לא קיימת.');g.expenses.push({id:uid(),...req.expense});commit(next,`ההוצאה נוספה לקבוצה ״${g.name}״`);return 1;}
   if(req.kind==='bill'){next.bills=[...(next.bills||[]),{id:uid(),...req.bill}];commit(next,`״${req.bill.name}״ נוסף ללוח התשלומים`);return 1;}
   if(req.kind==='wish'){next.wishlist=[...(next.wishlist||[]),{id:uid(),...req.item,added:today(),status:'waiting'}];commit(next,`״${req.item.name}״ נוסף לרשימת המשאלות`);return 1;}
@@ -301,10 +306,13 @@ function paceCard(compact=false){
   const body=`<div class="pace-numbers"><div><span>${p.complete?'הוצאות החודש':'הוצאת עד היום'}</span><b dir="ltr">${money(p.spent)}</b></div><div><span>${p.complete?'יעד ההוצאות':'צפי לסוף החודש'}</span><b dir="ltr" class="${over&&!p.complete?'negative':''}">${money(p.complete?p.budget:p.projected)}</b></div></div>${progress(p.budget?p.spent/p.budget*100:0,p.spent>p.budget?'red':'')}${p.complete?'':`<div class="pace-marker" style="--at:${Math.min(100,ratio*100)}%" title="צפי לסוף החודש"></div>`}<p class="muted small">${p.complete?(p.spent<=p.budget?`סיימת את החודש ${money(p.budget-p.spent)} מתחת ליעד.`:`החודש הסתיים ${money(p.spent-p.budget)} מעל היעד.`):p.elapsed===0?'החודש עוד לא התחיל.':over?`בקצב הנוכחי תחרוג מהיעד בכ־${money(p.projected-p.budget)}. ${p.method==='history'?'התחזית מבוססת על מה שקורה בדרך כלל בהמשך החודש.':''}`:`בקצב הנוכחי תסיים כ־${money(p.budget-p.projected)} מתחת ליעד.`}</p>`;
   return card((compact?`<div class="row-between"><span class="eyebrow">${icon('Gauge',15)} קצב ההוצאות</span>${p.complete?badge('חודש שהסתיים','neutral'):badge(`יום ${p.elapsed} מתוך ${p.days}`,'purple')}</div>`:head('תחזית לסוף החודש','ההוצאה בפועל עד היום, ועוד מה שקורה בדרך כלל בהמשך החודש.'))+body,'pace-card');
 }
-function dashboardSmartRow(){
+function healthMiniCard(){
   const h=healthScore(data,ui.month),weakest=[...h.factors].sort((a,b)=>a.score-b.score)[0];
+  return card(`<div class="row-between"><span class="eyebrow">${icon('HeartPulse',15)} הציון הפיננסי</span>${textBtn('פירוט','navigate:insights')}</div><div class="health-mini">${scoreRing(h.score,104)}<div><b>${e(h.grade)}</b><small>${e(weakest.label)}: ${e(weakest.tip)}</small></div></div>`,'health-mini-card');
+}
+function askClaudeCard(){
   const ask=aiReady()?`<form id="ai-quick-form" class="ai-quick"><input name="q" autocomplete="off" placeholder="למשל: למה ההוצאות עלו החודש?" aria-label="שאלה ל־Claude"><button class="ai-send" aria-label="שליחה" type="submit">${icon('Send',16)}</button></form><div class="ai-chips compact">${aiSuggestions.slice(0,3).map(([key,ic,label])=>`<button type="button" class="ai-chip" data-action="ai-prompt:${key}">${icon(ic,14)}<span>${e(label)}</span></button>`).join('')}</div>`:`<p class="muted">חבר את Claude כדי לשאול שאלות על הכסף שלך, לסרוק קבלות ולקבל מכתב חודשי אישי.</p>${btn('חיבור Claude','navigate:copilot','Sparkles','primary')}`;
-  return `<div class="dashboard-smart">${card(`<div class="row-between"><span class="eyebrow">${icon('HeartPulse',15)} הציון הפיננסי</span>${textBtn('פירוט','navigate:insights')}</div><div class="health-mini">${scoreRing(h.score,104)}<div><b>${e(h.grade)}</b><small>${e(weakest.label)}: ${e(weakest.tip)}</small></div></div>`,'health-mini-card')}${paceCard(true)}${card(`<div class="row-between"><span class="eyebrow">${icon('Sparkles',15)} שאל את Claude</span><kbd class="kbd-hint">Ctrl K</kbd></div>${ask}`,'ai-ask-card')}</div>`;
+  return card(`<div class="row-between"><span class="eyebrow">${icon('Sparkles',15)} שאל את Claude</span><kbd class="kbd-hint">Ctrl K</kbd></div>${ask}`,'ai-ask-card');
 }
 
 // ---------- Monthly letter ----------
@@ -357,6 +365,10 @@ function whatIfHTML(){
   return r.average>0?`<div class="whatif-result"><div><span>ממוצע חודשי היום</span><b dir="ltr">${money(r.average)}</b></div><div><span>חיסכון בחודש</span><b dir="ltr" class="positive">${money(r.monthly)}</b></div><div><span>אחרי ${r.years} שנים בהשקעה</span><b dir="ltr" class="gold">${money(r.future)}</b></div></div><p class="muted small">${money(r.contributed)} הופקדו בפועל — השאר הוא ריבית דריבית בתשואה של ${s.ret}% בשנה.</p>`:`<p class="muted">אין הוצאות בקטגוריה הזו בשלושת החודשים האחרונים.</p>`;
 }
 function labView(){
+  const tab=ui.labTab||'market';
+  return `<div class="segmented lab-tabs" role="tablist">${[['market','סימולציית שוק','FlaskConical'],['whatif','מה יקרה אם','Sparkles']].map(([id,label,ic])=>`<button type="button" role="tab" aria-selected="${tab===id}" class="${tab===id?'active':''}" data-action="lab-tab:${id}">${icon(ic,15)}<span>${label}</span></button>`).join('')}</div>`+(tab==='whatif'?scenarioView():marketLabView());
+}
+function marketLabView(){
   const s=labState(),avg=averageMonth(data,ui.month,3),expenses=(avg.expenses||monthlySummary(data,ui.month).expenses)*12,fire=fireNumber(expenses),b=balances(data),investable=b.savings+b.investments,fireYears=yearsToTarget(investable,Math.max(0,avg.saved||0),fire||Infinity,s.ret/100,s.inf/100);
   return `<section class="lab-intro"><div><span class="eyebrow">${icon('FlaskConical',15)} מעבדת העתיד</span><h2>אלף עתידים אפשריים. החלטה אחת היום.</h2><p>הסימולציה מריצה ${(1000).toLocaleString('he-IL')} תרחישים של שוק תנודתי, חודש אחר חודש, ומראה את טווח האפשרויות — לא רק את הממוצע.</p></div>${aiReady()?btn('ניתוח התוכנית עם Claude','ai-lab','Sparkles','primary'):''}</section>
   <div class="lab-layout">${card(head('ההנחות שלך','שנה ערכים וראה את התוצאה מתעדכנת מיד.',btn('איפוס','lab-reset','RotateCcw'))+`<div class="lab-controls">${labFields.map(([k,l])=>field(l,`<input type="number" min="0" step="any" value="${e(s[k])}" data-lab="${k}" dir="ltr">`)).join('')}${labSliders.map(([k,l,min,max,step,fmt])=>`<label class="lab-slider"><span>${l}<output data-lab-out="${k}">${fmt(s[k])}</output></span><input type="range" min="${min}" max="${max}" step="${step}" value="${e(s[k])}" data-lab="${k}"></label>`).join('')}</div>`,'lab-controls-card')}<div id="lab-results" class="lab-results">${labResults()}</div></div>
@@ -405,10 +417,16 @@ function paletteItems(q){
     {icon:'ShoppingBag',title:'האם כדאי לקנות?',sub:'בדיקה מול התקציב והיעדים',run:()=>{closeDialog();navigate('wishlist');setTimeout(()=>document.querySelector('[data-buy="price"]')?.focus(),60);}},
     {icon:'Calculator',title:'מחשבון שכר נטו 2026',run:()=>{closeDialog();toolState().tab='salary';navigate('tools');}},
     {icon:'Landmark',title:'מחשבון משכנתא והלוואות',run:()=>{closeDialog();toolState().tab='loan';navigate('tools');}},
+    {icon:'ScanLine',title:'קליטת הוצאות מקובץ או צילום',sub:'פירוט אשראי, דף בנק או קבלה',run:()=>{closeDialog();navigate('capture');}},
     {icon:'Mail',title:'המכתב החודשי מ־Claude',run:()=>{closeDialog();navigate('insights');}},
     {icon:document.documentElement.classList.contains('privacy')?'Eye':'EyeOff',title:document.documentElement.classList.contains('privacy')?'הצגת סכומים':'מצב פרטיות — הסתרת סכומים',run:()=>{closeDialog();togglePrivacy();}},
     {icon:'CalendarDays',title:'עדכון השקעות חודשי',run:()=>{closeDialog();navigate('monthly');}},
-    {icon:'Download',title:'הורדת גיבוי מלא',run:()=>{closeDialog();exportData('backup');}}
+    {icon:'Download',title:'הורדת גיבוי מלא',run:()=>{closeDialog();exportData('backup');}},
+    {icon:'FlaskConical',title:'מה יקרה אם…',sub:'רכב, מענק שחרור או שינוי בהפקדה החודשית',run:()=>{closeDialog();ui.labTab='whatif';navigate('lab');}},
+    {icon:'Upload',title:'עדכון השקעות מהדבקת דוח',sub:'טבלה מבית ההשקעות או קובץ Excel',run:()=>{closeDialog();navigate('investments');setTimeout(()=>openHoldingsImport(),60);}},
+    {icon:'LayoutGrid',title:'התאמת דף הבית',sub:'אילו כרטיסים יופיעו ובאיזה סדר',run:()=>{closeDialog();ui.homeEdit=true;navigate('dashboard');}},
+    {icon:'Repeat',title:'סנכרון בין מכשירים',sub:'טלפון ומחשב, מוצפן',run:()=>{closeDialog();navigate('settings');setTimeout(()=>document.querySelector('#sync-card')?.scrollIntoView({block:'start'}),60);}},
+    {icon:'Sparkles',title:'מה חדש באופק 3.0',run:()=>{closeDialog();openWhatsNew();}}
   ];
   const nav=[...routes,['settings','הגדרות וגיבוי','Settings']].map(([id,label,ic])=>({icon:ic,title:label,sub:'מעבר למסך',run:()=>{closeDialog();navigate(id);}}));
   const match=item=>!query||item.title.includes(query)||query.split(' ').every(w=>item.title.includes(w));
@@ -432,6 +450,7 @@ function afterRender(){
   const log=document.querySelector('#ai-log');if(log)log.scrollTop=log.scrollHeight;
   const box=document.querySelector('#ai-input');if(box)autosize(box);
   const fab=document.querySelector('.mobile-fab');if(fab)fab.hidden=ui.page==='copilot';
+  motionAfterRender();
 }
 
 // ---------- Events ----------

@@ -39,10 +39,37 @@ export function savingsProjection(goal,from=today()){
   return {saved,monthly,date,hasTarget,target,months,contributions,projected,remaining,needed,progress:target>0?saved/target*100:0,estimatedDate,firstDepositDate:months?savingsDepositDate(from,1):null,past:date<from,due:date<=from};
 }
 
-export function effectiveGoalSavings(data,goal){
-  const account=data.accounts.find(a=>a.id===goal.accountId);
-  if(!account)return goal.saved;
+export const hasAllocation=goal=>goal.allocation!=null&&goal.allocation!==''&&Number.isFinite(Number(goal.allocation));
+export function accountBalanceILS(data,account){
   return Math.max(0,account.kind==='investment'?portfolioValue(data):toILS(account.balance,account.currency,data.fx));
+}
+
+// One account can fund several goals. A goal with an `allocation` gets that amount (scaled down
+// pro rata if the balance dropped below the total); goals linked without an allocation share
+// whatever is left. Every shekel belongs to at most one goal, so nothing is counted twice.
+export function accountAllocations(data,accountId){
+  const account=data.accounts.find(a=>a.id===accountId);
+  if(!account)return null;
+  const balance=accountBalanceILS(data,account),goals=data.goals.filter(g=>g.accountId===accountId);
+  const fixed=goals.filter(hasAllocation),rest=goals.filter(g=>!hasAllocation(g));
+  const requested=fixed.reduce((s,g)=>s+Math.max(0,Number(g.allocation)),0),scale=requested>balance?balance/requested:1;
+  const shares=new Map(fixed.map(g=>[g.id,Math.max(0,Number(g.allocation))*scale]));
+  const remainder=Math.max(0,balance-requested*scale);
+  for(const g of rest)shares.set(g.id,remainder/rest.length);
+  const allocated=[...shares.values()].reduce((s,v)=>s+v,0);
+  return {account,balance,requested,overAllocated:requested>balance+.005,shares,allocated,free:Math.max(0,balance-allocated)};
+}
+
+export function effectiveGoalSavings(data,goal){
+  if(!data.accounts.some(a=>a.id===goal.accountId))return goal.saved;
+  const id=goal.id||'__draft',goals=[...data.goals.filter(g=>g.id!==id),{...goal,id}];
+  return accountAllocations({...data,goals},goal.accountId).shares.get(id)||0;
+}
+
+// Unallocated money in bank, cash and savings accounts — available for anything.
+export function freeMoney(data){
+  const accounts=data.accounts.filter(a=>['bank','cash','savings'].includes(a.kind)).map(a=>accountAllocations(data,a.id));
+  return {total:accounts.reduce((s,x)=>s+x.free,0),allocated:accounts.reduce((s,x)=>s+x.allocated,0),accounts};
 }
 
 export function savingsProjectionSeries(goal,from=today()){

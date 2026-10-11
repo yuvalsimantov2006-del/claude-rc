@@ -40,5 +40,8 @@ export function validateExtras(d){
       if(!g.name||!Array.isArray(g.members)||!g.members.length||members.size!==g.members.length||g.members.some(m=>!m.id||!m.name)||!Array.isArray(expenses)||!Array.isArray(settlements)||!uniqueIds(expenses)||!uniqueIds(settlements)||expenses.some(x=>!(x.amount>0)||!Number.isFinite(x.amount)||!members.has(x.paidBy)||!validDate(x.date)||(x.participants!=null&&(!Array.isArray(x.participants)||x.participants.some(p=>!members.has(p))))||badShares(x))||settlements.some(s=>!(s.amount>0)||!members.has(s.from)||!members.has(s.to)||s.from===s.to))throw new Error('נתוני חלוקת ההוצאות אינם תקינים.');
     }
   }
+  if(d.goals.some(g=>g.allocation!=null&&(!Number.isFinite(g.allocation)||g.allocation<0)))throw new Error('הקצאות היעדים אינן תקינות.');
+  const home=d.prefs?.home;
+  if(d.prefs!=null&&(typeof d.prefs!=='object'||Array.isArray(d.prefs)||(home!=null&&(!Array.isArray(home.order)||!Array.isArray(home.hidden)||[...home.order,...home.hidden].some(v=>typeof v!=='string')))))throw new Error('העדפות התצוגה אינן תקינות.');
   if(d.wishlist!=null&&(!Array.isArray(d.wishlist)||!uniqueIds(d.wishlist)||d.wishlist.some(w=>!w.name||!Number.isFinite(w.price)||!(w.price>0)||!validDate(w.added)||!['waiting','bought','skipped'].includes(w.status))))throw new Error('נתוני רשימת המשאלות אינם תקינים.');
 }

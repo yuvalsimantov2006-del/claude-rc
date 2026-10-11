@@ -176,3 +176,22 @@ test('wishlist cooling-off status and totals',()=>{
   const s=wishlistSummary(d);
   assert.equal(s.waiting,8350);assert.equal(s.skipped,3300);assert.equal(s.count,2);
 });
+
+test('cash-flow includes planned goal deposits and monthly summaries',async()=>{
+  const {goalDepositItems}=await import('./money.js');
+  const d=emptyData();
+  d.accounts=[{id:'bank',name:'עו״ש',kind:'bank',currency:'ILS',balance:10000},{id:'sav',name:'חיסכון',kind:'savings',currency:'ILS',balance:0}];
+  d.goals=[{id:'trip',name:'טיול',type:'חופשה',target:null,saved:0,monthly:1000,date:'2027-06-01',accountId:'sav'},{id:'pocket',name:'בצד',type:'מטרה אישית',target:null,saved:0,monthly:500,date:'2027-06-01',accountId:'bank'},{id:'car',name:'רכב',type:'רכב',target:1500,saved:0,monthly:1000,date:'2027-06-01',accountId:''}];
+  const items=goalDepositItems(d,'2026-10-07','2027-01-31','2026-10-06');
+  assert.deepEqual(items.filter(x=>x.goalId==='trip').map(x=>x.date),['2026-11-06','2026-12-06','2027-01-06']);
+  assert.equal(items.some(x=>x.goalId==='pocket'),false,'money set aside inside the bank account does not leave it');
+  assert.equal(items.filter(x=>x.goalId==='car').length,2,'deposits stop once the target is reached');
+  const f=cashflowForecast(d,{days:90,now:'2026-10-06'});
+  near(f.end,10000-2000-2000,.01);
+  assert.equal(f.months.length,4);
+  near(f.months[1].deposits,2000);
+  near(f.months[0].start,10000);near(f.months.at(-1).end,f.end);
+  const without=cashflowForecast(d,{days:90,now:'2026-10-06',includeGoals:false});
+  near(without.end,10000);
+  assert.equal(cashflowForecast(d,{days:365,now:'2026-10-06'}).points.length,366);
+});

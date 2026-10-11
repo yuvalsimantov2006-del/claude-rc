@@ -41,13 +41,32 @@ function billSuggestions(){
   const bills=moneyItems('bills');
   return detectRecurring(data,today().slice(0,7)).filter(r=>(r.stable||BILL_LIKE.includes(r.category))&&!bills.some(b=>b.name.includes(r.name)||r.name.includes(b.name)||(b.category===r.category&&Math.abs(billMonthly(data,b)-r.average)/r.average<.15))).slice(0,6);
 }
+const compactILS=n=>Math.abs(n)>=1000?`${(n/1000).toLocaleString('he-IL',{maximumFractionDigits:Math.abs(n)>=100000?0:1})} א׳`:String(Math.round(n));
+function flowCard(f,days){
+  const step=Math.max(1,Math.ceil(f.points.length/120)),chart=f.points.filter((p,i)=>i%step===0||i===f.points.length-1||p.date===f.lowest.date);
+  const toggles=`<div class="flow-toggles"><label class="check-field"><input type="checkbox" data-flow="flowGoals" ${ui.flowGoals!==false?'checked':''}>הפקדות מתוכננות ליעדים</label><label class="check-field"><input type="checkbox" data-flow="flowVariable" ${ui.flowVariable!==false?'checked':''}>הוצאות משתנות ממוצעות</label></div>`;
+  return card(head('תחזית היתרה בעו״ש',`יתרה של ${money(f.start)} היום · ${f.deposits?`${money(f.deposits)} הפקדות ליעדים · `:''}הוצאה משתנה של כ־${money(f.variableDaily)} ביום`,`<div class="segmented mini">${[[30,'חודש'],[90,'3 חודשים'],[180,'חצי שנה'],[365,'שנה']].map(([v,l])=>`<button class="${days===v?'active':''}" data-action="flow-days:${v}">${l}</button>`).join('')}</div>`)+toggles+graph(chart.map(p=>({date:p.date,label:shortDate(p.date),balance:p.balance})),[{key:'balance',name:'יתרה צפויה',color:f.overdraft?'#e29a9f':palette[0]}],{height:240,area:true})+`<div class="chart-footer"><span><i class="gold-dot"></i>יתרה צפויה בעו״ש ובמזומן</span><span>${f.estimatedIncome?'ההכנסות מוערכות לפי ההיסטוריה':'לפי לוח התשלומים, התנועות החוזרות וההפקדות ליעדים'}</span></div>`,'flow-card');
+}
+function flowCalendarCard(f,now){
+  const months=[...new Set(f.points.map(p=>p.date.slice(0,7)))],shown=ui.flowAllMonths?months:months.slice(0,2),byDate=new Map(f.points.map(p=>[p.date,p]));
+  const low=Math.max(500,f.variableDaily*7),selected=byDate.get(ui.flowDay)||null;
+  const grid=m=>{const first=new Date(m+'-01T12:00:00').getDay(),count=new Date(+m.slice(0,4),+m.slice(5),0).getDate();return `<div class="flow-month"><b>${monthLabel(m)}</b><div class="flow-grid">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(d=>`<span class="flow-week">${d}</span>`).join('')}${'<span></span>'.repeat(first)}${Array.from({length:count},(_,i)=>{const date=`${m}-${String(i+1).padStart(2,'0')}`,p=byDate.get(date);if(!p)return `<span class="flow-day past"><i>${i+1}</i></span>`;const level=p.balance<0?'neg':p.balance<low?'low':'ok',kinds=new Set((p.events||[]).map(x=>x.type));return `<button type="button" class="flow-day ${level} ${date===now?'today':''} ${ui.flowDay===date?'selected':''}" data-action="flow-day:${date}" aria-label="${e(`${dateLabel(date)}: ${money(p.balance)}`)}"><i>${i+1}</i><b dir="ltr">${compactILS(p.balance)}</b><span class="flow-dots">${[...kinds].map(k=>`<em class="k-${k}"></em>`).join('')}</span></button>`;}).join('')}</div></div>`;};
+  const detail=selected?`<div class="flow-detail"><div class="row-between"><b>${dateLabel(selected.date)}</b><b dir="ltr" class="${selected.balance<0?'negative':''}">${money(selected.balance)}</b></div>${(selected.events||[]).length?selected.events.map(x=>`<div class="flow-event"><span>${e(x.name)}</span><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b></div>`).join(''):'<small class="muted">אין תשלומים קבועים ביום הזה — רק הוצאה משתנה ממוצעת.</small>'}</div>`:'<p class="muted small">לחץ על יום כדי לראות מה צפוי בו.</p>';
+  return card(head('יתרה צפויה בכל יום','ירוק — מצב טוב · צהוב — יתרה נמוכה · אדום — מינוס',months.length>2?btn(ui.flowAllMonths?'פחות חודשים':`כל ${months.length} החודשים`,'flow-months',''):'')+`<div class="flow-calendar">${shown.map(grid).join('')}</div>${detail}<div class="flow-legend"><span><em class="k-income"></em>הכנסה</span><span><em class="k-expense"></em>תשלום</span><span><em class="k-transfer"></em>הפקדה ליעד</span></div>`,'flow-calendar-card');
+}
+function flowMonthsCard(f){
+  return card(head('סיכום לפי חודשים','כמה נכנס, כמה יוצא וכמה נשאר בסוף כל חודש')+`<div class="table-wrap"><table class="flow-table"><thead><tr><th>חודש</th><th>פתיחה</th><th>הכנסות</th><th>תשלומים</th><th>הפקדות ליעדים</th><th>משתנות</th><th>סגירה</th><th>שפל</th></tr></thead><tbody>${f.months.map(m=>`<tr><td><b>${monthLabel(m.month)}</b>${m.days<new Date(+m.month.slice(0,4),+m.month.slice(5),0).getDate()?`<small class="muted">${m.days} ימים</small>`:''}</td><td dir="ltr">${money(m.start)}</td><td dir="ltr" class="positive">+${money(m.income)}</td><td dir="ltr">−${money(m.fixed)}</td><td dir="ltr">−${money(m.deposits)}</td><td dir="ltr">−${money(m.variable)}</td><td dir="ltr"><b class="${m.end<0?'negative':''}">${money(m.end)}</b></td><td dir="ltr" class="${m.lowest.balance<0?'negative':'muted'}">${money(m.lowest.balance)}</td></tr>`).join('')}</tbody></table></div>`,'flow-months-card');
+}
 function billsView(){
-  const now=today(),days=ui.flowDays||60,f=cashflowForecast(data,{days,now}),s=safeToSpend(data,now),bills=moneyItems('bills'),fixed=monthlyFixed(data),suggestions=billSuggestions();
+  const now=today(),days=ui.flowDays||90,f=cashflowForecast(data,{days,now,includeGoals:ui.flowGoals!==false,includeVariable:ui.flowVariable!==false}),s=safeToSpend(data,now),bills=moneyItems('bills'),fixed=monthlyFixed(data),suggestions=billSuggestions();
+  ui.flowCache=f;
   ui.billSuggestions=suggestions;
   const expenseCount=bills.filter(b=>(b.type||'expense')==='expense'&&b.active!==false).length;
   return `<div class="three-metrics">${metric('בטוח לבזבז היום',money(s.perDay),`${money(Math.max(0,s.available))} נשארו מיעד החודש, אחרי ${money(s.upcomingFixed)} תשלומים קבועים · ${s.daysLeft} ימים`,'Wallet','green')}${metric('תשלומים קבועים בחודש',money(fixed),`${expenseCount} תשלומים במעקב · ${money(fixed*12)} בשנה`,'Repeat','purple')}${metric('נקודת השפל בעו״ש',money(f.lowest.balance),f.overdraft?`<span class="negative">צפוי מינוס ב־${dateLabel(f.overdraft)}</span>`:`ב־${dateLabel(f.lowest.date)} · עו״ש ומזומן`,'TrendingDown',f.overdraft?'red':'gold')}</div>
   ${f.overdraft?notice(`בקצב הנוכחי היתרה בעו״ש תרד מתחת לאפס ב־${dateLabel(f.overdraft)} ותגיע עד ${money(f.lowest.balance)}. אפשר להעביר כסף מחיסכון, לדחות תשלום ידני או לצמצם הוצאות משתנות.`,'error'):''}
-  ${card(head('תחזית היתרה בעו״ש',`יתרה של ${money(f.start)} היום, תשלומים קבועים והוצאה משתנה של כ־${money(f.variableDaily)} ביום`,`<div class="segmented mini">${[[30,'30 יום'],[60,'60 יום'],[90,'90 יום']].map(([v,l])=>`<button class="${days===v?'active':''}" data-action="flow-days:${v}">${l}</button>`).join('')}</div>`)+graph(f.points.map(p=>({date:p.date,label:shortDate(p.date),balance:p.balance})),[{key:'balance',name:'יתרה צפויה',color:f.overdraft?'#e29a9f':palette[0]}],{height:240,area:true})+`<div class="chart-footer"><span><i class="gold-dot"></i>יתרה צפויה בעו״ש ובמזומן</span><span>${f.estimatedIncome?'ההכנסות מוערכות לפי ההיסטוריה':'לפי לוח התשלומים והתנועות החוזרות'}</span></div>`,'flow-card')}
+  ${flowCard(f,days)}
+  ${flowCalendarCard(f,now)}
+  ${flowMonthsCard(f)}
   <div class="bills-layout">${card(head('לוח התשלומים','30 הימים הקרובים',aiReady()?btn('האם צפוי לי מינוס?','ai-prompt:bills','Sparkles'):'')+agendaHTML(agendaItems(now),now),'agenda-card')}${card(head('התשלומים הקבועים שלך',`${money(fixed)} בחודש`,btn('תשלום קבוע חדש','bill-new','Plus','primary'))+billsTable(bills),'bills-card')}</div>
   ${suggestions.length?card(head('זיהינו תשלומים חוזרים','להוסיף אותם ללוח? בלחיצה אחת, וכל הפרטים ניתנים לעריכה.')+`<div class="suggestions">${suggestions.map((r,i)=>`<div class="suggestion"><span class="asset-icon purple">${icon('Repeat',16)}</span><div><b>${e(r.name)}</b><small>${e(r.category)} · כ־${money(r.average)} בחודש · בסביבות ה־${Number(r.lastDate.slice(8))} לחודש</small></div><button type="button" class="button" data-action="bill-suggest:${i}">${icon('Plus',15)}<span>הוספה</span></button></div>`).join('')}</div>`,'suggest-card'):''}`;
 }
@@ -303,9 +322,17 @@ function setToolValue(path,value){
 }
 
 // ---------- Dashboard ----------
-function moneyDashboardRow(){
-  const now=today(),s=safeToSpend(data,now),items=scheduledItems(data,now,shiftDate(now,14)).filter(x=>!x.paid).slice(0,4),t=splitTotals(data),w=wishlistSummary(data);
-  return `<div class="dashboard-money">${card(`<div class="row-between"><span class="eyebrow">${icon('Wallet',15)} בטוח לבזבז היום</span>${textBtn('תזרים','navigate:bills')}</div><div class="safe-number" dir="ltr">${money(s.perDay)}</div><small class="muted">${money(Math.max(0,s.available))} נשארו מיעד החודש אחרי ${money(s.upcomingFixed)} תשלומים קבועים · ${s.daysLeft} ימים לסוף החודש</small>`,'safe-card')}${card(`<div class="row-between"><span class="eyebrow">${icon('CalendarDays',15)} תשלומים קרובים</span>${textBtn('ללוח','navigate:bills')}</div>${items.length?`<div class="mini-agenda">${items.map(x=>`<div><span class="mini-date">${shortDate(x.date)}</span><span>${e(x.name)}</span><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b></div>`).join('')}</div>`:`<p class="muted small">אין תשלומים קבועים בשבועיים הקרובים.</p>${moneyItems('bills').length?'':btn('הוספת תשלום קבוע','bill-new','Plus')}`}`,'upcoming-card')}${card(`<div class="row-between"><span class="eyebrow">${icon('ArrowLeftRight',15)} חלוקות ומשאלות</span>${textBtn('לקבוצות','navigate:split')}</div><div class="split-mini"><div><span>חייבים לך</span><b class="positive" dir="ltr">${exact(t.owedToMe)}</b></div><div><span>אתה חייב</span><b class="${t.iOwe>0?'negative':''}" dir="ltr">${exact(t.iOwe)}</b></div><div><span>חסכת מוויתורים</span><b dir="ltr">${money(w.skipped)}</b></div></div>${w.ready?`<button type="button" class="ready-chip" data-action="navigate:wishlist">${icon('Target',14)}${w.ready} ${w.ready===1?'פריט סיים':'פריטים סיימו'} את תקופת הצינון</button>`:''}`,'split-mini-card')}</div>`;
+function safeCard(){
+  const s=safeToSpend(data,today());
+  return card(`<div class="row-between"><span class="eyebrow">${icon('Wallet',15)} בטוח לבזבז היום</span>${textBtn('תזרים','navigate:bills')}</div><div class="safe-number" dir="ltr">${money(s.perDay)}</div><small class="muted">${money(Math.max(0,s.available))} נשארו מיעד החודש אחרי ${money(s.upcomingFixed)} תשלומים קבועים · ${s.daysLeft} ימים לסוף החודש</small>`,'safe-card');
+}
+function upcomingCard(){
+  const now=today(),items=scheduledItems(data,now,shiftDate(now,14)).filter(x=>!x.paid).slice(0,4);
+  return card(`<div class="row-between"><span class="eyebrow">${icon('CalendarDays',15)} תשלומים קרובים</span>${textBtn('ללוח','navigate:bills')}</div>${items.length?`<div class="mini-agenda">${items.map(x=>`<div><span class="mini-date">${shortDate(x.date)}</span><span>${e(x.name)}</span><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b></div>`).join('')}</div>`:`<p class="muted small">אין תשלומים קבועים בשבועיים הקרובים.</p>${moneyItems('bills').length?'':btn('הוספת תשלום קבוע','bill-new','Plus')}`}`,'upcoming-card');
+}
+function splitMiniCard(){
+  const t=splitTotals(data),w=wishlistSummary(data);
+  return card(`<div class="row-between"><span class="eyebrow">${icon('ArrowLeftRight',15)} חלוקות ומשאלות</span>${textBtn('לקבוצות','navigate:split')}</div><div class="split-mini"><div><span>חייבים לך</span><b class="positive" dir="ltr">${exact(t.owedToMe)}</b></div><div><span>אתה חייב</span><b class="${t.iOwe>0?'negative':''}" dir="ltr">${exact(t.iOwe)}</b></div><div><span>חסכת מוויתורים</span><b dir="ltr">${money(w.skipped)}</b></div></div>${w.ready?`<button type="button" class="ready-chip" data-action="navigate:wishlist">${icon('Target',14)}${w.ready} ${w.ready===1?'פריט סיים':'פריטים סיימו'} את תקופת הצינון</button>`:''}`,'split-mini-card');
 }
 
 // ---------- Events ----------
@@ -313,7 +340,9 @@ document.addEventListener('click',event=>{
   const button=event.target.closest('[data-action]');if(!button)return;
   const [action,a,b]=button.dataset.action.split(':');
   try{
-    if(action==='flow-days'){ui.flowDays=+a;render();}
+    if(action==='flow-days'){ui.flowDays=+a;ui.flowDay=null;render();}
+    else if(action==='flow-day'){ui.flowDay=ui.flowDay===a?null:a;render();}
+    else if(action==='flow-months'){ui.flowAllMonths=!ui.flowAllMonths;render();}
     else if(action==='bill-new')openBillForm();
     else if(action==='bill-edit')openBillForm(a);
     else if(action==='bill-pay')openPayDialog(a,b);
@@ -352,6 +381,7 @@ document.addEventListener('input',event=>{
 document.addEventListener('change',event=>{
   const el=event.target;
   if(el.dataset.tool&&(el.type==='checkbox'||el.tagName==='SELECT')){setToolValue(el.dataset.tool,el.type==='checkbox'?el.checked:el.dataset.numeric!=null?Number(el.value):el.value);if(el.dataset.tool==='loan.cpi')render();else refreshToolOutput();}
+  else if(el.dataset.flow){ui[el.dataset.flow]=el.checked;render();}
   else if(el.dataset.toolCat!=null){const v=toolState().maaser,cat=el.dataset.toolCat;v.cats=el.checked?[...new Set([...v.cats,cat])]:v.cats.filter(c=>c!==cat);saveToolState();refreshToolOutput();}
 });
 document.addEventListener('submit',event=>{

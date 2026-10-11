@@ -58,3 +58,29 @@ test('projection series remains bounded and matches the projected final amount',
   const g=goal({date:'2076-10-05'}),rows=savingsProjectionSeries(g,'2026-10-05');
   assert.ok(rows.length<=20);assert.equal(rows.at(-1).value,savingsProjection(g,'2026-10-05').projected);
 });
+
+test('one account can fund several goals without double counting',async()=>{
+  const {accountAllocations,freeMoney}=await import('./savings.js');
+  const d=demoData();
+  d.accounts.find(a=>a.id==='saving').balance=20000;
+  d.goals=[{id:'e',name:'חירום',target:30000,saved:0,monthly:0,date:'2027-12-01',accountId:'saving',allocation:12000},{id:'t',name:'טיול',target:10000,saved:0,monthly:0,date:'2027-12-01',accountId:'saving',allocation:8000}];
+  assert.equal(effectiveGoalSavings(d,d.goals[0]),12000);
+  assert.equal(effectiveGoalSavings(d,d.goals[1]),8000);
+  assert.equal(accountAllocations(d,'saving').free,0);
+  d.goals[1].allocation=5000;
+  assert.equal(accountAllocations(d,'saving').free,3000);
+  assert.equal(freeMoney(d).total,26450+2000+3000+20000);
+  d.accounts.find(a=>a.id==='saving').balance=10000;
+  const info=accountAllocations(d,'saving');
+  assert.equal(info.overAllocated,true);
+  assert.ok(Math.abs(effectiveGoalSavings(d,d.goals[0])-10000*12/17)<1e-9,'scaled pro rata when the balance drops');
+});
+
+test('goals linked without an allocation share the remainder',()=>{
+  const d=demoData();
+  d.accounts.find(a=>a.id==='saving').balance=20000;
+  d.goals=[{id:'a',name:'א',target:null,saved:0,monthly:0,date:'2027-12-01',accountId:'saving',allocation:5000},{id:'b',name:'ב',target:null,saved:0,monthly:0,date:'2027-12-01',accountId:'saving'},{id:'c',name:'ג',target:null,saved:0,monthly:0,date:'2027-12-01',accountId:'saving'}];
+  assert.equal(effectiveGoalSavings(d,d.goals[1]),7500);
+  assert.equal(effectiveGoalSavings(d,d.goals[2]),7500);
+  assert.equal(effectiveGoalSavings(d,{id:'draft',accountId:'saving',allocation:'',saved:0}),5000,'a draft shares the remainder with the other unallocated goals');
+});
