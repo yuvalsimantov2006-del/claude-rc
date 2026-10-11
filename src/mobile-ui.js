@@ -45,8 +45,9 @@ function openQuickAdd(prefill={}){
   ui.quick={type,category:prefill.category||'',manual:!!prefill.category};
   const last=[...data.transactions].filter(t=>t.type===type).sort((a,b)=>b.date.localeCompare(a.date))[0];
   const accountId=prefill.accountId||(accounts.some(a=>a.id===last?.accountId)?last.accountId:(accounts.find(a=>a.kind==='bank')||accounts[0]).id);
+  const symbol=id=>data.accounts.find(a=>a.id===id)?.currency==='USD'?'$':'₪';
   const descriptions=[...new Set([...data.transactions].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.description).filter(Boolean))].slice(0,40);
-  showDialog('הוספה מהירה',`<form id="quick-form" class="quick-form" novalidate><div class="form-error"></div><div class="segmented quick-type" role="group" aria-label="סוג התנועה"><button type="button" class="${type==='expense'?'active':''}" data-quick-type="expense">הוצאה</button><button type="button" class="${type==='income'?'active':''}" data-quick-type="income">הכנסה</button></div><label class="quick-amount ${type}"><span class="quick-sign" aria-hidden="true">${type==='income'?'+':'−'}</span><input name="amount" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="0" aria-label="סכום" value="${e(prefill.amount||'')}"><span class="quick-currency">₪</span></label><div class="quick-cats" role="radiogroup" aria-label="קטגוריה">${quickChips()}</div><div class="quick-fields">${field('תיאור',input('description',prefill.description||'','text','list="quick-desc" autocomplete="off" enterkeyhint="done" placeholder="על מה? (לא חובה)"'))}<div class="quick-row">${field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),accountId))}${field('תאריך',input('date',prefill.date||today(),'date',`max="${today()}"`))}</div></div><datalist id="quick-desc">${descriptions.map(d=>`<option value="${e(d)}">`).join('')}</datalist><div class="form-actions quick-actions">${submit('שמירה','Check')}${btn('לטופס המלא','quick-full')}</div></form>`);
+  showDialog('הוספה מהירה',`<form id="quick-form" class="quick-form" novalidate><div class="form-error"></div><div class="segmented quick-type" role="group" aria-label="סוג התנועה"><button type="button" class="${type==='expense'?'active':''}" data-quick-type="expense">הוצאה</button><button type="button" class="${type==='income'?'active':''}" data-quick-type="income">הכנסה</button></div><label class="quick-amount ${type}"><span class="quick-sign" aria-hidden="true">${type==='income'?'+':'−'}</span><input name="amount" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="0" aria-label="סכום" value="${e(prefill.amount||'')}"><span class="quick-currency">${symbol(accountId)}</span></label><div class="quick-cats" role="radiogroup" aria-label="קטגוריה">${quickChips()}</div><div class="quick-fields">${field('תיאור',input('description',prefill.description||'','text','list="quick-desc" autocomplete="off" enterkeyhint="done" placeholder="על מה? (לא חובה)"'))}<div class="quick-row">${field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),accountId))}${field('תאריך',input('date',prefill.date||today(),'date',`max="${today()}"`))}</div></div><datalist id="quick-desc">${descriptions.map(d=>`<option value="${e(d)}">`).join('')}</datalist><div class="form-actions quick-actions">${submit('שמירה','Check')}${btn('לטופס המלא','quick-full')}</div></form>`);
   const dialog=document.querySelector('dialog');dialog?.classList.add('sheet');
   setTimeout(()=>dialog?.querySelector('[name=amount]')?.focus(),80);
 }
@@ -105,7 +106,7 @@ function openAlerts(){
 function refreshBell(){
   const button=document.querySelector('.alerts-button');if(button)button.outerHTML=alertsButton();
   const n=unseenAlerts().length;
-  try{if(hasNavigator&&navigator.setAppBadge)n?navigator.setAppBadge(n):navigator.clearAppBadge();}catch{}
+  try{if(hasNavigator&&navigator.setAppBadge)(n?navigator.setAppBadge(n):navigator.clearAppBadge())?.catch?.(()=>{});}catch{}
 }
 async function showSystemNotification(title,body,tag,url){
   const options={body,tag,dir:'rtl',lang:'he',icon:'icons/icon-192.png',badge:'icons/badge-96.png',data:{url}};
@@ -199,6 +200,8 @@ document.addEventListener('click',event=>{
   }catch(err){toast(err.message,true);}
 });
 document.addEventListener('change',event=>{
+  // The amount is saved in the account's currency, so the label follows the chosen account.
+  if(event.target.name==='accountId'&&event.target.closest?.('#quick-form')){const label=event.target.closest('#quick-form').querySelector('.quick-currency');if(label)label.textContent=data.accounts.find(a=>a.id===event.target.value)?.currency==='USD'?'$':'₪';return;}
   const more=event.target.closest?.('[data-quick-more]');
   if(more&&ui.quick&&more.value){ui.quick={...ui.quick,category:more.value,manual:true};refreshQuick();return;}
   const box=event.target.closest?.('[data-notify]');
