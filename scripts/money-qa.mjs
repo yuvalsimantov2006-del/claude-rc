@@ -21,12 +21,21 @@ function reply(body){
   return tool('propose_split_expense',{group:'אילת',description:'ארוחת צהריים',amount:300,paid_by:'אני'});
 }
 
+const HUB_OF={dashboard:'home',accounts:'money',transactions:'money',budgets:'money',bills:'money',capture:'money',goals:'wealth',investments:'wealth',performance:'wealth',monthly:'wealth',lab:'plan',wishlist:'plan',split:'plan',tools:'plan',insights:'plan',copilot:'ai'};
+// Navigate the way a person does: the hub in the sidebar, then the tab inside it.
+async function goTo(page,route){
+  if(route==='settings'){await page.locator('.sidebar [data-action="navigate:settings"]').first().click();return;}
+  await page.locator(`.hub-item[data-action="hub:${HUB_OF[route]}"]`).click();
+  const tab=page.locator(`.subtab[data-action="navigate:${route}"]`);
+  if(await tab.count())await tab.click();
+  await page.waitForTimeout(120);
+}
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const errors=[];
 async function newPage(viewport){
   const context=await browser.newContext({viewport,locale:'he-IL'});
   // The one-time "what's new" tour is covered by its own checks; keep it out of the way here.
-  await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','3.0');}catch{}});
+  await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.0');}catch{}});
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
   page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
@@ -36,12 +45,12 @@ async function newPage(viewport){
 }
 const page=await newPage({width:1440,height:1000});
 const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
-const go=async route=>{await page.locator(`.nav-item[data-action="navigate:${route}"]`).click();await page.waitForTimeout(120);};
+const go=route=>goTo(page,route);
 const settle=()=>page.waitForTimeout(350);
 
 // Grouped navigation and dashboard row.
-await page.getByRole('heading',{name:'התמונה הפיננסית שלך'}).waitFor();
-assert.equal(await page.locator('.sidebar nav .nav-label').count(),3);
+await page.locator('.hero-card').waitFor();
+assert.equal(await page.locator('.hub-nav .hub-item').count(),5,'five hubs');
 assert.ok(await page.locator('[data-widget="safe"] .safe-number').count(),'safe-to-spend on dashboard');
 await page.screenshot({path:path.join(shots,'m01-dashboard.png'),fullPage:true});
 

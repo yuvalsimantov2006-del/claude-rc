@@ -16,7 +16,7 @@ const errors=[],expected=/ERR_INTERNET_DISCONNECTED|status of 401/;
 const stored=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
 async function newPage({viewport={width:1440,height:1000},tour=false,...options}={}){
   const context=await browser.newContext({viewport,locale:'he-IL',...options});
-  if(!tour)await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','3.0');}catch{}});
+  if(!tour)await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.0');}catch{}});
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
   page.on('console',msg=>{if(msg.type()==='error'&&!expected.test(msg.text()))errors.push(msg.text());});
@@ -27,11 +27,11 @@ try{
   // ---------- Tour ----------
   {
     const {page}=await newPage({tour:true});
-    await page.goto(app);await page.locator('dialog .whats-new').waitFor();
-    assert.equal(await page.locator('dialog .whats-new-item').count(),9,'first visit: welcome tour with links');
-    await page.locator('dialog [data-action="dialog-close"]').last().click();
-    await page.reload();await page.waitForTimeout(1300);
-    assert.equal(await page.locator('dialog').count(),0,'tour shows once');
+    await page.goto(app);await page.locator('dialog [data-action="setup-begin"]').waitFor();
+    assert.ok(await page.locator('dialog [data-action="setup-demo"]').count(),'first visit: welcome with setup or demo');
+    await page.locator('dialog [data-action="setup-demo"]').click();
+    await page.waitForTimeout(400);await page.reload();await page.waitForTimeout(1300);
+    assert.equal(await page.locator('dialog').count(),0,'welcome shows once');
   }
 
   // ---------- Customizable home ----------
@@ -39,23 +39,23 @@ try{
   await page.goto(app);await page.locator('.home-board').waitFor();
   const widgets=()=>page.locator('.home-cell').evaluateAll(cells=>cells.map(c=>c.dataset.widget));
   const defaults=await widgets();
-  assert.equal(defaults.length,17);assert.ok(['investments','free','budgets','upcoming','goals'].every(id=>defaults.includes(id)),'requested cards on the default home');
+  assert.deepEqual(defaults,['hero','month','upcoming','recent','goals','investments','spending','budgets'],'calm default home with the balance hero first');
   await page.screenshot({path:path.join(shots,'v3-01-home.png'),fullPage:true});
   await page.locator('[data-action="home-edit"]').click();
-  await page.locator('[data-action="home-toggle:insight"]').click();
+  await page.locator('[data-action="home-toggle:spending"]').click();
   await page.locator('[data-action="home-toggle:cashflow"]').click();
   await page.locator('[data-action="home-move:budgets:-1"]').click();
   let now=await widgets();
-  assert.ok(!now.includes('insight')&&now.at(-1)==='cashflow'&&now.indexOf('budgets')<now.indexOf('free'),'hide, add and reorder');
+  assert.ok(!now.includes('spending')&&now.at(-1)==='cashflow'&&now.indexOf('budgets')<now.indexOf('investments'),'hide, add and reorder: '+now.join());
   await page.screenshot({path:path.join(shots,'v3-02-home-editor.png')});
   await page.locator('[data-action="home-preset:investor"]').click();
-  assert.deepEqual(await widgets(),['networth','investments','free','worth','goals','assets'],'preset');
+  assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'preset');
   await page.waitForTimeout(400);// let the browser commit localStorage before reloading
   await page.reload();await page.locator('.home-board').waitFor();
-  assert.deepEqual(await widgets(),['networth','investments','free','worth','goals','assets'],'layout persists in data.prefs.home');
-  assert.equal((await stored(page)).prefs.home.order[0],'networth');
-  await page.locator('[data-action="home-edit"]').click();await page.locator('[data-action="home-preset:full"]').click();
-  assert.deepEqual(await widgets(),defaults,'full preset restores the default');
+  assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'layout persists in data.prefs.home');
+  assert.equal((await stored(page)).prefs.home.order[0],'hero');
+  await page.locator('[data-action="home-edit"]').click();await page.locator('[data-action="home-preset:calm"]').click();
+  assert.deepEqual(await widgets(),defaults,'calm preset restores the default');
 
   // ---------- Goal allocations ----------
   await page.goto(app+'#goals');await page.locator('.alloc-card').waitFor();
@@ -126,7 +126,7 @@ try{
   };
   const device=async name=>{const {page,context}=await newPage();await context.route('https://api.github.com/**',github);await page.goto(app+'#settings');await page.locator('#sync-card').waitFor();return page;};
   const connect=async(p,name)=>{await p.locator('[data-action="sync-setup"]').click();await p.locator('#sync-form [name=token]').fill('ghp_qa_token');await p.locator('#sync-form [name=passphrase]').fill('סיסמת-בדיקה-ארוכה');await p.locator('#sync-form [name=confirm]').fill('סיסמת-בדיקה-ארוכה');await p.locator('#sync-form [name=device]').fill(name);await p.locator('#sync-form [type=submit]').click();};
-  const quickAdd=async(p,description,amount)=>{await p.locator('.mobile-fab').evaluate(b=>b.click());await p.locator('#quick-form [name=amount]').fill(String(amount));await p.locator('#quick-form [name=description]').fill(description);await p.locator('#quick-form .quick-cat').first().click();await p.locator('#quick-form [type=submit]').click();await p.waitForTimeout(150);};
+  const quickAdd=async(p,description,amount)=>{await p.locator('[data-action="quick-add"]').first().evaluate(b=>b.click());await p.locator('#quick-form [name=amount]').fill(String(amount));await p.locator('#quick-form [name=description]').fill(description);await p.locator('#quick-form .quick-cat').first().click();await p.locator('#quick-form [type=submit]').click();await p.waitForTimeout(150);};
   const A=await device('A');
   await connect(A,'המחשב');
   await A.waitForFunction(()=>JSON.parse(localStorage.getItem('ofek-sync-v1')||'null')?.gistId,null,{timeout:20000});
@@ -167,7 +167,7 @@ try{
     await phone.goto('http://localhost:5199/');await phone.locator('.bottom-nav').waitFor();
     assert.ok(await phone.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;return !!reg.active&&!!document.querySelector('link[rel=manifest]');}),'manifest and service worker');
     const start=await stored(phone);
-    await phone.locator('.mobile-fab').tap();
+    await phone.locator('.bottom-add').tap();
     await phone.locator('#quick-form [name=amount]').fill('42.5');await phone.locator('#quick-form [name=description]').fill('קפה עם חברים');
     await phone.waitForTimeout(100);
     assert.equal(await phone.locator('.quick-cat.active').textContent(),'מסעדות','category from history');
@@ -180,7 +180,7 @@ try{
     after=await stored(phone);
     assert.equal(after.transactions.length,start.transactions.length,'undo');assert.equal(after.accounts.find(a=>a.id==='bank').balance,start.accounts.find(a=>a.id==='bank').balance);
     await phone.locator('[data-action="alerts"]').tap();await phone.locator('dialog').waitFor();await phone.locator('dialog [data-action="dialog-close"]').first().tap();
-    await phone.locator('.bottom-nav [data-action="nav-open"]').tap();await phone.locator('.sidebar.open').waitFor();
+    await phone.locator('.bottom-nav [data-action="more"]').tap();await phone.locator('dialog .more-sheet').waitFor();
     await phone.screenshot({path:path.join(shots,'v3-10-phone-menu.png')});
     await context.setOffline(true);await phone.reload();await phone.locator('.home-board').waitFor();
     await context.setOffline(false);

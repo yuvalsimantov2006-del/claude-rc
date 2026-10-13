@@ -24,12 +24,21 @@ function reply(body){
   return tool('get_financial_overview',{});
 }
 
+const HUB_OF={dashboard:'home',accounts:'money',transactions:'money',budgets:'money',bills:'money',capture:'money',goals:'wealth',investments:'wealth',performance:'wealth',monthly:'wealth',lab:'plan',wishlist:'plan',split:'plan',tools:'plan',insights:'plan',copilot:'ai'};
+// Navigate the way a person does: the hub in the sidebar, then the tab inside it.
+async function go(page,route){
+  if(route==='settings'){await page.locator('.sidebar [data-action="navigate:settings"]').first().click();return;}
+  await page.locator(`.hub-item[data-action="hub:${HUB_OF[route]}"]`).click();
+  const tab=page.locator(`.subtab[data-action="navigate:${route}"]`);
+  if(await tab.count())await tab.click();
+  await page.waitForTimeout(120);
+}
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const errors=[];
 async function newPage(viewport){
   const context=await browser.newContext({viewport,locale:'he-IL'});
   // The one-time "what's new" tour is covered by its own checks; keep it out of the way here.
-  await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','3.0');}catch{}});
+  await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.0');}catch{}});
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
   page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
@@ -39,18 +48,18 @@ async function newPage(viewport){
 }
 
 const page=await newPage({width:1440,height:1000});
-await page.getByRole('heading',{name:'התמונה הפיננסית שלך'}).waitFor();
+await page.locator('.hero-card').waitFor();
 assert.ok(await page.locator('[data-widget="health"] .score-ring').count(),'health ring on dashboard');
 await page.screenshot({path:path.join(shots,'01-dashboard.png'),fullPage:true});
 
 for(const [route,heading] of [['insights','התובנות שלך'],['lab','מעבדת העתיד'],['budgets','התקציבים שלך'],['copilot','אופק AI'],['settings','הגדרות וגיבוי']]){
-  await page.locator(`.nav-item[data-action="navigate:${route}"]`).first().click();
+  await go(page,route);
   await page.getByRole('heading',{name:heading,level:1}).waitFor();
   await page.screenshot({path:path.join(shots,`02-${route}.png`),fullPage:true});
 }
 
 // Future lab reacts to sliders.
-await page.locator('.nav-item[data-action="navigate:lab"]').click();
+await go(page,'lab');
 const before=await page.locator('#lab-results .metric-value').first().textContent();
 await page.locator('input[data-lab="monthly"]').fill('9000');
 await page.waitForTimeout(100);
@@ -75,7 +84,7 @@ assert.ok(await page.evaluate(()=>document.documentElement.classList.contains('p
 await page.locator('[data-action="privacy"]').click();
 
 // Connect Claude.
-await page.locator('.nav-item[data-action="navigate:copilot"]').click();
+await go(page,'copilot');
 await page.locator('#ai-key-form [name=apiKey]').fill('sk-ant-test');
 await page.locator('#ai-key-form button[type=submit]').click();
 await page.locator('#ai-input').waitFor();
@@ -120,15 +129,15 @@ const stored=await page.evaluate(()=>localStorage.getItem('ofek-ai-chat-v1'));
 assert.ok(!stored.includes('"thinking"'));assert.ok(!stored.includes('חלב,6.9'));
 
 // Monthly letter.
-await page.locator('.nav-item[data-action="navigate:insights"]').click();
+await go(page,'insights');
 await page.locator('[data-action="ai-letter"]').click();
 await page.locator('#ai-letter .ai-text, #ai-letter h4, #ai-letter p').first().waitFor();
 await page.waitForFunction(()=>!document.querySelector('[data-action="ai-letter-stop"]'));
 assert.ok(await page.evaluate(()=>!!JSON.parse(localStorage.getItem('ofek-ai-letters-v1'))['2026-09']));
 
 // Transaction form suggests a category from the description.
-await page.locator('.nav-item[data-action="navigate:dashboard"]').click();
-await page.locator('.heading-actions [data-action="open:transaction"]').click();
+await go(page,'transactions');
+await page.locator('[data-action="open:transaction"]').first().click();
 await page.locator('dialog [name=description]').fill('תדלוק בפז');
 assert.equal(await page.locator('dialog [name=category]').inputValue(),'דלק');
 await page.keyboard.press('Escape');
