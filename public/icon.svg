@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#201d26"/><stop offset="1" stop-color="#111113"/></linearGradient>
-    <radialGradient id="glow" cx="22%" cy="12%" r="85%"><stop offset="0" stop-color="#7a5f86" stop-opacity=".55"/><stop offset=".6" stop-color="#7a5f86" stop-opacity="0"/></radialGradient>
-    <linearGradient id="gold" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#b3955a"/><stop offset="1" stop-color="#f0d9a3"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22D3EE"/><stop offset=".55" stop-color="#2B6FE0"/><stop offset="1" stop-color="#4F46E5"/></linearGradient>
+    <radialGradient id="glow" cx="18%" cy="10%" r="80%"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".28"/><stop offset=".55" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="512" height="512" rx="114" fill="url(#bg)"/>
   <rect width="512" height="512" rx="114" fill="url(#glow)"/>
-  <path d="M136 372V260M216 372V204M296 372V284M376 372V140" stroke="url(#gold)" stroke-width="44" stroke-linecap="round" fill="none"/>
+  <path d="M136 372V260M216 372V204M296 372V284M376 372V140" stroke="#FFFFFF" stroke-width="44" stroke-linecap="round" fill="none"/>
 </svg>

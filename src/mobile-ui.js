@@ -47,7 +47,8 @@ function openQuickAdd(prefill={}){
   const accountId=prefill.accountId||(accounts.some(a=>a.id===last?.accountId)?last.accountId:(accounts.find(a=>a.kind==='bank')||accounts[0]).id);
   const symbol=id=>data.accounts.find(a=>a.id===id)?.currency==='USD'?'$':'₪';
   const descriptions=[...new Set([...data.transactions].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.description).filter(Boolean))].slice(0,40);
-  showDialog('הוספה מהירה',`<form id="quick-form" class="quick-form" novalidate><div class="form-error"></div><div class="segmented quick-type" role="group" aria-label="סוג התנועה"><button type="button" class="${type==='expense'?'active':''}" data-quick-type="expense">הוצאה</button><button type="button" class="${type==='income'?'active':''}" data-quick-type="income">הכנסה</button></div><label class="quick-amount ${type}"><span class="quick-sign" aria-hidden="true">${type==='income'?'+':'−'}</span><input name="amount" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="0" aria-label="סכום" value="${e(prefill.amount||'')}"><span class="quick-currency">${symbol(accountId)}</span></label><div class="quick-cats" role="radiogroup" aria-label="קטגוריה">${quickChips()}</div><div class="quick-fields">${field('תיאור',input('description',prefill.description||'','text','list="quick-desc" autocomplete="off" enterkeyhint="done" placeholder="על מה? (לא חובה)"'))}<div class="quick-row">${field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),accountId))}${field('תאריך',input('date',prefill.date||today(),'date',`max="${today()}"`))}</div></div><datalist id="quick-desc">${descriptions.map(d=>`<option value="${e(d)}">`).join('')}</datalist><div class="form-actions quick-actions">${submit('שמירה','Check')}${btn('לטופס המלא','quick-full')}</div></form>`);
+  showDialog('הוספה מהירה',`<form id="quick-form" class="quick-form" novalidate><div class="form-error"></div><div class="segmented quick-type" role="group" aria-label="סוג התנועה"><button type="button" class="${type==='expense'?'active':''}" data-quick-type="expense">הוצאה</button><button type="button" class="${type==='income'?'active':''}" data-quick-type="income">הכנסה</button></div><label class="quick-amount ${type}"><span class="quick-sign" aria-hidden="true">${type==='income'?'+':'−'}</span><input name="amount" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="0" aria-label="סכום" value="${e(prefill.amount||'')}"><span class="quick-currency">${symbol(accountId)}</span></label><div class="quick-effect" data-quick-effect aria-live="polite"></div><div class="quick-cats" role="radiogroup" aria-label="קטגוריה">${quickChips()}</div><div class="quick-fields">${field('תיאור',input('description',prefill.description||'','text','list="quick-desc" autocomplete="off" enterkeyhint="done" placeholder="על מה? (לא חובה)"'))}<div class="quick-row">${field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),accountId))}${field('תאריך',input('date',prefill.date||today(),'date',`max="${today()}"`))}</div></div><datalist id="quick-desc">${descriptions.map(d=>`<option value="${e(d)}">`).join('')}</datalist><div class="form-actions quick-actions"><button class="button primary" type="submit">${icon('Check',17)}<span data-quick-save>שמירה</span></button>${btn('לטופס המלא','quick-full')}</div></form>`);
+  refreshQuickEffect();
   const dialog=document.querySelector('dialog');dialog?.classList.add('sheet');
   setTimeout(()=>dialog?.querySelector('[name=amount]')?.focus(),80);
 }
@@ -58,6 +59,17 @@ function refreshQuick(){
   const amount=form.querySelector('.quick-amount');amount.classList.toggle('income',q.type==='income');amount.classList.toggle('expense',q.type==='expense');
   amount.querySelector('.quick-sign').textContent=q.type==='income'?'+':'−';
   form.querySelector('.quick-cats').innerHTML=quickChips();
+  refreshQuickEffect();
+}
+// Under the amount: what the account balance becomes, and the amount in the other currency.
+function refreshQuickEffect(){
+  const form=document.querySelector('#quick-form');if(!form||!ui.quick)return;
+  const amount=parseNumber(form.amount.value),account=data.accounts.find(a=>a.id===form.accountId.value),box=form.querySelector('[data-quick-effect]'),save=form.querySelector('[data-quick-save]');
+  const kind=ui.quick.type==='income'?'הכנסה':'הוצאה';
+  if(!(amount>0)||!account){box.textContent='';box.hidden=true;save.textContent=`שמירת ${kind}`;return;}
+  const after=account.balance+(ui.quick.type==='income'?amount:-amount),other=account.currency==='USD'?`≈ ${money(amount*data.fx)}`:`≈ ${money(amount/data.fx,'USD',2)}`;
+  box.hidden=false;box.innerHTML=`<span>היתרה ב״${e(account.name)}״ תהיה <b dir="ltr" class="${after<0?'negative':''}">${money(after,account.currency)}</b></span><span class="quick-fx" dir="ltr">${other}</span>`;
+  save.textContent=`שמירת ${kind} · ${money(amount,account.currency,Number.isInteger(amount)?0:2)}`;
 }
 function quickValues(form){const f=new FormData(form);return {type:ui.quick?.type||'expense',category:ui.quick?.category||'',amount:String(f.get('amount')||'').trim(),description:String(f.get('description')||'').trim(),accountId:String(f.get('accountId')||''),date:String(f.get('date')||today())};}
 function saveQuick(form){
@@ -201,13 +213,14 @@ document.addEventListener('click',event=>{
 });
 document.addEventListener('change',event=>{
   // The amount is saved in the account's currency, so the label follows the chosen account.
-  if(event.target.name==='accountId'&&event.target.closest?.('#quick-form')){const label=event.target.closest('#quick-form').querySelector('.quick-currency');if(label)label.textContent=data.accounts.find(a=>a.id===event.target.value)?.currency==='USD'?'$':'₪';return;}
+  if(event.target.name==='accountId'&&event.target.closest?.('#quick-form')){const label=event.target.closest('#quick-form').querySelector('.quick-currency');if(label)label.textContent=data.accounts.find(a=>a.id===event.target.value)?.currency==='USD'?'$':'₪';refreshQuickEffect();return;}
   const more=event.target.closest?.('[data-quick-more]');
   if(more&&ui.quick&&more.value){ui.quick={...ui.quick,category:more.value,manual:true};refreshQuick();return;}
   const box=event.target.closest?.('[data-notify]');
   if(box)toggleNotify(box.dataset.notify,box.checked,box);
 });
 document.addEventListener('input',event=>{
+  if(event.target.name==='amount'&&event.target.closest?.('#quick-form'))refreshQuickEffect();
   if(event.target.name!=='description'||!event.target.closest?.('#quick-form')||!ui.quick||ui.quick.manual)return;
   const guess=suggestCategory(data,event.target.value,ui.quick.type);
   if(guess&&guess!==ui.quick.category){ui.quick={...ui.quick,category:guess};refreshQuick();}

@@ -1,4 +1,4 @@
-import {uid,today,money,pct,dateLabel,monthLabel,monthOffset,applyTransaction,validDate} from './finance.js';
+import {uid,today,money,pct,dateLabel,monthLabel,monthOffset,applyTransaction,validDate,toILS} from './finance.js';
 import {palette,graph} from './charts.js';
 import {shiftDate,detectRecurring} from './smart.js';
 import {IL_TAX_2026,netSalary,grossForNet,loanSchedule,loanByYear,debtPayoff,feeImpact,maaserSummary,expenseShares,groupSummary,splitTotals,billMonthly,scheduledItems,monthlyFixed,cashflowForecast,safeToSpend,purchaseCheck,COOLING_DAYS,wishStatus,wishlistSummary} from './money.js';
@@ -327,8 +327,9 @@ function safeCard(){
   return card(`<div class="row-between"><span class="eyebrow">${icon('Wallet',15)} בטוח לבזבז היום</span>${textBtn('תזרים','navigate:bills')}</div><div class="safe-number" dir="ltr">${money(s.perDay)}</div><small class="muted">${money(Math.max(0,s.available))} נשארו מיעד החודש אחרי ${money(s.upcomingFixed)} תשלומים קבועים · ${s.daysLeft} ימים לסוף החודש</small>`,'safe-card');
 }
 function upcomingCard(){
-  const now=today(),items=scheduledItems(data,now,shiftDate(now,14)).filter(x=>!x.paid).slice(0,4);
-  return card(`<div class="row-between"><span class="eyebrow">${icon('CalendarDays',15)} תשלומים קרובים</span>${textBtn('ללוח','navigate:bills')}</div>${items.length?`<div class="mini-agenda">${items.map(x=>`<div><span class="mini-date">${shortDate(x.date)}</span><span>${e(x.name)}</span><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b></div>`).join('')}</div>`:`<p class="muted small">אין תשלומים קבועים בשבועיים הקרובים.</p>${moneyItems('bills').length?'':btn('הוספת תשלום קבוע','bill-new','Plus')}`}`,'upcoming-card');
+  const now=today(),all=scheduledItems(data,now,shiftDate(now,14)).filter(x=>!x.paid),items=all.slice(0,4);
+  const banks=data.accounts.filter(a=>a.kind==='bank'),after=banks.reduce((s,a)=>s+toILS(a.balance,a.currency,data.fx),0)+all.reduce((s,x)=>s+(x.type==='income'?x.amount:-x.amount),0);
+  return card(`<div class="row-between"><span class="eyebrow">${icon('CalendarDays',15)} חיובים קרובים</span>${textBtn('ללוח','navigate:bills')}</div>${items.length?`<div class="mini-agenda">${items.map(x=>`<div><span class="mini-date">${shortDate(x.date)}</span><span>${e(x.name)}</span><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b></div>`).join('')}</div>${banks.length?`<div class="after-charges"><span>יישאר בעו״ש אחרי החיובים</span><b dir="ltr" class="${after<0?'negative':''}">${money(after)}</b></div>`:''}`:`<p class="muted small">אין תשלומים קבועים בשבועיים הקרובים.</p>${moneyItems('bills').length?'':btn('הוספת תשלום קבוע','bill-new','Plus')}`}`,'upcoming-card');
 }
 function splitMiniCard(){
   const t=splitTotals(data),w=wishlistSummary(data);
