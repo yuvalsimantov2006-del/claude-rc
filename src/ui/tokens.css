@@ -73,6 +73,8 @@
   --hero-area: rgba(255, 255, 255, .10);
   --hero-shadow: 0 24px 60px -22px rgba(67, 68, 224, .55), 0 8px 20px -10px rgba(11, 133, 151, .35);
   --brand-gradient: linear-gradient(135deg, #22D3EE 0%, #2B6FE0 55%, #4F46E5 100%);
+  --mask-solid: #000;      /* opaque stop for mask-image fades */
+  --on-hero: #FFFFFF;
 }
 
 /* ---------- LIGHT (default) ---------- */
@@ -151,6 +153,9 @@
   --toast-ok: #3FE0A0;
   --toast-err: #FF8099;
   --hero-shadow-theme: var(--hero-shadow);
+  --seg-active: #FFFFFF;
+  --knob: #FFFFFF;
+  --on-vivid: #FFFFFF;     /* text on *-vivid fills (counts, dots) */
 }
 
 /* ---------- DARK ---------- */
@@ -228,6 +233,9 @@
   --toast-ok: #3FE0A0;
   --toast-err: #FF8099;
   /* The hero gets a coloured glow in dark so it lifts off the navy canvas */
+  --seg-active: #27346B;
+  --knob: #EEF1FF;
+  --on-vivid: #070B1A;
   --hero-shadow-theme: 0 28px 70px -24px rgba(91, 80, 255, .7), 0 0 0 1px rgba(146, 166, 255, .18), 0 10px 40px -12px rgba(14, 165, 183, .45);
 }
 
