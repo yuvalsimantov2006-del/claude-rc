@@ -426,6 +426,7 @@ html.privacy .safe-number:hover { filter: none; }
   .demo-banner button svg { display: none; }
 
   .two-columns, .three-metrics { grid-template-columns: minmax(0, 1fr); }
+  .card .actions > .button, .card .form-actions > .button { flex: 1 1 auto; }
 
   .app-footer { flex-direction: column; align-items: flex-start; padding-block: var(--sp-6) 0; }
 
@@ -461,7 +462,9 @@ html.privacy .safe-number:hover { filter: none; }
   .bottom-add svg { stroke-width: 2.4; }
   .bottom-add:active { transform: scale(.95); }
 
-  .more-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .more-sheet { gap: var(--sp-4); }
+  .more-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .more-tile { min-height: 72px; padding: var(--sp-2) 2px; font-size: 11.5px; border-radius: var(--r-md); }
 }
 @media (max-width: 360px) {
   .topbar-brand { display: none; }

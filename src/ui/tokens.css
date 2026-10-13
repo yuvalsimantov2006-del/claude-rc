@@ -152,6 +152,7 @@
   --toast-accent: #5FEAF8;
   --toast-ok: #3FE0A0;
   --toast-err: #FF8099;
+  --toast-border: transparent;
   --hero-shadow-theme: var(--hero-shadow);
   --seg-active: #FFFFFF;
   --knob: #FFFFFF;
@@ -232,6 +233,7 @@
   --toast-accent: #5FEAF8;
   --toast-ok: #3FE0A0;
   --toast-err: #FF8099;
+  --toast-border: rgba(146, 166, 255, .26);
   /* The hero gets a coloured glow in dark so it lifts off the navy canvas */
   --seg-active: #27346B;
   --knob: #EEF1FF;

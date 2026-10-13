@@ -1,5 +1,5 @@
 import {money,pct,monthLabel,today,balances,monthlySummary,categorySpend,dietz,rangeStart,portfolioValue} from './finance.js';
-import {palette,graph,donut} from './charts.js';
+import {palette,tone,graph,donut} from './charts.js';
 import {freeMoney} from './savings.js';
 import {riskProfile} from './invest.js';
 import {cashflowForecast} from './money.js';
@@ -77,7 +77,7 @@ const HOME_RENDER={
   },
   spending:({d,s})=>{
     const breakdown=d.categories.map((name,i)=>({name,value:categorySpend(d,name,ui.month),color:palette[i%palette.length]})).filter(a=>a.value>0).sort((a,b)=>b.value-a.value),top=breakdown.slice(0,4);
-    if(breakdown.length>4)top.push({name:'אחר',value:breakdown.slice(4).reduce((s,v)=>s+v.value,0),color:'#727482'});
+    if(breakdown.length>4)top.push({name:'אחר',value:breakdown.slice(4).reduce((s,v)=>s+v.value,0),color:tone.muted});
     return card(head('לאן הכסף הולך?','התפלגות ההוצאות החודשית',ib('ChevronLeft','לכל התנועות','navigate:transactions'))+(top.length?donut(top,s.expenses,'הוצאות החודש',155):empty('חודש חדש, התחלה חדשה','ההוצאות שתוסיף יופיעו כאן.')),'expenses-chart');
   },
   insight:({s,p})=>`<div class="insight-banner"><span class="insight-icon">${icon('Sparkles',22)}</span><div><b>${s.rate>0?`יפה, חסכת ${pct(s.rate)} מההכנסה החודש!`:'צעד קטן היום, יותר חופש מחר.'}</b><span>${p.return==null?'עדכון חודשי יעזור לך לראות את ההתקדמות.':`תיק ההשקעות שלך ${p.return>=0?'עלה':'ירד'} ב־${pct(Math.abs(p.return))} בעדכון האחרון, אחרי נטרול תזרימים.`}</span></div><button data-action="navigate:insights">לתובנות שלך${icon('ChevronLeft',16)}</button></div>`,
@@ -104,7 +104,7 @@ const HOME_RENDER={
   cashflow:()=>{
     const f=cashflowForecast(data,{days:45}),step=Math.max(1,Math.ceil(f.points.length/46)),chart=f.points.filter((p,i)=>i%step===0||i===f.points.length-1||p.date===f.lowest.date);
     const shortDay=d=>new Date(d+'T12:00:00').toLocaleDateString('he-IL',{day:'numeric',month:'short'});
-    return card(widgetHead('Activity','תחזית תזרים','navigate:bills','לתחזית המלאה')+`<div class="row-between cashflow-numbers"><div><span>היום</span><b dir="ltr">${money(f.start)}</b></div><div><span>בעוד 45 יום</span><b dir="ltr">${money(f.end)}</b></div><div><span>הנקודה הנמוכה</span><b dir="ltr" class="${f.lowest.balance<0?'negative':''}">${money(f.lowest.balance)}</b><small>${shortDay(f.lowest.date)}</small></div></div>`+graph(chart.map(p=>({date:p.date,label:shortDay(p.date),balance:p.balance})),[{key:'balance',name:'יתרה צפויה',color:f.overdraft?'#e29a9f':palette[0]}],{height:150,area:true}),'home-widget cashflow-widget');
+    return card(widgetHead('Activity','תחזית תזרים','navigate:bills','לתחזית המלאה')+`<div class="row-between cashflow-numbers"><div><span>היום</span><b dir="ltr">${money(f.start)}</b></div><div><span>בעוד 45 יום</span><b dir="ltr">${money(f.end)}</b></div><div><span>הנקודה הנמוכה</span><b dir="ltr" class="${f.lowest.balance<0?'negative':''}">${money(f.lowest.balance)}</b><small>${shortDay(f.lowest.date)}</small></div></div>`+graph(chart.map(p=>({date:p.date,label:shortDay(p.date),balance:p.balance})),[{key:'balance',name:'יתרה צפויה',color:f.overdraft?tone.negative:palette[0]}],{height:150,area:true}),'home-widget cashflow-widget');
   },
   recent:({d})=>card(head('התנועות האחרונות','',textBtn('לכל התנועות','navigate:transactions'))+transactionsTable(d.transactions.filter(t=>t.date.startsWith(ui.month)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4),true),'recent-card'),
   goals:({d})=>card(head('היעדים שלך','',ib('Plus','הוספת יעד','open:goal'))+d.goals.slice(0,3).map((g,i)=>{const v=goalDetails(g);return `<button class="goal-preview" data-action="navigate:goals"><span class="asset-icon ${i%2?'purple':'gold'}">${icon(g.type==='קרן חירום'?'ShieldCheck':'Target')}</span><div><div class="row-between"><b>${e(g.name)}</b><span class="muted">${v.hasTarget?Math.round(v.progress)+'%':'תחזית'}</span></div>${progress(v.progress,i%2?'purple':'')}<small>${v.hasTarget?money(v.saved)+' מתוך '+money(g.target):money(v.saved)+' היום · '+money(v.projected)+' צפויים'}</small></div></button>`;}).join('')+(!d.goals.length?empty('מה היעד הבא שלך?','',btn('יצירת יעד','open:goal')):'')+`<div class="goal-more">${textBtn('לכל היעדים','navigate:goals')}</div>`,'goals-preview')

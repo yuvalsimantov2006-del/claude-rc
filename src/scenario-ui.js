@@ -1,5 +1,5 @@
 import {money,monthOffset,monthLabel,today} from './finance.js';
-import {palette,graph} from './charts.js';
+import {palette,tone,graph} from './charts.js';
 import {compareScenario,EVENT_TYPES} from './scenario.js';
 import {aiReady} from './ai.js';
 
@@ -39,7 +39,7 @@ function scenarioResults(){
   const goalRow=g=>{const when=(m,missed)=>m==null?(missed?`לא מושג עד ${monthLabel(g.end)}`:`לא עד ${label(s.horizon)}`):m===0?'כבר הושג':label(m);const d=g.delta;return `<tr><td><b>${e(g.name)}</b>${g.target?`<small class="muted">${money(g.target)}</small>`:''}</td><td>${g.target?when(g.baseline,g.missedDeadline):'—'}</td><td><b>${g.target?when(g.scenario,g.scenarioMissed):'—'}</b></td><td>${!g.target?`<small class="muted">${money(g.savedAtEnd.scenario)} ${end}</small>`:d==null?(g.baseline==null&&g.scenario!=null?'<span class="positive">עכשיו יושג</span>':g.baseline!=null&&g.scenario==null?'<span class="negative">כבר לא יושג</span>':'—'):d===0?'<span class="muted">ללא שינוי</span>':`<span class="${d<0?'positive':'negative'}">${Math.abs(d)} חודשים ${d<0?'מוקדם יותר':'מאוחר יותר'}</span>`}</td></tr>`;};
   return `${s.events.length?'':notice('הוסף אירוע מימין — למשל רכישת רכב או מענק שחרור — וראה מיד איך הוא משנה את הכסף הפנוי ואת מועדי היעדים.')}
   <div class="three-metrics">${metric(`כסף פנוי ${end}`,money(r.scenario.final.free),s.events.length?delta(r.freeDelta):'לפי התוכנית הנוכחית','Wallet','green')}${metric(`שווי נקי ${end}`,money(r.scenario.final.netWorth),s.events.length?delta(r.netWorthDelta):`כולל צמיחת השקעות של ${s.ret}% בשנה`,'TrendingUp')}${metric('הנקודה הנמוכה',money(low.free),neg?`<span class="negative">חסר כסף פנוי ב${label(neg)}</span>`:low.month?`ב${label(low.month)}`:'היום','TrendingDown',neg?'red':'purple')}</div>
-  ${card(head('הכסף הפנוי לאורך הזמן','קו מלא: עם האירועים · קו מקווקו: התוכנית הנוכחית')+graph(chart,[{key:'scn',name:'עם האירועים',color:neg?'#e29a9f':palette[0]},{key:'base',name:'התוכנית הנוכחית',color:palette[1]}],{height:250})+`<div class="chart-footer"><span>עודף חודשי ממוצע: ${money(r.baseline.surplus)}</span><span>כסף פנוי = כסף שלא הוקצה ליעדים</span></div>`)}
+  ${card(head('הכסף הפנוי לאורך הזמן','קו מלא: עם האירועים · קו מקווקו: התוכנית הנוכחית')+graph(chart,[{key:'scn',name:'עם האירועים',color:neg?tone.negative:palette[0]},{key:'base',name:'התוכנית הנוכחית',color:palette[1]}],{height:250})+`<div class="chart-footer"><span>עודף חודשי ממוצע: ${money(r.baseline.surplus)}</span><span>כסף פנוי = כסף שלא הוקצה ליעדים</span></div>`)}
   ${data.goals.length?card(head('מתי תגיע ליעדים',`השוואה בין התוכנית הנוכחית לתרחיש`)+`<div class="table-wrap"><table><thead><tr><th>יעד</th><th>בתוכנית הנוכחית</th><th>בתרחיש</th><th>שינוי</th></tr></thead><tbody>${r.goals.map(goalRow).join('')}</tbody></table></div>`):''}`;
 }
 function scenarioView(){

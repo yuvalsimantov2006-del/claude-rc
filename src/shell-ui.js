@@ -13,7 +13,9 @@ const PAGE_ICONS={dashboard:'House',accounts:'Landmark',transactions:'ArrowLeftR
 const hubOf=page=>HUBS.find(h=>h.pages.includes(page))||null;
 const hubLast={};
 const hubTarget=hub=>hub.pages.includes(hubLast[hub.id])?hubLast[hub.id]:hub.pages[0];
-const brandMark=(size=30)=>`<svg class="brand-svg" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ofek-brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22D3EE"/><stop offset=".55" stop-color="#2B6FE0"/><stop offset="1" stop-color="#4F46E5"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#ofek-brand)"/><path d="M8.5 21.5V16M13.5 21.5V12.5M18.5 21.5V17M23.5 21.5V9.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg>`;
+// Each mark gets its own gradient id: a hidden copy (e.g. the phone sidebar) must not take the gradient with it.
+let brandSeq=0;
+const brandMark=(size=30)=>{const id=`ofek-brand-${brandSeq=(brandSeq+1)%1000}`;return `<svg class="brand-svg" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22D3EE"/><stop offset=".55" stop-color="#2B6FE0"/><stop offset="1" stop-color="#4F46E5"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#${id})"/><path d="M8.5 21.5V16M13.5 21.5V12.5M18.5 21.5V17M23.5 21.5V9.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg>`;};
 const firstLetter=()=>e(data.profile?.trim().slice(0,1)||'א');
 
 // ---------- Theme ----------
@@ -50,8 +52,8 @@ function subTabsHTML(){
 }
 function openMoreSheet(){
   const tile=p=>`<button type="button" class="more-tile${ui.page===p?' active':''}" data-action="navigate:${p}">${icon(PAGE_ICONS[p],22)}<span>${PAGE_LABELS[p]}</span></button>`;
-  const dark=resolvedTheme()==='dark';
-  showDialog('כל העמודים',`<div class="more-sheet">${HUBS.filter(h=>h.id!=='home').map(h=>`<section class="more-group"><h3>${e(h.label)}</h3><div class="more-tiles">${h.pages.map(tile).join('')}</div></section>`).join('')}<section class="more-group"><h3>עוד</h3><div class="more-tiles">${tile('settings')}<button type="button" class="more-tile" data-action="theme-toggle">${icon(dark?'Sun':'Moon',22)}<span>${dark?'מצב בהיר':'מצב כהה'}</span></button><button type="button" class="more-tile" data-action="whats-new">${icon('Sparkles',22)}<span>מה חדש</span></button></div></section></div>`);
+  const dark=resolvedTheme()==='dark',privacy=document.documentElement.classList.contains('privacy');
+  showDialog('כל העמודים',`<div class="more-sheet">${HUBS.filter(h=>h.id!=='home').map(h=>`<section class="more-group"><h3>${e(h.label)}</h3><div class="more-tiles">${h.pages.map(tile).join('')}</div></section>`).join('')}<section class="more-group"><h3>עוד</h3><div class="more-tiles">${tile('settings')}<button type="button" class="more-tile" data-action="theme-toggle">${icon(dark?'Sun':'Moon',22)}<span>${dark?'מצב בהיר':'מצב כהה'}</span></button><button type="button" class="more-tile" data-action="privacy">${icon(privacy?'Eye':'EyeOff',22)}<span>${privacy?'הצגת סכומים':'הסתרת סכומים'}</span></button><button type="button" class="more-tile" data-action="whats-new">${icon('Sparkles',22)}<span>מה חדש</span></button></div></section></div>`);
   document.querySelector('dialog')?.classList.add('sheet');
 }
 
@@ -62,6 +64,7 @@ document.addEventListener('click',event=>{
   try{
     if(action==='hub'){const hub=HUBS.find(h=>h.id===a);if(hub)navigate(hubTarget(hub));}
     else if(action==='more')openMoreSheet();
+    else if(action==='privacy'&&button.closest('.more-sheet'))closeDialog();
     else if(action==='theme-toggle'){const inSheet=!!button.closest('.more-sheet');setTheme(resolvedTheme()==='dark'?'light':'dark');if(inSheet)closeDialog();}
   }catch(err){toast(err.message,true);}
 });
