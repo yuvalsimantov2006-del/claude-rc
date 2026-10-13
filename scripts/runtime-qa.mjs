@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const files=['finance.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','money.js','scenario.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','app.js'];
+const files=['finance.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','fx.js','money.js','scenario.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','shell-ui.js','setup-ui.js','fx-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','app.js'];
 const source=files.map(f=>fs.readFileSync('src/'+f,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport\s+(?=(const|function|class|let|async))/g,'')).join('\n');
 const storage=new Map(),events={},elements=[],dom=new Map();const root={innerHTML:''};
 function element(tag){return {tag,innerHTML:'',className:'',classList:{add(){},remove(){}},setAttribute(){},addEventListener(){},showModal(){},close(){},remove(){const i=elements.indexOf(this);if(i>=0)elements.splice(i,1);},click(){}};}
 const context=vm.createContext({console,Date,Intl,Math,JSON,Number,String,Array,Map,Set,Object,RegExp,Error,Blob,structuredClone,URL,crypto:globalThis.crypto,FormData,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},location:{hash:''},document:{querySelector:s=>s==='#root'?root:s==='dialog'?elements.find(e=>e.tag==='dialog')||null:dom.get(s)||null,createElement:element,documentElement:{classList:{contains:()=>false,add(){},remove(){},toggle(){}}},body:{append:e=>elements.push(e)},addEventListener:(name,fn)=>events[name]=fn},window:{addEventListener(){},scrollTo(){}},setTimeout:()=>1,clearTimeout(){}});
 vm.runInContext(source,context);
 const run=script=>vm.runInContext(script,context);
-assert.ok(root.innerHTML.includes('התמונה הפיננסית שלך'));assert.equal(run('data.snapshots.length'),10);
+assert.ok(root.innerHTML.includes('בעו״ש עכשיו'));assert.equal(run('data.snapshots.length'),10);
 for(const route of ['dashboard','transactions','investments','monthly','performance','budgets','goals','accounts','insights','settings','copilot','lab','bills','split','wishlist','tools']){run(`navigate('${route}')`);assert.ok(root.innerHTML.includes('<h1>'));assert.ok(root.innerHTML.length>5000);}
 run("openEntity('transaction');dialogState.v.amount=125;dialogState.v.description='בדיקה';dialogState.v.date='2026-10-01';saveEntity();");assert.equal(run("data.accounts.find(a=>a.id==='bank').balance"),26325);assert.equal(run('data.transactions.length'),127);
 run("ui.filters.query='בדיקה';ui.filters.from='2026-01-01';ui.filters.to='2026-12-31'");assert.equal(run('filteredTransactions().length'),1);

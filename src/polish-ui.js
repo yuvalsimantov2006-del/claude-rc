@@ -34,25 +34,21 @@ function animateNumbers(entering){
 }
 function motionAfterRender(){animateNumbers(ui.entering);}
 
-// ---------- What's new in 3.0 ----------
-const WHATS_NEW_KEY='ofek-seen-version',WHATS_NEW_VERSION='3.0';
-// Read before app.js loads (and saves) the data: a first visit gets a welcome, a returning user "what's new".
+// ---------- What's new in 4.0 ----------
+const WHATS_NEW_KEY='ofek-seen-version',WHATS_NEW_VERSION='4.0';
+// Read before app.js loads (and saves) the data: a first visit gets the setup, a returning user "what's new".
 const firstVisit=(()=>{try{return typeof localStorage!=='undefined'&&!localStorage.getItem(STORAGE_KEY);}catch{return false;}})();
 const WHATS_NEW=[
-  ['LayoutGrid','דף בית מותאם אישית','בוחרים אילו כרטיסים יופיעו ובאיזה סדר — כולל השקעות, כסף פנוי, תקציבים ותחזית תזרים.','home'],
-  ['Target','הקצאת כסף ליעדים','מחלקים יתרה של חשבון אחד בין כמה יעדים, בלי לספור את אותו שקל פעמיים.','goals'],
-  ['CalendarDays','תחזית תזרים יומית','כמה כסף צפוי להישאר בכל יום בחודשים הקרובים, אחרי משכורת, חיובים והפקדות.','bills'],
-  ['Upload','עדכון השקעות מהדבקה','מדביקים טבלה או מעלים דוח מבית ההשקעות, בודקים את השינויים ושומרים.','holdings'],
-  ['ShieldCheck','סיכון ופיזור','ריכוז בנכסים, חשיפה לדולר, פיזור בין תחומים ומה יקרה בירידה בשוק.','risk'],
-  ['FlaskConical','סימולטור ״מה יקרה אם״','רכב, מענק שחרור או שינוי בהפקדה — ומה זה עושה ליתרה ולמועד היעדים.','whatif'],
-  ['ScanLine','קליטת הוצאות חכמה','פירוט אשראי, דף בנק או צילום קבלה — עם קטגוריות מוצעות וזיהוי כפילויות.','capture'],
-  ['Smartphone','אפליקציה בטלפון','התקנה למסך הבית, ניווט ביד אחת, הוספה מהירה והתראות לבחירתך.','app'],
-  ['Repeat','סנכרון וגיבוי','סנכרון מוצפן בין הטלפון למחשב, היסטוריית גרסאות וגיבוי מוצפן.','sync'],
-  ['Sparkles','עיצוב מלוטש','כרטיסי זכוכית, מספרים בולטים ואנימציות קצרות — פחות עומס, יותר בהירות.','']
+  ['Sparkles','עיצוב חדש לגמרי','מראה בהיר ונקי, עם מצב כהה בלחיצה (השמש/הירח למעלה).',''],
+  ['House','חמישה אזורים במקום תפריט ארוך','בית · הכסף שלי · חיסכון והשקעות · תכנון וכלים · Claude. בתוך כל אזור — לשוניות פשוטות.','tour-hubs'],
+  ['Wallet','היתרה בעו״ש — בראש המסך','רואים כמה יש עכשיו, ומעדכנים בלחיצה לפי מה שהבנק מראה.','balance'],
+  ['CircleDollarSign','שער הדולר מתעדכן לבד','אופק מביאה את השער כל יום, וגם לפי תאריך בתנועות ובעדכון החודשי.','fx'],
+  ['Plus','הוספה מהירה מכל מקום','הכפתור במרכז הסרגל התחתון, או ״הוספת תנועה״ למעלה.','quick'],
+  ['LayoutGrid','דף בית רגוע יותר','פחות כרטיסים כברירת מחדל — ואפשר להוסיף או להסיר ב״התאמה אישית״.','home']
 ];
 function openWhatsNew(){
   try{localStorage.setItem(WHATS_NEW_KEY,WHATS_NEW_VERSION);}catch{}
-  showDialog(firstVisit?'ברוך הבא לאופק':'מה חדש באופק 3.0',`<p class="confirm-text">${firstVisit?'הכסף שלך במקום אחד — והנה כמה דברים שכדאי להכיר. הנתונים כאן הם הדגמה, ואפשר להסיר אותם בכל רגע.':'עשרה שדרוגים, והכפתורים נשארו בדיוק איפה שהיו.'}</p><div class="whats-new">${WHATS_NEW.filter(item=>!firstVisit||item[3]).map(([ic,title,text,go],i)=>`<${go?`button type="button" data-action="whats-new:${go}"`:'div'} class="whats-new-item" style="--i:${i}"><span class="asset-icon ${['gold','purple','green'][i%3]}">${icon(ic,18)}</span><span><b>${e(title)}</b><small>${e(text)}</small></span>${go?icon('ChevronLeft',15):''}</${go?'button':'div'}>`).join('')}</div><div class="form-actions">${btn('יאללה, מתחילים','dialog-close','Check','primary')}</div>`,true);
+  showDialog('מה חדש באופק 4.0',`<p class="confirm-text">שינוי גדול: עיצוב חדש, ניווט פשוט יותר, והכסף שבעו״ש תמיד מול העיניים.</p><div class="whats-new">${WHATS_NEW.map(([ic,title,text,go],i)=>`<${go?`button type="button" data-action="whats-new:${go}"`:'div'} class="whats-new-item" style="--i:${i}"><span class="whats-new-icon">${icon(ic,20)}</span><span><b>${e(title)}</b><small>${e(text)}</small></span>${go?icon('ChevronLeft',15):''}</${go?'button':'div'}>`).join('')}</div><div class="form-actions">${btn('יאללה, מתחילים','dialog-close','Check','primary')}</div>`,true);
   // Focus the dialog itself (not the close button), so it opens at the top without a focus ring.
   const dialog=document.querySelector('dialog');if(dialog){dialog.tabIndex=-1;dialog.focus();}
 }
@@ -60,6 +56,10 @@ function goToFeature(target){
   closeDialog();
   const scrollTo=selector=>setTimeout(()=>document.querySelector(selector)?.scrollIntoView({behavior:'smooth',block:'start'}),80);
   if(target==='home'){ui.homeEdit=true;navigate('dashboard');}
+  else if(target==='tour-hubs'){if(window.innerWidth<=760)openMoreSheet();else navigate('dashboard');}
+  else if(target==='balance'){navigate('dashboard');setTimeout(()=>openBalanceEditor(),60);}
+  else if(target==='fx'){navigate('settings');scrollTo('#fx-card');}
+  else if(target==='quick')openQuickAdd();
   else if(target==='goals'){navigate('goals');scrollTo('.alloc-card');}
   else if(target==='bills')navigate('bills');
   else if(target==='holdings'){navigate('investments');setTimeout(()=>openHoldingsImport(),60);}
@@ -79,6 +79,7 @@ document.addEventListener('click',event=>{
 if(typeof setTimeout==='function'&&typeof document!=='undefined'&&document.head){
   setTimeout(()=>{
     let seen=null;try{seen=localStorage.getItem(WHATS_NEW_KEY);}catch{}
-    if(seen!==WHATS_NEW_VERSION&&!document.querySelector('dialog'))openWhatsNew();
+    if(seen===WHATS_NEW_VERSION||document.querySelector('dialog'))return;
+    if(firstVisit)openSetup(0);else openWhatsNew();
   },900);
 }

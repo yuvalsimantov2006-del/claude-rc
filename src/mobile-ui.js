@@ -17,10 +17,10 @@ const readJSON=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)|
 const writeJSON=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
 
 // ---------- Bottom navigation ----------
-const BOTTOM_TABS=[['dashboard','סקירה','LayoutDashboard'],['transactions','תנועות','ArrowLeftRight'],['investments','השקעות','TrendingUp'],['goals','יעדים','Target']];
 function mobileNav(){
-  const inTabs=BOTTOM_TABS.some(([id])=>id===ui.page);
-  return `<nav class="bottom-nav" aria-label="ניווט מהיר">${BOTTOM_TABS.map(([id,label,ic])=>`<button type="button" class="${ui.page===id?'active':''}" data-action="navigate:${id}" ${ui.page===id?'aria-current="page"':''}>${icon(ic,21)}<span>${label}</span></button>`).join('')}<button type="button" class="${inTabs?'':'active'}" data-action="nav-open" aria-label="כל העמודים">${icon('Menu',21)}<span>עוד</span></button></nav>`;
+  const hub=hubOf(ui.page)?.id,more=['plan','ai'].includes(hub)||ui.page==='settings';
+  const tab=(id,label,ic)=>`<button type="button" class="bottom-tab${hub===id?' active':''}" data-action="hub:${id}"${hub===id?' aria-current="page"':''}>${icon(ic,22)}<span>${label}</span></button>`;
+  return `<nav class="bottom-nav" aria-label="ניווט מהיר">${tab('home','בית','House')}${tab('money','הכסף שלי','Wallet')}<button type="button" class="bottom-add" data-action="quick-add" aria-label="הוספת תנועה">${icon('Plus',26)}</button>${tab('wealth','חיסכון','PiggyBank')}<button type="button" class="bottom-tab${more?' active':''}" data-action="more" aria-label="עוד עמודים">${icon('Menu',22)}<span>עוד</span></button></nav>`;
 }
 
 // ---------- Quick add ----------

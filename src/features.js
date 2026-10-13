@@ -365,7 +365,7 @@ function whatIfHTML(){
   return r.average>0?`<div class="whatif-result"><div><span>ממוצע חודשי היום</span><b dir="ltr">${money(r.average)}</b></div><div><span>חיסכון בחודש</span><b dir="ltr" class="positive">${money(r.monthly)}</b></div><div><span>אחרי ${r.years} שנים בהשקעה</span><b dir="ltr" class="gold">${money(r.future)}</b></div></div><p class="muted small">${money(r.contributed)} הופקדו בפועל — השאר הוא ריבית דריבית בתשואה של ${s.ret}% בשנה.</p>`:`<p class="muted">אין הוצאות בקטגוריה הזו בשלושת החודשים האחרונים.</p>`;
 }
 function labView(){
-  const tab=ui.labTab||'market';
+  const tab=ui.labTab||'whatif';
   return `<div class="segmented lab-tabs" role="tablist">${[['market','סימולציית שוק','FlaskConical'],['whatif','מה יקרה אם','Sparkles']].map(([id,label,ic])=>`<button type="button" role="tab" aria-selected="${tab===id}" class="${tab===id?'active':''}" data-action="lab-tab:${id}">${icon(ic,15)}<span>${label}</span></button>`).join('')}</div>`+(tab==='whatif'?scenarioView():marketLabView());
 }
 function marketLabView(){
@@ -449,7 +449,6 @@ function togglePrivacy(){
 function afterRender(){
   const log=document.querySelector('#ai-log');if(log)log.scrollTop=log.scrollHeight;
   const box=document.querySelector('#ai-input');if(box)autosize(box);
-  const fab=document.querySelector('.mobile-fab');if(fab)fab.hidden=ui.page==='copilot';
   motionAfterRender();
 }
 

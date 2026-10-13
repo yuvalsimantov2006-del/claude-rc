@@ -9,6 +9,7 @@ import {cashflowForecast} from './money.js';
 // devices. Rows are packed from the widgets' relative widths (out of 12), so any order fills cleanly.
 
 const HOME_WIDGETS=[
+  {id:'hero',label:'היתרה בעו״ש',icon:'Wallet',hint:'כמה יש עכשיו, כמה בטוח לבזבז היום והשווי הנקי',w:12},
   {id:'networth',label:'השווי הנקי',icon:'Wallet',hint:'נכסים פחות התחייבויות',w:4.4},
   {id:'month',label:'סיכום החודש',icon:'ArrowDownLeft',hint:'הכנסות, הוצאות וחיסכון',w:7.6,stack:true},
   {id:'assets',label:'פס הנכסים',icon:'Landmark',hint:'מזומן, חסכונות, השקעות וחובות',w:12},
@@ -28,21 +29,24 @@ const HOME_WIDGETS=[
   {id:'recent',label:'התנועות האחרונות',icon:'Receipt',hint:'התנועות האחרונות החודש',w:7.8},
   {id:'goals',label:'היעדים שלך',icon:'Target',hint:'ההתקדמות ביעדי החיסכון',w:4.2}
 ];
-const HOME_DEFAULT_HIDDEN=['cashflow'];
+// A calm default: the balance hero, this month, what's coming, then the rest.
+const HOME_DEFAULT=['hero','month','upcoming','recent','goals','investments','spending','budgets'];
 const HOME_PRESETS=[
-  ['full','מלא',null],
-  ['focus','ממוקד',['networth','month','safe','upcoming','budgets','free','goals']],
-  ['investor','משקיע',['networth','investments','free','worth','goals','assets']],
-  ['budget','תקציב חודשי',['month','pace','safe','budgets','upcoming','recent','spending','cashflow']]
+  ['calm','רגוע',HOME_DEFAULT],
+  ['full','מלא',['hero','month','upcoming','assets','worth','spending','insight','health','pace','ask','split','investments','free','budgets','recent','goals']],
+  ['investor','משקיע',['hero','investments','free','worth','goals','assets']],
+  ['budget','תקציב חודשי',['hero','month','pace','budgets','upcoming','recent','spending','cashflow']]
 ];
 const homeWidget=id=>HOME_WIDGETS.find(w=>w.id===id);
 
 // The saved layout, completed with widgets it does not know (added in a later version → hidden).
 function homeLayout(){
   const saved=data.prefs?.home,known=new Set(HOME_WIDGETS.map(w=>w.id));
-  if(!saved)return {order:HOME_WIDGETS.map(w=>w.id),hidden:[...HOME_DEFAULT_HIDDEN],custom:false};
+  if(!saved){const rest=HOME_WIDGETS.map(w=>w.id).filter(id=>!HOME_DEFAULT.includes(id));return {order:[...HOME_DEFAULT,...rest],hidden:rest,custom:false};}
   const order=saved.order.filter(id=>known.has(id)),missing=HOME_WIDGETS.map(w=>w.id).filter(id=>!order.includes(id));
-  return {order:[...order,...missing],hidden:[...saved.hidden.filter(id=>known.has(id)),...missing],custom:true};
+  // Layouts saved before 4.0 do not know the balance hero; it always comes first for them.
+  const hero=missing.includes('hero')?['hero']:[],rest=missing.filter(id=>id!=='hero');
+  return {order:[...hero,...order,...rest],hidden:[...saved.hidden.filter(id=>known.has(id)),...rest],custom:true};
 }
 const visibleWidgets=layout=>layout.order.filter(id=>!layout.hidden.includes(id));
 function saveHomeLayout(visible,message=''){
@@ -63,6 +67,7 @@ function homeContext(){
 }
 const widgetHead=(ic,label,action,link)=>`<div class="row-between"><span class="eyebrow">${icon(ic,15)} ${e(label)}</span>${action?textBtn(link,action):''}</div>`;
 const HOME_RENDER={
+  hero:({d,b})=>heroCard(d,b),
   networth:({b,nw})=>card(`<div class="net-heading"><span>השווי הנקי שלך</span><span class="net-mark">${icon('Wallet',19)}</span></div><div class="net-value" dir="ltr">${money(b.net)}</div><div class="net-change">${nw==null?'<span class="muted">נכסים פחות התחייבויות</span>':change(nw,'לעומת העדכון הקודם')}</div><div class="net-bottom"><div><span>סך הנכסים</span><b dir="ltr">${money(b.total)}</b></div><div><span>התחייבויות</span><b dir="ltr">${money(b.debt)}</b></div><span class="net-decoration">${icon('BarChart3',68)}</span></div>`,'net-card'),
   month:({d,s})=>`<div class="summary-grid">${metric('הכנסות החודש',money(s.income),'הכנסה שנרשמה ב'+monthLabel(ui.month).split(' ')[0],'ArrowDownLeft','green')}${metric('הוצאות החודש',money(s.expenses),s.expenses<=d.overallBudget?'בתוך יעד ההוצאות החודשי':'מעל יעד ההוצאות החודשי','ArrowUpLeft','purple')}${metric('חיסכון החודש',money(s.saved),`<span class="${s.saved>=0?'positive':'negative'}">${pct(s.rate)} מההכנסה שלך</span>`,'PiggyBank')}</div>`,
   assets:({b})=>`<div class="asset-strip">${[['מזומן וחשבונות',b.cash,'Wallet','blue','accounts'],['חסכונות',b.savings,'PiggyBank','purple','goals'],['השקעות',b.investments,'TrendingUp','gold','investments'],['חובות והלוואות',b.debt,'Landmark','red','accounts']].map(([name,value,ic,color,route])=>`<button class="asset-strip-item" data-action="navigate:${route}"><span class="asset-icon ${color}">${icon(ic,19)}</span><div><span>${name}</span><b dir="ltr">${money(value)}</b></div>${icon('ChevronLeft',15)}</button>`).join('')}</div>`,
@@ -105,6 +110,12 @@ const HOME_RENDER={
   goals:({d})=>card(head('היעדים שלך','',ib('Plus','הוספת יעד','open:goal'))+d.goals.slice(0,3).map((g,i)=>{const v=goalDetails(g);return `<button class="goal-preview" data-action="navigate:goals"><span class="asset-icon ${i%2?'purple':'gold'}">${icon(g.type==='קרן חירום'?'ShieldCheck':'Target')}</span><div><div class="row-between"><b>${e(g.name)}</b><span class="muted">${v.hasTarget?Math.round(v.progress)+'%':'תחזית'}</span></div>${progress(v.progress,i%2?'purple':'')}<small>${v.hasTarget?money(v.saved)+' מתוך '+money(g.target):money(v.saved)+' היום · '+money(v.projected)+' צפויים'}</small></div></button>`;}).join('')+(!d.goals.length?empty('מה היעד הבא שלך?','',btn('יצירת יעד','open:goal')):'')+`<div class="goal-more">${textBtn('לכל היעדים','navigate:goals')}</div>`,'goals-preview')
 };
 
+function heroCard(d,b){
+  const banks=checkingAccounts(d);
+  if(!banks.length)return card(`<div class="hero-empty"><span class="hero-label">${icon('Wallet',18)}בעו״ש עכשיו</span><h2>עוד לא הגדרת חשבון עו״ש</h2><p>הקלד כמה יש לך בחשבון, ואופק תחשב ממנו כמה בטוח לבזבז כל יום.</p>${btn('הגדרת היתרה בעו״ש','setup-start','Pencil','primary')}</div>`,'hero-card');
+  const total=checkingTotal(d),updated=banks.map(a=>a.balanceUpdated).filter(Boolean).sort().at(-1),safe=safeToSpend(d,today());
+  return card(`<div class="hero-top"><span class="hero-label">${icon('Wallet',18)}בעו״ש עכשיו${banks.length>1?` · ${banks.length} חשבונות`:''}</span><button type="button" class="hero-edit" data-action="balance-edit">${icon('Pencil',15)}<span>עדכון יתרה</span></button></div><div class="hero-balance${total<0?' negative':''}" dir="ltr">${money(total,'ILS',Number.isInteger(Math.round(total*100)/100)?0:2)}</div><div class="hero-updated">${e(updatedLabel(updated))}</div><div class="hero-stats"><button type="button" class="hero-stat" data-action="navigate:bills"><span>בטוח לבזבז היום</span><b dir="ltr">${money(Math.max(0,safe.perDay))}</b><small>${safe.daysLeft} ימים לסוף החודש</small></button><button type="button" class="hero-stat" data-action="navigate:accounts"><span>השווי הנקי</span><b dir="ltr">${money(b.net)}</b><small>נכסים פחות התחייבויות</small></button></div><div class="hero-foot">${fxChip()}</div>`,'hero-card');
+}
 function homeView(){
   const layout=homeLayout(),visible=visibleWidgets(layout),ctx=homeContext();let n=0;
   const rows=homeRows(visible).map(row=>`<div class="home-row${row.some(id=>homeWidget(id).stack)?' stack-md':''}" data-count="${row.length}" style="grid-template-columns:${row.map(id=>`minmax(0,${homeWidget(id).w}fr)`).join(' ')}">${row.map(id=>{let html;try{html=HOME_RENDER[id](ctx);}catch(err){html=card(`<p class="muted small">${e(homeWidget(id).label)}: לא הצלחנו להציג את הכרטיס.</p>`);}return `<div class="home-cell" data-widget="${id}" style="--i:${n++}">${html}</div>`;}).join('')}</div>`).join('');
@@ -112,7 +123,7 @@ function homeView(){
 }
 
 // ---------- Editor ----------
-function presetMatches(visible,ids){return ids?visible.join()===ids.join():visible.join()===HOME_WIDGETS.map(w=>w.id).filter(id=>!HOME_DEFAULT_HIDDEN.includes(id)).join();}
+function presetMatches(visible,ids){return visible.join()===ids.join();}
 function homeEditor(layout){
   const visible=visibleWidgets(layout),hidden=HOME_WIDGETS.map(w=>w.id).filter(id=>!visible.includes(id));
   const row=(id,i)=>{const w=homeWidget(id),l=e(w.label);return `<li class="home-editor-row" draggable="true" data-home-id="${id}"><span class="grip" title="גרירה לשינוי הסדר">${icon('GripVertical',16)}</span><span class="home-editor-index">${i+1}</span><span class="asset-icon">${icon(w.icon,16)}</span><div><b>${l}${w.fresh?'<span class="nav-new">חדש</span>':''}</b><small>${e(w.hint)}</small></div><div class="home-editor-actions"><button type="button" class="icon-button" aria-label="הזזה למעלה: ${l}" title="למעלה" data-action="home-move:${id}:-1" ${i===0?'disabled':''}>${icon('ArrowUp',16)}</button><button type="button" class="icon-button" aria-label="הזזה למטה: ${l}" title="למטה" data-action="home-move:${id}:1" ${i===visible.length-1?'disabled':''}>${icon('ArrowDown',16)}</button><button type="button" class="icon-button" aria-label="הסתרה: ${l}" title="הסתרה" data-action="home-toggle:${id}">${icon('EyeOff',16)}</button></div></li>`;};
@@ -143,7 +154,7 @@ document.addEventListener('click',event=>{
     }
     else if(action==='home-preset'){
       const preset=HOME_PRESETS.find(p=>p[0]===a);if(!preset)return;
-      saveHomeLayout(preset[2]||HOME_WIDGETS.map(w=>w.id).filter(id=>!HOME_DEFAULT_HIDDEN.includes(id)),`נבחרה הפריסה ״${preset[1]}״`);
+      saveHomeLayout(preset[2],`נבחרה הפריסה ״${preset[1]}״`);
     }
   }catch(err){toast(err.message,true);}
 });
