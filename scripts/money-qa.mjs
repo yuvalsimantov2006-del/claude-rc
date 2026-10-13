@@ -34,6 +34,8 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disab
 const errors=[];
 async function newPage(viewport){
   const context=await browser.newContext({viewport,locale:'he-IL'});
+  // Dollar rate sources are mocked: the app fetches the USD/ILS rate on start.
+  await context.route(/api\.frankfurter\.dev|cdn\.jsdelivr\.net|open\.er-api\.com/,route=>{const url=new URL(route.request().url());route.fulfill({status:200,headers:{'content-type':'application/json','access-control-allow-origin':'*'},body:JSON.stringify({base:'USD',quote:'ILS',rate:3.65,date:url.searchParams.get('date')||'2026-10-12'})});});
   // The one-time "what's new" tour is covered by its own checks; keep it out of the way here.
   await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.0');}catch{}});
   const page=await context.newPage();
@@ -51,7 +53,7 @@ const settle=()=>page.waitForTimeout(350);
 // Grouped navigation and dashboard row.
 await page.locator('.hero-card').waitFor();
 assert.equal(await page.locator('.hub-nav .hub-item').count(),5,'five hubs');
-assert.ok(await page.locator('[data-widget="safe"] .safe-number').count(),'safe-to-spend on dashboard');
+assert.match(await page.locator('.hero-card .hero-stats').textContent(),/בטוח לבזבז היום/,'safe-to-spend in the balance hero');
 await page.screenshot({path:path.join(shots,'m01-dashboard.png'),fullPage:true});
 
 // Bills & cash-flow.
@@ -175,7 +177,7 @@ await page.locator('[data-action="tool-tab:loan"].active').waitFor();
 
 // Claude proposes a shared expense; the user approves it.
 await page.evaluate(()=>localStorage.setItem('ofek-ai-v1',JSON.stringify({apiKey:'sk-ant-test'})));
-await page.reload();
+await page.waitForTimeout(1200);await page.reload();
 await go('copilot');
 await page.locator('#ai-input').fill('תחלק את ארוחת הצהריים באילת');
 await page.keyboard.press('Enter');

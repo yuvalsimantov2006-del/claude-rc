@@ -16,6 +16,8 @@ const errors=[],expected=/ERR_INTERNET_DISCONNECTED|status of 401/;
 const stored=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
 async function newPage({viewport={width:1440,height:1000},tour=false,...options}={}){
   const context=await browser.newContext({viewport,locale:'he-IL',...options});
+  // Dollar rate sources are mocked: the app fetches the USD/ILS rate on start.
+  await context.route(/api\.frankfurter\.dev|cdn\.jsdelivr\.net|open\.er-api\.com/,route=>{const url=new URL(route.request().url());route.fulfill({status:200,headers:{'content-type':'application/json','access-control-allow-origin':'*'},body:JSON.stringify({base:'USD',quote:'ILS',rate:3.65,date:url.searchParams.get('date')||'2026-10-12'})});});
   if(!tour)await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.0');}catch{}});
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
@@ -50,7 +52,7 @@ try{
   await page.screenshot({path:path.join(shots,'v3-02-home-editor.png')});
   await page.locator('[data-action="home-preset:investor"]').click();
   assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'preset');
-  await page.waitForTimeout(400);// let the browser commit localStorage before reloading
+  await page.waitForTimeout(1200);// Chromium writes localStorage to its store asynchronously; give it time before reloading
   await page.reload();await page.locator('.home-board').waitFor();
   assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'layout persists in data.prefs.home');
   assert.equal((await stored(page)).prefs.home.order[0],'hero');

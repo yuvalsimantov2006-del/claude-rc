@@ -190,7 +190,7 @@ input[dir="ltr"], textarea[dir="ltr"] { text-align: end; }
   border-block-end: 1px solid var(--border);
 }
 .topbar-start { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.topbar-menu, .topbar-brand { display: none; }
+.topbar .topbar-menu, .topbar-brand { display: none; }
 .topbar-brand .brand-svg { box-shadow: none; border-radius: 8px; }
 .breadcrumb { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-small); color: var(--text-muted); white-space: nowrap; }
 .breadcrumb > span { overflow: hidden; text-overflow: ellipsis; }
@@ -286,7 +286,8 @@ main {
 .month-picker:hover { border-color: var(--border-strong); }
 .month-picker:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .month-picker select {
-  width: auto; min-height: 36px; padding-block: 0; padding-inline: 2px 22px;
+  width: auto; min-height: 36px; padding-block: 0; padding-inline: 2px 24px;
+  background-position: left 4px center, left 10.5px center;
   border: 0; background-color: transparent; box-shadow: none;
   color: var(--text); font-size: var(--fs-small); font-weight: var(--fw-semibold);
 }
@@ -376,13 +377,15 @@ html.privacy .safe-number:hover { filter: none; }
 /* ---------- Phone (≤ 760) ---------- */
 @media (max-width: 760px) {
   body { background-attachment: scroll; background-size: 100% 900px; }
-  .sidebar { display: none; }
+  /* Hidden but still rendered: the brand SVG gradient (#ofek-brand) lives in the sidebar
+     and the top-bar mark references it. */
+  .sidebar { visibility: hidden; pointer-events: none; transform: translateX(110%); }
+  .sidebar:dir(ltr) { transform: translateX(-110%); }
   .main-shell { margin-inline-start: 0; }
 
   .topbar { gap: var(--sp-2); padding-inline: var(--sp-3) var(--sp-3); }
   .topbar-start { gap: var(--sp-1); }
-  .topbar-menu { display: inline-grid; }
-  .topbar-actions .icon-button.topbar-menu, .topbar .topbar-menu { border-color: transparent; background: transparent; width: var(--touch); height: var(--touch); color: var(--text); }
+  .topbar .topbar-menu { display: inline-grid; border-color: transparent; background: transparent; width: var(--touch); height: var(--touch); color: var(--text); }
   .topbar-brand { display: inline-flex; margin-inline-end: var(--sp-1); }
   .breadcrumb > span, .breadcrumb > svg { display: none; }
   .breadcrumb > b { font-size: 17px; }

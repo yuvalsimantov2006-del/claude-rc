@@ -37,6 +37,8 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disab
 const errors=[];
 async function newPage(viewport){
   const context=await browser.newContext({viewport,locale:'he-IL'});
+  // Dollar rate sources are mocked: the app fetches the USD/ILS rate on start.
+  await context.route(/api\.frankfurter\.dev|cdn\.jsdelivr\.net|open\.er-api\.com/,route=>{const url=new URL(route.request().url());route.fulfill({status:200,headers:{'content-type':'application/json','access-control-allow-origin':'*'},body:JSON.stringify({base:'USD',quote:'ILS',rate:3.65,date:url.searchParams.get('date')||'2026-10-12'})});});
   // The one-time "what's new" tour is covered by its own checks; keep it out of the way here.
   await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.0');}catch{}});
   const page=await context.newPage();
@@ -49,7 +51,7 @@ async function newPage(viewport){
 
 const page=await newPage({width:1440,height:1000});
 await page.locator('.hero-card').waitFor();
-assert.ok(await page.locator('[data-widget="health"] .score-ring').count(),'health ring on dashboard');
+assert.ok(await page.locator('.hero-card .hero-balance').count(),'checking balance hero on dashboard');
 await page.screenshot({path:path.join(shots,'01-dashboard.png'),fullPage:true});
 
 for(const [route,heading] of [['insights','התובנות שלך'],['lab','מעבדת העתיד'],['budgets','התקציבים שלך'],['copilot','אופק AI'],['settings','הגדרות וגיבוי']]){
@@ -58,8 +60,12 @@ for(const [route,heading] of [['insights','התובנות שלך'],['lab','מע�
   await page.screenshot({path:path.join(shots,`02-${route}.png`),fullPage:true});
 }
 
-// Future lab reacts to sliders.
+await go(page,'insights');
+assert.ok(await page.locator('.score-ring').count(),'health ring on insights');
+
+// Future lab (market tab; the what-if simulator is the default tab) reacts to sliders.
 await go(page,'lab');
+await page.locator('[data-action="lab-tab:market"]').click();
 const before=await page.locator('#lab-results .metric-value').first().textContent();
 await page.locator('input[data-lab="monthly"]').fill('9000');
 await page.waitForTimeout(100);
@@ -123,7 +129,7 @@ assert.ok(docBlock,'attachment sent as a document block');
 await page.screenshot({path:path.join(shots,'06-copilot-chat.png'),fullPage:true});
 
 // Conversation survives reload (without thinking blocks or attachment payloads).
-await page.reload();
+await page.waitForTimeout(1200);await page.reload();
 await page.locator('.ai-proposal').first().waitFor();
 const stored=await page.evaluate(()=>localStorage.getItem('ofek-ai-chat-v1'));
 assert.ok(!stored.includes('"thinking"'));assert.ok(!stored.includes('חלב,6.9'));
