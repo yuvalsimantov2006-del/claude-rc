@@ -549,6 +549,9 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .lab-controls { display: flex; }
   .scn-events { display: flex; }
   .scn-event { padding: var(--sp-3); }
+  .scn-event > .row-between { flex-wrap: wrap; }
+  .scn-event input.scn-name { flex: 1 1 0; }
+  .scn-event .scn-type { order: 3; }
   .scn-presets .ai-chip { min-height: 40px; }
 
   .tool-fields { grid-template-columns: minmax(0, 1fr); }
@@ -581,7 +584,7 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .insights-intro h2 { font-size: 19px; }
   .ai-letter { font-size: var(--fs-small); line-height: 1.75; }
 }
-@media (max-width: 400px) {
+@media (max-width: 360px) {
   .scn-fields { grid-template-columns: minmax(0, 1fr); }
   .buy-facts { grid-template-columns: minmax(0, 1fr); }
   .breakdown { grid-template-columns: minmax(0, 1fr); }

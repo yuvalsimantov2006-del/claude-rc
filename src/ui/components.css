@@ -179,7 +179,10 @@ input:disabled, select:disabled, textarea:disabled, input[readonly]:not([type="c
   background-color: var(--surface-2); color: var(--text-muted); cursor: not-allowed;
 }
 input[readonly]:not([type="checkbox"]) { cursor: default; }
-input[type="date"], input[type="month"], input[type="time"] { font-variant-numeric: tabular-nums; }
+input[type="date"], input[type="month"], input[type="time"] { font-variant-numeric: tabular-nums; text-align: end; }
+input[type="date"]::-webkit-date-and-time-value, input[type="month"]::-webkit-date-and-time-value { text-align: end; }
+input[type="date"]::-webkit-datetime-edit, input[type="month"]::-webkit-datetime-edit { display: inline-flex; justify-content: flex-end; flex: 1; }
+input[type="date"]::-webkit-datetime-edit-fields-wrapper, input[type="month"]::-webkit-datetime-edit-fields-wrapper { display: inline-flex; }
 input[type="date"]::-webkit-calendar-picker-indicator { opacity: .6; cursor: pointer; }
 [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
 input[type="number"] { font-variant-numeric: tabular-nums; }
@@ -212,11 +215,25 @@ input[type="checkbox"]:not(.switch):disabled { opacity: .45; cursor: not-allowed
 input:user-invalid, select:user-invalid, textarea:user-invalid { border-color: var(--negative); }
 input:user-invalid:focus, select:user-invalid:focus, textarea:user-invalid:focus { box-shadow: 0 0 0 3px var(--negative-soft); }
 
+/* Shared input wrappers (app.js): search box with a leading icon, amount with a currency suffix.
+   !important on padding: the global input rule's :not() chain outranks a wrapper selector. */
+.search-field { position: relative; display: flex; align-items: center; min-width: 0; }
+.search-field > svg { position: absolute; inset-inline-start: var(--sp-3); color: var(--text-subtle); pointer-events: none; }
+.search-field > input { padding-inline-start: 40px !important; }
+.currency-input { position: relative; display: flex; align-items: center; min-width: 0; }
+.currency-input > input { padding-inline-end: 40px !important; text-align: end; font-variant-numeric: tabular-nums; }
+.currency-input > span {
+  position: absolute; inset-inline-end: var(--sp-3);
+  color: var(--text-subtle); font-weight: var(--fw-bold); pointer-events: none;
+}
+
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: start; }
 .form-grid > .full, .form-grid > .notice, .form-grid > .segmented, .form-grid > .form-error,
 .form-grid > .check-field:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .full { grid-column: 1 / -1; }
 .form-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin-block-start: var(--sp-5); }
+/* Bare buttons placed straight after a form grid (settings) */
+.form-grid ~ .button, .form-grid ~ .text-button { margin-block-start: var(--sp-4); margin-inline-end: var(--sp-2); }
 .check-field {
   display: inline-flex; align-items: center; gap: 10px; min-height: var(--touch);
   font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--text); cursor: pointer;
@@ -249,6 +266,32 @@ input.switch:focus-visible { outline: 2px solid var(--focus-color); outline-offs
 .form-error:empty { display: none; }
 #entity-error:empty { display: none; }
 #entity-error > .notice { margin-block-end: var(--sp-4); }
+
+/* ---------- Settings rows (label + help + control) and alert rows ---------- */
+.notify-list, .alerts-list { display: flex; flex-direction: column; }
+.notify-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
+  min-height: 56px; padding-block: var(--sp-3);
+  border-block-start: 1px solid var(--border); cursor: pointer;
+}
+.notify-list > .notify-row:first-child { border-block-start: 0; padding-block-start: 0; }
+.notify-row > span { flex: 1; min-width: 0; }
+.notify-row b { display: block; font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text); }
+.notify-row small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); line-height: 1.5; color: var(--text-muted); }
+.notify-row:has(input:disabled) { cursor: not-allowed; }
+.alerts-list { gap: var(--sp-1); margin-block-end: var(--sp-2); }
+.alert-row {
+  display: flex; align-items: center; gap: var(--sp-3); width: 100%;
+  padding: var(--sp-3); border: 0; border-radius: var(--r-md); background: none;
+  color: var(--text); text-align: start;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.alert-row:hover { background: var(--hover); }
+.alert-row > div { flex: 1; min-width: 0; }
+.alert-row b { display: block; font-size: var(--fs-small); font-weight: var(--fw-bold); }
+.alert-row small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); line-height: 1.5; color: var(--text-muted); }
+.alert-row > svg:last-child { flex: none; color: var(--text-subtle); }
+.alert-row:focus-visible { outline-offset: -2px; }
 
 /* ---------- Notice ---------- */
 .notice {
@@ -355,8 +398,9 @@ th {
   padding: var(--sp-2) var(--sp-3); text-align: start; vertical-align: bottom;
   font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--text-subtle);
   border-block-end: 1px solid var(--border);
-  background: var(--card-bg);
+  background: var(--table-head-bg, var(--card-bg));
 }
+[data-theme="dark"] .card:has(.table-wrap) { --table-head-bg: var(--surface); }
 thead th { position: sticky; inset-block-start: 0; z-index: 1; }
 td { padding: var(--sp-3); vertical-align: middle; border-block-end: 1px solid var(--border); }
 tbody tr:last-child td { border-block-end: 0; }
@@ -412,10 +456,13 @@ dialog.modal::backdrop {
 .modal-head h2 { font-size: 20px; line-height: 1.3; font-weight: var(--fw-black); letter-spacing: -0.01em; min-width: 0; }
 .modal-head .icon-button { background: var(--surface-2); color: var(--text); }
 .modal-head .icon-button:hover { background: var(--surface-3); }
-.modal-head .icon-button:focus-visible { outline-offset: 0; }
+.modal-head .icon-button:focus-visible { outline-offset: -2px; }
+.modal-head .icon-button:focus:not(:focus-visible) { outline: none; }
+/* showDialog focuses the dialog itself (or an [autofocus] title), so no ring lands on "close" */
+dialog.modal:focus, dialog.modal .modal-head h2:focus { outline: none; }
 .modal .form-actions { margin-block-start: var(--sp-6); }
-.modal .form-actions .button.danger { background: var(--negative); color: var(--text-inverse); }
-.modal .form-actions .button.danger:hover { background: color-mix(in srgb, var(--negative) 88%, var(--text)); }
+.modal .form-actions .button.danger { background: var(--danger-fill); color: var(--on-danger); }
+.modal .form-actions .button.danger:hover { background: var(--danger-fill-hover); }
 .confirm-text { margin-block-end: var(--sp-2); font-size: var(--fs-body); line-height: 1.6; color: var(--text-muted); }
 
 /* ---------- Toast ---------- */
@@ -440,6 +487,8 @@ dialog.modal::backdrop {
   font-size: var(--fs-small); font-weight: var(--fw-bold);
 }
 .toast-undo:hover { background: color-mix(in srgb, var(--toast-accent) 24%, transparent); }
+/* Desktop: centre on the content column, not the viewport */
+@media (min-width: 761px) { .toast { inset-inline-start: var(--sidebar-w); } }
 @keyframes sheet-up { from { transform: translateY(48px); opacity: .5; } to { transform: none; opacity: 1; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
@@ -462,23 +511,35 @@ kbd {
   .section-head { margin-block-end: var(--sp-3); }
   .section-head h2 { font-size: 16px; }
   .button { min-height: var(--touch); }
-  .button.small { min-height: 36px; }
+  .button.small { min-height: 40px; }
   .icon-button { width: var(--touch); height: var(--touch); }
-  .segmented > button { min-height: 38px; }
-  .segmented.mini > button { min-height: 32px; }
+  /* Visible pill 38px; the hit area reaches into the track padding → ≥ 44px */
+  .segmented > button { position: relative; min-height: 38px; }
+  .segmented > button::after { content: ""; position: absolute; inset: -4px -1px; }
+  .segmented.mini > button { min-height: 38px; }
+  .segmented.mini > button::after { inset: -3px -1px; }
+  .text-button, .pay-button, .table-actions button { min-height: var(--touch); }
+  .form-grid ~ .button { display: flex; width: 100%; margin-inline-end: 0; margin-block-start: var(--sp-2); }
+  .form-grid + .button { margin-block-start: var(--sp-4); }
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]),
   select, textarea { font-size: 16px; } /* no iOS zoom on focus */
   .form-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
   .form-actions > .button { flex: 1 1 auto; }
   .form-actions > .button.primary, .form-actions > button[type="submit"] { flex: 2 1 auto; }
 
-  /* Three metrics: label + icon on one line, value under them, calm */
-  .three-metrics .metric { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); }
-  .three-metrics .metric-top { display: contents; }
-  .three-metrics .metric-top > span:first-child { grid-column: 1; grid-row: 1; }
-  .three-metrics .metric-icon { grid-column: 2; grid-row: 1 / span 3; width: 40px; height: 40px; }
-  .three-metrics .metric-value { grid-column: 1; margin-block-start: 2px; font-size: 22px; }
-  .three-metrics .metric-detail { grid-column: 1; }
+  /* Three metrics, 2+1: the two half-width cards stack icon over label over value;
+     the full-width third keeps the label + value with the icon at the side */
+  .three-metrics .metric-top { flex-direction: column-reverse; align-items: flex-start; gap: var(--sp-2); }
+  .three-metrics .metric-icon { width: 32px; height: 32px; border-radius: 10px; }
+  .three-metrics .metric-icon svg { width: 16px; height: 16px; }
+  .three-metrics .metric-value { margin-block-start: var(--sp-1); font-size: 22px; }
+  .three-metrics .metric-detail { font-size: var(--fs-micro); }
+  .three-metrics > .metric:last-child:nth-child(odd) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); }
+  .three-metrics > .metric:last-child:nth-child(odd) .metric-top { display: contents; }
+  .three-metrics > .metric:last-child:nth-child(odd) .metric-top > span:first-child { grid-column: 1; grid-row: 1; }
+  .three-metrics > .metric:last-child:nth-child(odd) .metric-icon { grid-column: 2; grid-row: 1 / span 3; width: 40px; height: 40px; border-radius: 12px; }
+  .three-metrics > .metric:last-child:nth-child(odd) .metric-value { grid-column: 1; margin-block-start: 2px; }
+  .three-metrics > .metric:last-child:nth-child(odd) .metric-detail { grid-column: 1; }
   .metric-value { font-size: 22px; }
   .large-number { font-size: 28px; }
 
@@ -488,7 +549,7 @@ kbd {
   dialog.modal, dialog.modal.wide, dialog.modal.sheet {
     width: 100%; max-width: 100%; max-height: 92dvh;
     margin: auto 0 0; padding: var(--sp-5) var(--sp-4) calc(var(--sp-4) + var(--safe-bottom));
-    border-radius: var(--r-xl) var(--r-xl) 0 0; border-block-end: 0;
+    border-radius: var(--r-xl) var(--r-xl) 0 0; border-block-end: 0; border-inline: 0;
   }
   dialog.modal[open] { animation: sheet-up var(--dur-sheet) var(--ease-out); }
   dialog.modal .modal-head { margin-block-end: var(--sp-4); }
@@ -498,7 +559,11 @@ kbd {
   }
   dialog.modal .modal-head h2 { font-size: 19px; }
 
-  .toast { inset-block-end: calc(var(--bottomnav-h) + var(--safe-bottom) + var(--sp-3)); width: calc(100vw - 24px); max-width: 560px; }
+  /* Clears the + button, which rises 24px above the nav; edges line up with the page gutter */
+  .toast {
+    inset-block-end: calc(var(--bottomnav-h) + var(--safe-bottom) + 24px + var(--sp-3));
+    width: calc(100vw - 2 * var(--gutter)); max-width: 560px;
+  }
 }
 @media (max-width: 760px) and (prefers-reduced-motion: reduce) {
   dialog.modal[open] { animation: none; }

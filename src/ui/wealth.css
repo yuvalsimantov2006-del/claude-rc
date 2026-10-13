@@ -129,9 +129,17 @@
 .saving-target .progress { height: 8px; }
 .saving-target small { font-size: var(--fs-micro); color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 
-.saving-card .goal-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.saving-card .goal-details > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
-.saving-card .goal-details b { font-variant-numeric: tabular-nums; }
+.saving-card .goal-details {
+  grid-template-columns: minmax(0, 1fr); gap: 0; padding: var(--sp-1) var(--sp-4);
+  border-radius: var(--r-md); border: 1px solid var(--border);
+}
+.saving-card .goal-details > div {
+  flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--sp-3);
+  padding: 9px 0; border-radius: 0; background: none;
+}
+.saving-card .goal-details > div + div { border-block-start: 1px dashed var(--border); }
+.saving-card .goal-details span { font-size: var(--fs-small); color: var(--text-muted); flex: none; }
+.saving-card .goal-details b { text-align: end; font-variant-numeric: tabular-nums; }
 .saving-card-status { margin-block-start: auto; }
 .saving-card-status .badge { white-space: normal; min-height: 28px; padding: 4px 11px; }
 .saving-assumption {
@@ -178,7 +186,7 @@
 .alloc-bar > span:first-child { border-start-start-radius: var(--r-pill); border-end-start-radius: var(--r-pill); }
 .alloc-bar > span:last-child { border-start-end-radius: var(--r-pill); border-end-end-radius: var(--r-pill); }
 .alloc-bar > span.free, .alloc-legend i.free {
-  background: repeating-linear-gradient(-45deg, var(--track) 0 4px, color-mix(in srgb, var(--chart-muted) 45%, var(--track)) 4px 6px);
+  background: repeating-linear-gradient(-45deg, var(--track) 0 4px, color-mix(in srgb, var(--chart-muted) 30%, var(--track)) 4px 6px);
 }
 .alloc-bar > span[style*="width:0%"] { display: none; }
 .alloc-legend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); }
@@ -339,16 +347,17 @@
 .risk-kpis b .badge { font-family: var(--font-sans); font-size: var(--fs-small); min-height: 26px; letter-spacing: 0; }
 .risk-kpis small { font-size: var(--fs-micro); color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 .risk-notes {
-  display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-4) 0 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; margin: var(--sp-4) 0 0; padding: var(--sp-1) var(--sp-4); list-style: none;
+  border-radius: var(--r-md); background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 18%, transparent);
 }
 .risk-notes li {
-  position: relative; padding: var(--sp-3) var(--sp-4); padding-inline-start: calc(var(--sp-4) + 14px);
-  border-radius: var(--r-md); background: var(--warning-soft);
-  border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
+  position: relative; padding-block: var(--sp-2); padding-inline-start: var(--sp-5);
   font-size: var(--fs-small); line-height: 1.55; color: var(--text);
 }
+.risk-notes li + li { border-block-start: 1px solid color-mix(in srgb, var(--warning) 16%, transparent); }
 .risk-notes li::before {
-  content: ""; position: absolute; inset-inline-start: var(--sp-4); inset-block-start: calc(var(--sp-3) + 0.5lh - 4px);
+  content: ""; position: absolute; inset-inline-start: 2px; inset-block-start: calc(var(--sp-2) + 0.775em - 4px);
   width: 8px; height: 8px; border-radius: 50%; background: var(--warning-vivid);
 }
 .risk-columns {
@@ -373,7 +382,6 @@
 .stress-table td:first-child b { display: block; font-size: var(--fs-small); font-weight: var(--fw-bold); }
 .stress-table td:first-child small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); line-height: 1.4; }
 .stress-table td[dir="ltr"] { text-align: end; }
-.stress-table th:nth-child(n+2) { text-align: end; }
 .stress-table td:last-child { text-align: end; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .stress-table td.negative { color: var(--negative); }
 
@@ -416,6 +424,7 @@
   font-family: var(--font-num); font-size: 22px; line-height: 1.2; font-weight: var(--fw-black); letter-spacing: var(--tracking-tight);
   font-variant-numeric: tabular-nums;
 }
+.benchmark-numbers b { unicode-bidi: plaintext; }
 .benchmark-numbers + p { margin-block-start: var(--sp-3); font-size: var(--fs-small); line-height: 1.55; }
 
 .asset-performance {
@@ -572,7 +581,7 @@
 .holdings-review table td:nth-child(2) { white-space: normal; min-width: 180px; }
 .holdings-review table td:nth-child(2) b { display: block; font-weight: var(--fw-bold); }
 .holdings-review table td:nth-child(2) small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); line-height: 1.4; }
-.holdings-review table td[dir="ltr"], .holdings-review table th:nth-child(n+3) { text-align: end; }
+.holdings-review table td[dir="ltr"] { text-align: end; }
 .holdings-review table td.positive { color: var(--positive); }
 .holdings-review table td.negative { color: var(--negative); }
 .holdings-review tbody tr:has(input:not(:checked)) td:not(:first-child) { opacity: .5; }
@@ -634,19 +643,12 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .saving-card { gap: var(--sp-3); }
   .saving-card-actions .icon-button { width: var(--touch); height: var(--touch); }
   .saving-forecast > strong { font-size: 30px; }
-  .saving-card .goal-details { grid-template-columns: minmax(0, 1fr); gap: 0; padding: var(--sp-1) var(--sp-3); border-radius: var(--r-md); background: var(--surface-2); }
-  .saving-card .goal-details > div {
-    flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--sp-3);
-    padding: var(--sp-2) 0; border-radius: 0; background: none;
-  }
-  .saving-card .goal-details > div + div { border-block-start: 1px solid var(--border); }
-  .saving-card .goal-details b { text-align: end; }
   .saving-assumption { margin-block-start: 0; }
 
   /* Allocation: icon + name + balance on one row, actions + bar under */
   .alloc-head { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: var(--sp-3); }
   .alloc-actions { grid-column: 1 / -1; }
-  .alloc-actions .button { flex: 1 1 auto; min-height: var(--touch); font-size: var(--fs-small); }
+  .alloc-actions .button { min-height: var(--touch); font-size: var(--fs-small); padding: 0 var(--sp-4); }
   .alloc-actions .icon-button { width: var(--touch); height: var(--touch); border: 1px solid var(--border-strong); }
   .alloc-legend { gap: var(--sp-2) var(--sp-4); }
   .alloc-legend > span { font-size: var(--fs-micro); }
@@ -670,13 +672,19 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .investment-table td:first-child:dir(ltr), .investment-table th:first-child:dir(ltr) { box-shadow: inset -1px 0 0 var(--border); }
   .investment-table .asset-name { gap: var(--sp-2); }
   .investment-table .ticker-icon { width: 32px; height: 32px; border-radius: 10px; font-size: 10px; }
-  .investment-table td:first-child > small.muted { display: none; }
+  .investment-table td:first-child > small.muted,
+  .investment-table td.positive small.muted, .investment-table td.negative small.muted { display: none; }
+  .investment-table td { padding-block: var(--sp-3); }
+  .stress-table td:first-child, .stress-table th:first-child {
+    position: sticky; inset-inline-start: 0; z-index: 1; background: var(--surface);
+    min-width: 150px; max-width: 150px; box-shadow: inset 1px 0 0 var(--border);
+  }
+  .stress-table thead th:first-child { z-index: 2; }
+  .stress-table tbody tr:hover td:first-child { background: linear-gradient(var(--hover), var(--hover)), var(--surface); }
   .table-wrap:has(.investment-table), .table-wrap:has(.stress-table) { margin-inline: calc(-1 * var(--sp-4)); width: calc(100% + 2 * var(--sp-4)); padding-inline: var(--sp-4) 0; }
   .table-wrap:has(.investment-table) > .empty { padding-inline: var(--sp-4); }
-  .snapshot-list > div { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; }
-  .snapshot-list > div > b { justify-self: end; }
-  .snapshot-list > div > span:last-child { grid-column: 2; justify-self: end; }
-  .snapshot-list > div > .snapshot-date { grid-row: span 2; }
+  .snapshot-list > div { grid-template-columns: minmax(0, 1fr) auto minmax(58px, auto); gap: var(--sp-2); }
+  .snapshot-date svg { width: 28px; height: 28px; }
 
   .risk-kpis { gap: var(--sp-2); }
   .risk-kpis > div { padding: var(--sp-3); }
@@ -696,7 +704,10 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .benchmark-numbers { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
   .benchmark-numbers > div { flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
   .benchmark-numbers b { font-size: 18px; }
-  .asset-performance { gap: 2px var(--sp-3); }
+  .asset-performance { grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-3); }
+  .asset-performance > .legend-name { grid-column: 1 / -1; }
+  .asset-performance > span.muted { grid-row: 2; grid-column: 1; margin: 0; font-size: var(--fs-micro); }
+  .asset-performance > b { grid-row: 2; grid-column: 2; }
 
   /* Monthly update */
   .update-intro { grid-template-columns: minmax(0, 1fr); padding-block: 0; }
@@ -711,11 +722,7 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .monthly-flow > .field, .monthly-flow > .field:first-child { flex: 1 1 calc(50% - var(--sp-3)); }
   .monthly-flow > .icon-button { margin-inline-start: auto; border: 1px solid var(--border-strong); }
   .benchmark-details > .form-grid { grid-template-columns: minmax(0, 1fr); }
-  .update-save {
-    position: sticky; inset-block-end: calc(var(--bottomnav-h) + var(--safe-bottom) + var(--sp-2)); z-index: 5;
-    flex-direction: column; align-items: stretch; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: 18px;
-    box-shadow: var(--shadow-3);
-  }
+  .update-save { flex-direction: column; align-items: stretch; gap: var(--sp-3); padding: var(--sp-4); border-radius: 18px; }
   #monthly-estimate > b { font-size: 20px; }
   #monthly-estimate > span:not(.muted) { font-size: var(--fs-micro); }
   .update-save > .button { width: 100%; }
