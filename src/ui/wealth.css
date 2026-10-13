@@ -618,6 +618,7 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .savings-overview-number > b { font-size: 38px; }
   .savings-overview-copy h2 { font-size: 22px; }
   .risk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .investment-table td.positive small.muted, .investment-table td.negative small.muted { display: none; }
   .update-asset { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .update-asset > .update-value { grid-column: 2; }
   .asset-performance { grid-template-columns: minmax(0, 1fr) auto; }

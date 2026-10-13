@@ -115,7 +115,7 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
   display: flex; flex-direction: column; gap: var(--sp-3);
   padding: var(--sp-3) var(--sp-4) var(--sp-4);
   border-radius: var(--r-md); background: var(--surface-2);
-  border: 1px solid var(--border); border-inline-start: 3px solid var(--accent-vivid);
+  border: 1px solid var(--border);
 }
 .scn-event > .row-between { gap: var(--sp-2); }
 .scn-event input.scn-name {
@@ -132,7 +132,7 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
 .scn-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .scn-fields .field > span { font-size: var(--fs-micro); }
 .scn-fields input, .scn-fields select { background-color: var(--surface); }
-.scn-settings { padding-block-start: var(--sp-4); border-block-start: 1px solid var(--border); gap: var(--sp-3); }
+.scn-settings { padding-block-start: var(--sp-4); border-block-start: 1px solid var(--border); gap: var(--sp-3); align-items: end; }
 .scn-results { display: flex; flex-direction: column; gap: var(--gap-grid); min-width: 0; }
 .scn-results td small, .scn-results td b { display: block; }
 .scn-results td small { margin-block-start: 2px; }
@@ -171,6 +171,7 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
   background: var(--surface-2); border: 1px solid var(--border);
 }
 .whatif-result + p { margin-block-start: var(--sp-2); }
+.form-grid:has(> .lab-slider) > .field { grid-column: 1 / -1; }
 .form-grid > .lab-slider { align-self: end; }
 
 /* ============================================================
@@ -214,7 +215,7 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
 #buy-result > .actions { margin-block-start: 0; }
 
 .wish-stats { display: flex; flex-direction: column; gap: var(--gap-grid); min-width: 0; }
-.wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--gap-grid); }
+.wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--gap-grid); }
 .wish-card { display: flex; flex-direction: column; gap: var(--sp-2); }
 .wish-card > .row-between { margin-block-end: var(--sp-1); }
 .wish-card h3 { font-size: 16px; font-weight: var(--fw-bold); line-height: 1.35; overflow-wrap: anywhere; }
@@ -277,7 +278,7 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
 
 /* ---------- Group detail ---------- */
 .group-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3) var(--sp-4); }
-.group-head .back { order: -1; flex-basis: 100%; width: fit-content; max-width: fit-content; min-height: 32px; }
+.group-head .back { order: -1; flex: 0 0 100%; justify-content: flex-start; min-height: 32px; }
 .group-head .back svg { order: -1; }
 .group-title { display: flex; align-items: center; gap: var(--sp-3); flex: 1 1 260px; min-width: 0; }
 .group-title .group-avatar { width: 52px; height: 52px; border-radius: 16px; font-size: 22px; background: var(--brand-gradient); color: var(--on-hero); box-shadow: var(--shadow-1); }
@@ -344,10 +345,13 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
 .tool-inputs .section-head > .actions { flex-wrap: wrap; }
 .tool-inputs .section-head .button { min-height: 34px; padding-inline: var(--sp-3); font-size: var(--fs-micro); }
 .tool-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4) var(--sp-3); align-items: start; }
-.tool-fields > .check-field { align-self: end; min-height: var(--control-h); }
+.tool-fields > .check-field { align-self: start; min-height: var(--control-h); margin-block-start: 25px; }
 .tool-fields > .field:has(.cat-checks) { grid-column: 1 / -1; }
 .tool-output { display: flex; flex-direction: column; gap: var(--gap-grid); min-width: 0; }
 .tool-output > .notice.error { padding: var(--sp-4); }
+.tool-output > .two-columns:has(.goal-details) { grid-template-columns: minmax(0, 1fr); }
+.tool-output .goal-details { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+:is(.scn-results, .lab-results, .tool-output) .three-metrics .metric-value { font-size: 24px; white-space: nowrap; }
 
 /* Salary */
 .salary-result { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -488,7 +492,7 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
 .insights-intro > div { min-width: 0; }
 .insights-intro h2 { font-size: 22px; font-weight: var(--fw-black); letter-spacing: var(--tracking-tight); line-height: 1.25; }
 .insights-intro p { margin-block-start: 2px; font-size: var(--fs-small); color: var(--text-muted); }
-.insight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap-grid); }
+.insight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--gap-grid); }
 .insight-card { display: flex; flex-direction: column; gap: var(--sp-2); }
 .insight-card > .asset-icon { width: 44px; height: 44px; border-radius: var(--r-md); margin-block-end: var(--sp-1); }
 .insight-card > .asset-icon svg { width: 22px; height: 22px; }
@@ -560,14 +564,16 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .scn-presets .ai-chip { min-height: 40px; }
 
   .tool-fields { grid-template-columns: minmax(0, 1fr); }
+  .tool-fields > .check-field { margin-block-start: 0; }
   .fee-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .debt-rows { display: flex; }
   .big-number { font-size: 38px; }
   .breakdown { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .breakdown > div { grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: 10px 0; border-radius: 0; background: none; }
   .breakdown > div + div { border-block-start: 1px solid var(--border); }
-  .breakdown small { grid-column: auto; grid-row: 1; order: 2; min-width: 52px; text-align: end; }
-  .breakdown b { order: 3; }
+  .breakdown span { grid-column: 1; grid-row: 1; }
+  .breakdown small { grid-column: 2; grid-row: 1; min-width: 52px; text-align: end; }
+  .breakdown b { grid-column: 3; grid-row: 1; }
   .plan-number { font-size: 30px; }
 
   .buy-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -33,7 +33,8 @@
 .home-cell > .card > small.muted { color: var(--text-muted); }
 .home-cell > .card > p.small { line-height: 1.6; }
 .home-cell .section-head { margin-block-end: var(--sp-3); }
-.home-cell .section-head:has(> .icon-button) { flex-wrap: nowrap; }
+.home-cell .section-head:has(> .icon-button), .home-cell .section-head:has(> .text-button) { flex-wrap: nowrap; }
+.home-cell .section-head:has(> .text-button) > div:first-child { flex-basis: auto; }
 
 /* A widget that could not render */
 .home-cell > .card:not([class*="-"]) > p.muted:only-child { margin: 0; }

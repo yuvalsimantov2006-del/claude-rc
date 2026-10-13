@@ -86,7 +86,7 @@
 .score-ring small { margin-block-start: 2px; font-size: var(--fs-micro); color: var(--text-muted); }
 
 /* ---------- Fan chart ---------- */
-.fan-chart svg text[fill="#93ceb9"] { font-weight: var(--fw-bold); }
+.fan-chart .chart-goal { font-weight: var(--fw-bold); }
 
 /* ---------- Entrance (navigation only) ---------- */
 .page-content.enter .native-chart svg { animation: chart-reveal var(--dur-slow) var(--ease-out) both; }
@@ -105,56 +105,6 @@
   .chart-hover, .graph-point .point-dot { transition: none; }
 }
 
-/* ============================================================
-   Colour bridge: charts.js / area JS hex values → theme tokens.
-   (If src/charts.js `palette` changes, update this list.)
-   ============================================================ */
-
-[stroke="#d7bd83"] { stroke: var(--chart-1); }  [fill="#d7bd83"] { fill: var(--chart-1); }  [stop-color="#d7bd83"] { stop-color: var(--chart-1); }
-[stroke="#b09cdc"] { stroke: var(--chart-2); }  [fill="#b09cdc"] { fill: var(--chart-2); }  [stop-color="#b09cdc"] { stop-color: var(--chart-2); }
-[stroke="#77b8a7"] { stroke: var(--chart-3); }  [fill="#77b8a7"] { fill: var(--chart-3); }  [stop-color="#77b8a7"] { stop-color: var(--chart-3); }
-[stroke="#728bb8"] { stroke: var(--chart-4); }  [fill="#728bb8"] { fill: var(--chart-4); }  [stop-color="#728bb8"] { stop-color: var(--chart-4); }
-[stroke="#c9889b"] { stroke: var(--chart-6); }  [fill="#c9889b"] { fill: var(--chart-6); }  [stop-color="#c9889b"] { stop-color: var(--chart-6); }
-[stroke="#9a8881"] { stroke: var(--chart-5); }  [fill="#9a8881"] { fill: var(--chart-5); }  [stop-color="#9a8881"] { stop-color: var(--chart-5); }
-[stroke="#93ceb9"] { stroke: var(--positive-vivid); }  [fill="#93ceb9"] { fill: var(--positive-vivid); }  [stop-color="#93ceb9"] { stop-color: var(--positive-vivid); }
-[stroke="#e29a9f"] { stroke: var(--negative-vivid); }  [fill="#e29a9f"] { fill: var(--negative-vivid); }  [stop-color="#e29a9f"] { stop-color: var(--negative-vivid); }
-[stroke="#dfc491"] { stroke: var(--warning-vivid); }  [fill="#dfc491"] { fill: var(--warning-vivid); }  [stop-color="#dfc491"] { stop-color: var(--warning-vivid); }
-[stroke="#909096"] { stroke: var(--chart-axis); }  [fill="#909096"] { fill: var(--chart-axis); }  [stop-color="#909096"] { stop-color: var(--chart-axis); }
-[stroke="#727482"] { stroke: var(--chart-muted); }  [fill="#727482"] { fill: var(--chart-muted); }  [stop-color="#727482"] { stop-color: var(--chart-muted); }
-[stroke="#656875"] { stroke: var(--chart-muted); }  [fill="#656875"] { fill: var(--chart-muted); }  [stop-color="#656875"] { stop-color: var(--chart-muted); }
-
-/* inline styles (legend swatches, bars, ticker tiles) */
-[style*="background:#d7bd83"] { background: var(--chart-1) !important; }  [style^="color:#d7bd83"], [style*=";color:#d7bd83"] { color: var(--chart-1) !important; }
-[style*="background:#b09cdc"] { background: var(--chart-2) !important; }  [style^="color:#b09cdc"], [style*=";color:#b09cdc"] { color: var(--chart-2) !important; }
-[style*="background:#77b8a7"] { background: var(--chart-3) !important; }  [style^="color:#77b8a7"], [style*=";color:#77b8a7"] { color: var(--chart-3) !important; }
-[style*="background:#728bb8"] { background: var(--chart-4) !important; }  [style^="color:#728bb8"], [style*=";color:#728bb8"] { color: var(--chart-4) !important; }
-[style*="background:#c9889b"] { background: var(--chart-6) !important; }  [style^="color:#c9889b"], [style*=";color:#c9889b"] { color: var(--chart-6) !important; }
-[style*="background:#9a8881"] { background: var(--chart-5) !important; }  [style^="color:#9a8881"], [style*=";color:#9a8881"] { color: var(--chart-5) !important; }
-[style*="background:#93ceb9"] { background: var(--positive-vivid) !important; }  [style^="color:#93ceb9"], [style*=";color:#93ceb9"] { color: var(--positive-vivid) !important; }
-[style*="background:#e29a9f"] { background: var(--negative-vivid) !important; }  [style^="color:#e29a9f"], [style*=";color:#e29a9f"] { color: var(--negative-vivid) !important; }
-[style*="background:#dfc491"] { background: var(--warning-vivid) !important; }  [style^="color:#dfc491"], [style*=";color:#dfc491"] { color: var(--warning-vivid) !important; }
-[style*="background:#909096"] { background: var(--chart-axis) !important; }  [style^="color:#909096"], [style*=";color:#909096"] { color: var(--chart-axis) !important; }
-[style*="background:#727482"] { background: var(--chart-muted) !important; }  [style^="color:#727482"], [style*=";color:#727482"] { color: var(--chart-muted) !important; }
-[style*="background:#656875"] { background: var(--chart-muted) !important; }  [style^="color:#656875"], [style*=";color:#656875"] { color: var(--chart-muted) !important; }
-/* "<hex>12" = a 7% tint of the same colour */
-[style*="background:#d7bd8312"] { background: var(--chart-1-soft) !important; }
-[style*="background:#b09cdc12"] { background: var(--chart-2-soft) !important; }
-[style*="background:#77b8a712"] { background: var(--chart-3-soft) !important; }
-[style*="background:#728bb812"] { background: var(--chart-4-soft) !important; }
-[style*="background:#c9889b12"] { background: var(--chart-6-soft) !important; }
-[style*="background:#9a888112"] { background: var(--chart-5-soft) !important; }
-[style*="background:#93ceb912"] { background: var(--positive-soft) !important; }
-[style*="background:#e29a9f12"] { background: var(--negative-soft) !important; }
-[style*="background:#dfc49112"] { background: var(--warning-soft) !important; }
-[style*="background:#90909612"] { background: var(--surface-2) !important; }
-[style*="background:#72748212"] { background: var(--surface-2) !important; }
-[style*="background:#65687512"] { background: var(--surface-2) !important; }
-
-/* Neutral SVG strokes and fills */
-.chart line[stroke="#ffffff0b"], svg line[stroke="#ffffff0b"] { stroke: var(--chart-grid); }
-svg line[stroke="#ffffff24"] { stroke: var(--chart-zero); }
-svg [fill="#202024"] { fill: var(--surface); }
-.score-ring circle[stroke="#ffffff10"], svg circle[stroke="#ffffff10"] { stroke: var(--track); }
-.native-chart svg text[fill="#909096"] { fill: var(--chart-axis); }
+/* Chart colours come from src/charts.js as inline token styles (palette, paletteSoft, tone). */
 .native-chart path[fill="url(#chart-fill)"] { opacity: 1; }
-#chart-fill stop[stop-opacity=".2"], linearGradient stop[stop-color="#d7bd83"][stop-opacity=".2"] { stop-opacity: .22; }
+#chart-fill stop[stop-opacity=".2"] { stop-opacity: .22; }

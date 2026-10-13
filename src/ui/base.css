@@ -470,6 +470,9 @@ html.privacy .safe-number:hover { filter: none; }
     .subtabs { --subtabs-fade: 0px; animation: subtabs-fade linear both; animation-timeline: scroll(self inline); }
   }
   .subtab { padding: 0 var(--sp-3); }
+  /* A late tab (4th+) may sit past the inline end: open the strip scrolled to it */
+  .subtabs { scroll-padding-inline: var(--gutter); }
+  .subtab.active:nth-child(n+4) { scroll-initial-target: nearest; scroll-snap-align: end; }
 
   .page-heading { align-items: flex-end; flex-wrap: nowrap; margin-block-end: var(--sp-4); }
   .page-heading p { font-size: var(--fs-micro); }
