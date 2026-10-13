@@ -393,6 +393,8 @@ main > .notice { margin-block-end: var(--sp-4); }
 .more-tile svg { color: var(--accent-text); }
 .more-tile:hover { border-color: var(--border-strong); background: var(--surface-3); }
 .more-tile:active { transform: scale(.97); }
+/* A group with one tile (Claude): one full-width row instead of an orphan */
+.more-tile:only-child { grid-column: 1 / -1; flex-direction: row; min-height: 56px; gap: var(--sp-2); font-size: var(--fs-small); }
 .more-tile.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); font-weight: var(--fw-bold); }
 
 /* ---------- Privacy mode: blur amounts, hover/focus reveals ---------- */
@@ -529,10 +531,11 @@ html.privacy .safe-number:hover { filter: none; }
   .bottom-add svg { stroke-width: 2.4; }
   .bottom-add:active { transform: scale(.95); }
 
+  .palette-foot > span:not(:last-child) { display: none; } /* key hints mean nothing on touch */
+  .palette-foot { padding-block-start: var(--sp-2); }
   .more-sheet { gap: var(--sp-4); }
   .more-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .more-tile { min-height: 72px; padding: var(--sp-2) 2px; font-size: 11.5px; border-radius: var(--r-md); }
-  .more-tile:only-child { grid-column: 1 / -1; flex-direction: row; min-height: 56px; gap: var(--sp-2); font-size: var(--fs-small); }
 }
 @media (max-width: 360px) {
   .topbar-brand { display: none; }

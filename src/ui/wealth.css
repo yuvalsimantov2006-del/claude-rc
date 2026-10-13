@@ -211,7 +211,7 @@
 .alloc-input > span { display: flex; flex-direction: column; min-width: 0; }
 .alloc-input b { font-size: var(--fs-body); font-weight: var(--fw-bold); }
 .alloc-input small { font-size: var(--fs-micro); color: var(--text-subtle); font-variant-numeric: tabular-nums; }
-.alloc-input input { text-align: end; font-family: var(--font-num); font-weight: var(--fw-bold); }
+.alloc-input input { font-family: var(--font-num); font-weight: var(--fw-bold); }
 .alloc-summary {
   display: flex; flex-direction: column; gap: var(--sp-2);
   padding: var(--sp-4); border-radius: var(--r-md); background: var(--accent-soft);
@@ -221,7 +221,7 @@
 .alloc-summary .row-between b { font-family: var(--font-num); font-size: var(--fs-num-sm); font-weight: var(--fw-black); color: var(--text); }
 .alloc-summary .row-between b.positive { color: var(--positive); }
 .alloc-summary .row-between b.negative { color: var(--negative); }
-.alloc-summary .progress { margin-block-start: var(--sp-1); background: color-mix(in srgb, var(--surface) 70%, var(--track)); }
+.alloc-summary .progress { margin-block-start: var(--sp-1); background: color-mix(in srgb, var(--accent) 16%, transparent); }
 
 /* ---------- Goal form: live forecast ---------- */
 .goal-live-forecast {
@@ -737,7 +737,23 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   /* Import dialog */
   #holdings-form textarea { min-height: 150px; }
   #holdings-form .import-file-row > .button { width: 100%; }
-  .holdings-review table { min-width: 520px; }
+  /* Review rows stack: name on top, "now → in report · change" under it */
+  .holdings-review table, .holdings-review tbody { display: block; white-space: normal; }
+  .holdings-review thead { display: none; }
+  .holdings-review tbody tr {
+    display: grid; grid-template-columns: 28px auto auto minmax(0, 1fr); align-items: center;
+    column-gap: var(--sp-2); row-gap: 2px; padding: var(--sp-3);
+    border-block-end: 1px solid var(--border);
+  }
+  .holdings-review tbody tr:last-child { border-block-end: 0; }
+  .holdings-review tbody td { padding: 0; border: 0; min-width: 0; }
+  .holdings-review tbody tr:hover td { background: none; }
+  .holdings-review table td:first-child { grid-column: 1; grid-row: 1 / span 2; width: auto; padding: 0; align-self: center; }
+  .holdings-review table td:nth-child(2) { grid-column: 2 / -1; grid-row: 1; min-width: 0; }
+  .holdings-review table td:nth-child(3) { grid-column: 2; grid-row: 2; color: var(--text-muted); font-weight: var(--fw-semibold); }
+  .holdings-review table td:nth-child(3)::before { content: "←"; margin-inline: 0 var(--sp-2); color: var(--text-subtle); font-weight: var(--fw-regular); }
+  .holdings-review table td:nth-child(4) { grid-column: 3; grid-row: 2; }
+  .holdings-review table td:nth-child(5) { grid-column: 4; grid-row: 2; justify-self: end; }
 }
 
 @media (max-width: 360px) {

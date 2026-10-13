@@ -604,10 +604,9 @@
   .ready-chip { min-height: 40px; }
 
   /* Editor */
-  .home-presets { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: calc(-1 * var(--sp-4)); padding-inline: var(--sp-4); }
-  .home-presets::-webkit-scrollbar { display: none; }
-  .home-presets > span { flex: none; }
-  .home-preset { flex: none; min-height: 40px; }
+  .home-presets { gap: 6px; }
+  .home-presets > span { flex-basis: 100%; }
+  .home-preset { min-height: 40px; padding-inline: var(--sp-3); }
   .home-editor-row { cursor: default; padding-inline: var(--sp-2) 2px; gap: var(--sp-2); }
   .home-editor-row .grip { display: none; }
   .home-editor-index { display: none; }
