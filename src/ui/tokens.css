@@ -25,7 +25,9 @@
   --fs-num-lg: 24px;      /* stat / metric values       */
   --fs-num-md: 17px;      /* tile values                */
   --fs-num-sm: 15px;      /* list amounts               */
-  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700; --fw-black: 800;
+  /* Ofek (Hebrew) has two files: regular covers 400–600, bold 700–900. Semibold is 500 so Latin
+     fallback text ("Claude", tickers) renders medium, not a heavier weight than the Hebrew beside it. */
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 500; --fw-bold: 700; --fw-black: 800;
   --tracking-tight: -0.02em;
 
   /* Spacing (4px base) */
@@ -144,6 +146,7 @@
   --shadow-3: 0 24px 64px -16px rgba(16, 24, 64, .28), 0 4px 12px rgba(16, 24, 64, .06);
   --inner-highlight: inset 0 0 0 0 transparent;
   --nav-bg: rgba(255, 255, 255, .92);
+  --nav-solid: #FFFFFF;    /* opaque phone bottom nav + the ring around its + button */
   --nav-active-bg: #E1F4FA;
   --topbar-bg: rgba(237, 240, 246, .82);
   --toast-bg: #0B1230;
@@ -157,6 +160,9 @@
   --seg-active: #FFFFFF;
   --knob: #FFFFFF;
   --on-vivid: #FFFFFF;     /* text on *-vivid fills (counts, dots) */
+  --danger-fill: #BB2843;  /* solid destructive buttons (dialogs); white text 5.9:1 */
+  --danger-fill-hover: #A21F38;
+  --on-danger: #FFFFFF;
 }
 
 /* ---------- DARK ---------- */
@@ -225,6 +231,7 @@
   --shadow-3: 0 30px 80px -20px rgba(0, 0, 0, .85), 0 0 0 1px rgba(146, 166, 255, .14);
   --inner-highlight: inset 0 1px 0 rgba(255, 255, 255, .05);
   --nav-bg: rgba(10, 15, 34, .9);
+  --nav-solid: #0A0F22;
   --nav-active-bg: rgba(59, 227, 245, .12);
   --topbar-bg: rgba(7, 11, 26, .72);
   --toast-bg: #1B2650;
@@ -238,6 +245,9 @@
   --seg-active: #27346B;
   --knob: #EEF1FF;
   --on-vivid: #070B1A;
+  --danger-fill: #D12F52;  /* white text 5:1 — decisive, not candy pink */
+  --danger-fill-hover: #B9264A;
+  --on-danger: #FFFFFF;
   --hero-shadow-theme: 0 28px 70px -24px rgba(91, 80, 255, .7), 0 0 0 1px rgba(146, 166, 255, .18), 0 10px 40px -12px rgba(14, 165, 183, .45);
 }
 
