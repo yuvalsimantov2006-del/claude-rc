@@ -1,0 +1,254 @@
+/* ============================================================
+   Ofek 4.0 — design tokens ("Midnight").
+   The ONLY file with raw colour values. Every other stylesheet uses var(--…).
+   Light theme on :root / [data-theme=light], dark theme on [data-theme=dark].
+   Fonts (family "Ofek") are embedded by the build; no @font-face here.
+   ============================================================ */
+
+/* ---------- Theme-independent ---------- */
+:root {
+  /* Typography */
+  --font-sans: Ofek, "Noto Sans Hebrew", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-num: Ofek, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --num-features: "tnum" 1, "lnum" 1;
+
+  --fs-display: 64px;     --lh-display: 1;      --fw-display: 800;   /* hero balance, desktop */
+  --fs-display-sm: 46px;                                            /* hero balance, phone   */
+  --fs-h1: 28px;          --lh-h1: 1.2;         --fw-h1: 800;
+  --fs-h2: 18px;          --lh-h2: 1.3;         --fw-h2: 700;
+  --fs-h3: 15px;          --lh-h3: 1.35;        --fw-h3: 700;
+  --fs-body: 15px;        --lh-body: 1.5;
+  --fs-small: 13px;       --lh-small: 1.45;
+  --fs-micro: 12px;       --lh-micro: 1.35;
+  --fs-num-xl: 34px;      /* amount inputs, big figures */
+  --fs-num-lg: 24px;      /* stat / metric values       */
+  --fs-num-md: 17px;      /* tile values                */
+  --fs-num-sm: 15px;      /* list amounts               */
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700; --fw-black: 800;
+  --tracking-tight: -0.02em;
+
+  /* Spacing (4px base) */
+  --sp-0: 0; --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-7: 28px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+  --gutter: 32px;          /* page side padding (16px on phone) */
+  --gap-grid: 20px;        /* gap between cards               */
+
+  /* Radii */
+  --r-xs: 8px; --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px; --r-pill: 999px;
+
+  /* Sizes */
+  --touch: 44px;
+  --control-h: 44px;       /* inputs / buttons */
+  --sidebar-w: 248px;
+  --topbar-h: 64px;
+  --bottomnav-h: 68px;     /* without the safe-area inset */
+  --content-max: 1320px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Motion */
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms; --dur-sheet: 360ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+
+  /* Hero (identical in both themes: the brand moment) */
+  --hero-gradient:
+    radial-gradient(120% 140% at 0% 0%, rgba(64, 232, 255, .34) 0%, rgba(64, 232, 255, 0) 42%),
+    radial-gradient(90% 120% at 100% 100%, rgba(124, 92, 255, .55) 0%, rgba(124, 92, 255, 0) 55%),
+    linear-gradient(118deg, #0A7F91 0%, #1D66CF 40%, #3F3FD8 72%, #4630C2 100%);
+  --hero-text: #FFFFFF;
+  --hero-text-muted: rgba(235, 240, 255, .88);
+  --hero-tile: rgba(8, 12, 48, .28);
+  --hero-tile-border: rgba(255, 255, 255, .18);
+  --hero-btn: rgba(255, 255, 255, .16);
+  --hero-btn-hover: rgba(255, 255, 255, .26);
+  --hero-line: rgba(255, 255, 255, .55);
+  --hero-btn-solid: #FFFFFF;
+  --hero-btn-solid-text: #3135B8;
+  --hero-sheen: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, 0) 40%);
+  --hero-orb: rgba(255, 255, 255, .16);
+  --hero-pulse: #6BFFC8;
+  --hero-pulse-ring: rgba(107, 255, 200, .22);
+  --hero-area: rgba(255, 255, 255, .10);
+  --hero-shadow: 0 24px 60px -22px rgba(67, 68, 224, .55), 0 8px 20px -10px rgba(11, 133, 151, .35);
+  --brand-gradient: linear-gradient(135deg, #22D3EE 0%, #2B6FE0 55%, #4F46E5 100%);
+}
+
+/* ---------- LIGHT (default) ---------- */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #EDF0F6;
+  --bg-decor:
+    radial-gradient(900px 520px at 0% -10%, rgba(79, 70, 229, .07), transparent 60%),
+    radial-gradient(800px 520px at 100% 110%, rgba(8, 145, 178, .07), transparent 60%);
+  --surface: #FFFFFF;
+  --surface-2: #F4F6FB;
+  --surface-3: #E9EDF5;
+  --elevated: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --card-blur: none;
+  --border: #E1E6F0;
+  --border-strong: #CDD4E3;
+  --hover: rgba(16, 24, 64, .045);
+  --pressed: rgba(16, 24, 64, .08);
+  --scrim: rgba(10, 16, 40, .42);
+
+  --text: #0B1230;
+  --text-muted: #525D7E;          /* 6.4:1 on white   */
+  --text-subtle: #5F6989;         /* 4.9:1 on surface-2 */
+  --text-inverse: #FFFFFF;
+
+  --accent: #08779C;              /* petrol: 5.1:1 with white text */
+  --accent-hover: #066685;
+  --accent-contrast: #FFFFFF;
+  --accent-soft: #E1F4FA;
+  --accent-text: #076F92;
+  --accent-vivid: #0A94BD;        /* bars, dots, chart marks */
+  --accent-2: #4F46E5;            /* indigo/violet secondary ("purple" in markup) */
+  --accent-2-soft: #ECEBFD;
+  --accent-2-vivid: #6366F1;
+
+  --positive: #0B7550;   --positive-soft: #E2F5EC;   --positive-vivid: #12A26E;
+  --negative: #BB2843;   --negative-soft: #FCE8EC;   --negative-vivid: #E2445F;
+  --warning:  #A35F00;   --warning-soft: #FFF2DC;    --warning-vivid: #E8960C;
+  --info:     #1D5FD1;   --info-soft: #E6EFFD;       --info-vivid: #3B82F6;
+
+  --chart-1: #4F46E5;  /* indigo  */
+  --chart-2: #0EA5E9;  /* sky — clearly lighter/bluer than the petrol accent */
+  --chart-3: #0E9F6E;  /* emerald */
+  --chart-4: #A855F7;  /* purple  */
+  --chart-5: #E08A00;  /* amber   */
+  --chart-6: #E64A97;  /* pink    */
+  --chart-1-soft: #ECEBFD;
+  --chart-2-soft: #E2F4FD;
+  --chart-3-soft: #E2F5EC;
+  --chart-4-soft: #F4EAFE;
+  --chart-5-soft: #FFF2DC;
+  --chart-6-soft: #FDE8F2;
+  --chart-grid: #E6EAF2;
+  --chart-zero: #CDD4E3;
+  --chart-axis: #6B7594;
+  --chart-muted: #A3ACC2;
+  --chart-area-top: rgba(79, 70, 229, .16);
+
+  --track: #E6EAF2;
+  --focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px #08779C;
+  --focus-color: #08779C;
+
+  --shadow-1: 0 1px 2px rgba(16, 24, 64, .05), 0 1px 1px rgba(16, 24, 64, .03);
+  --shadow-2: 0 1px 2px rgba(16, 24, 64, .04), 0 8px 24px -12px rgba(16, 24, 64, .12);
+  --shadow-3: 0 24px 64px -16px rgba(16, 24, 64, .28), 0 4px 12px rgba(16, 24, 64, .06);
+  --inner-highlight: inset 0 0 0 0 transparent;
+  --nav-bg: rgba(255, 255, 255, .92);
+  --nav-active-bg: #E1F4FA;
+  --topbar-bg: rgba(237, 240, 246, .82);
+  --toast-bg: #0B1230;
+  --toast-text: #F3F6FF;
+  --toast-muted: #A3AED3;
+  --toast-accent: #5FEAF8;
+  --toast-ok: #3FE0A0;
+  --toast-err: #FF8099;
+  --hero-shadow-theme: var(--hero-shadow);
+}
+
+/* ---------- DARK ---------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #070B1A;
+  --bg-decor:
+    radial-gradient(1000px 600px at 0% -10%, rgba(79, 70, 229, .22), transparent 60%),
+    radial-gradient(900px 600px at 110% 110%, rgba(14, 165, 183, .15), transparent 60%);
+  --surface: #0E1530;
+  --surface-2: #141D3D;
+  --surface-3: #1B2650;
+  --elevated: #131C3D;
+  --card-bg: rgba(19, 28, 60, .72);
+  --card-blur: blur(18px) saturate(140%);
+  --border: rgba(146, 166, 255, .12);
+  --border-strong: rgba(146, 166, 255, .24);
+  --hover: rgba(146, 166, 255, .07);
+  --pressed: rgba(146, 166, 255, .12);
+  --scrim: rgba(2, 4, 14, .66);
+
+  --text: #F3F6FF;
+  --text-muted: #A3AED3;          /* 7.9:1 on surface */
+  --text-subtle: #8A96BF;         /* 5.7:1 on surface */
+  --text-inverse: #070B1A;
+
+  --accent: #3BE3F5;
+  --accent-hover: #7BEEFA;
+  --accent-contrast: #032029;
+  --accent-soft: rgba(59, 227, 245, .13);
+  --accent-text: #5FEAF8;
+  --accent-vivid: #3BE3F5;
+  --accent-2: #A9A4FF;
+  --accent-2-soft: rgba(139, 132, 255, .16);
+  --accent-2-vivid: #8B84FF;
+
+  --positive: #3FE0A0;   --positive-soft: rgba(63, 224, 160, .13);   --positive-vivid: #34D399;
+  --negative: #FF8099;   --negative-soft: rgba(255, 128, 153, .13);  --negative-vivid: #FB6F8A;
+  --warning:  #FFC766;   --warning-soft: rgba(255, 199, 102, .13);   --warning-vivid: #FBBF24;
+  --info:     #8DBEFF;   --info-soft: rgba(96, 165, 250, .15);       --info-vivid: #60A5FA;
+
+  --chart-1: #818CF8;
+  --chart-2: #38BDF8;
+  --chart-3: #34D399;
+  --chart-4: #C084FC;
+  --chart-5: #FBBF24;
+  --chart-6: #F472B6;
+  --chart-1-soft: rgba(129, 140, 248, .16);
+  --chart-2-soft: rgba(56, 189, 248, .15);
+  --chart-3-soft: rgba(52, 211, 153, .14);
+  --chart-4-soft: rgba(192, 132, 252, .15);
+  --chart-5-soft: rgba(251, 191, 36, .14);
+  --chart-6-soft: rgba(244, 114, 182, .15);
+  --chart-grid: rgba(146, 166, 255, .10);
+  --chart-zero: rgba(146, 166, 255, .26);
+  --chart-axis: #8A96BF;
+  --chart-muted: #56628C;
+  --chart-area-top: rgba(129, 140, 248, .26);
+
+  --track: rgba(146, 166, 255, .14);
+  --focus-ring: 0 0 0 2px #070B1A, 0 0 0 4px #3BE3F5;
+  --focus-color: #3BE3F5;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+  --shadow-2: 0 12px 32px -14px rgba(0, 0, 0, .7);
+  --shadow-3: 0 30px 80px -20px rgba(0, 0, 0, .85), 0 0 0 1px rgba(146, 166, 255, .14);
+  --inner-highlight: inset 0 1px 0 rgba(255, 255, 255, .05);
+  --nav-bg: rgba(10, 15, 34, .9);
+  --nav-active-bg: rgba(59, 227, 245, .12);
+  --topbar-bg: rgba(7, 11, 26, .72);
+  --toast-bg: #1B2650;
+  --toast-text: #F3F6FF;
+  --toast-muted: #A3AED3;
+  --toast-accent: #5FEAF8;
+  --toast-ok: #3FE0A0;
+  --toast-err: #FF8099;
+  /* The hero gets a coloured glow in dark so it lifts off the navy canvas */
+  --hero-shadow-theme: 0 28px 70px -24px rgba(91, 80, 255, .7), 0 0 0 1px rgba(146, 166, 255, .18), 0 10px 40px -12px rgba(14, 165, 183, .45);
+}
+
+/* ---------- Phone: no backdrop blur on cards (performance) ---------- */
+@media (max-width: 760px) {
+  :root, [data-theme="light"], [data-theme="dark"] {
+    --card-blur: none;
+    --gutter: 16px;
+    --gap-grid: 14px;
+    --fs-h1: 24px;
+    --topbar-h: 56px;
+  }
+  [data-theme="dark"] { --card-bg: #111A38; }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  :root { --gutter: 24px; --gap-grid: 16px; --sidebar-w: 216px; }
+}
+
+/* ---------- Reduced motion: every duration is zero ---------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --dur-sheet: 0ms;
+  }
+}
