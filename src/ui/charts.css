@@ -95,7 +95,6 @@
 @keyframes ring-in { from { opacity: 0; transform: rotate(-20deg) scale(.94); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 760px) {
-  .native-chart svg text { font-size: 15px; } /* the SVG scales down ~2x on phone; keep labels legible */
   .donut-wrap { gap: var(--sp-4); }
   .donut-legend { flex-basis: 100%; max-width: none; }
   .chart-hover { inset-block-start: 0; }

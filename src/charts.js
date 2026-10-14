@@ -27,6 +27,41 @@ export function fanChart(points,{target=null,height=300}={}){
   const dots=points.map((p,i)=>{const tip=`${p.year?'בעוד '+p.year+' שנים':'היום'} · תרחיש סביר: ${money(p.p50)} · טווח: ${money(p.p10)} – ${money(p.p90)} · הופקד: ${money(p.contributed)}`;return `<g class="graph-point" tabindex="0" role="img" aria-label="${e(tip)}" data-tip="${e(tip)}"><circle cx="${px(i)}" cy="${py(p.p50)}" r="13" fill="transparent"/><circle class="point-dot" cx="${px(i)}" cy="${py(p.p50)}" r="3.5" style="stroke:${palette[0]};fill:var(--surface)"/></g>`;}).join('');
   return `<div class="chart native-chart fan-chart" style="height:${height}px" dir="ltr"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="תחזית הון: טווח תרחישים">${grid}${labels}<path d="${band}" style="fill:var(--chart-2)" opacity=".16"/><path d="${line('p90')}" fill="none" style="stroke:var(--chart-2)" stroke-opacity=".45" stroke-width="1.2" vector-effect="non-scaling-stroke"/><path d="${line('p10')}" fill="none" style="stroke:var(--chart-2)" stroke-opacity=".45" stroke-width="1.2" vector-effect="non-scaling-stroke"/><path d="${line('contributed')}" fill="none" style="stroke:var(--chart-axis)" stroke-width="1.4" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"/>${goal}<path d="${line('p50')}" fill="none" style="stroke:${palette[0]}" stroke-width="2.8" vector-effect="non-scaling-stroke"/>${dots}</svg><div class="chart-hover" role="status"></div></div>`;
 }
+// Line, bar and fan charts draw on a fixed 720-wide grid that stretches to the card (preserveAspectRatio=none),
+// so lines and bars fill any width. Text and dots must not stretch with it, so fitChart (run on every size
+// change, see polish-ui.js):
+// 1. counter-scales each text and dot horizontally around its own anchor, keeping its true shape;
+// 2. hides x-axis labels that would collide at this width (always keeping the last one);
+// 3. insets the plot so no label sticks out of the chart box.
+export function fitChart(svg){
+  const box=svg?.viewBox?.baseVal,w=svg?.clientWidth,h=svg?.clientHeight;
+  if(!box?.width||!box.height||!w||!h)return;
+  const k=(h/box.height)/(w/box.width);
+  if(Math.abs(k-(Number(svg.dataset.fit)||0))>=.004){
+    svg.dataset.fit=k.toFixed(4);
+    svg.querySelectorAll('text,circle').forEach(el=>{
+      const isText=el.tagName==='text',x=Number(el.getAttribute(isText?'x':'cx'))||0,y=Number(el.getAttribute(isText?'y':'cy'))||0;
+      el.setAttribute('transform',`translate(${x} ${y}) scale(${k.toFixed(4)} 1) translate(${-x} ${-y})`);
+    });
+  }
+  const xLabels=[...svg.querySelectorAll('text[text-anchor="middle"]')].map(el=>({el,r:el.getBoundingClientRect()})).sort((a,b)=>a.r.left-b.r.left),gap=8;
+  const shown=[];
+  for(const label of xLabels){if(!shown.length||label.r.left>=shown.at(-1).r.right+gap)shown.push(label);}
+  const end=xLabels.at(-1);
+  if(end&&shown.at(-1)!==end){while(shown.length&&shown.at(-1).r.right+gap>end.r.left)shown.pop();shown.push(end);}
+  xLabels.forEach(label=>label.el.style.visibility=shown.includes(label)?'':'hidden');
+  // Inset the plot just enough that every label sits inside the chart box (recomputed from the current
+  // layout each time, so it also shrinks back on wider screens).
+  const host=svg.parentElement?.getBoundingClientRect();if(!host)return;
+  let minLeft=Infinity,maxRight=-Infinity;
+  svg.querySelectorAll('text').forEach(el=>{if(el.style.visibility==='hidden')return;const t=el.getBoundingClientRect();if(!t.width)return;minLeft=Math.min(minLeft,t.left);maxRight=Math.max(maxRight,t.right);});
+  if(!Number.isFinite(minLeft))return;
+  const curL=parseFloat(svg.style.marginLeft)||0,curR=parseFloat(svg.style.marginRight)||0,edge=2;
+  const nextL=Math.max(0,Math.ceil(curL+edge-(minLeft-host.left))),nextR=Math.max(0,Math.ceil(curR+edge-(host.right-maxRight)));
+  if(Math.abs(nextL-curL)<1&&Math.abs(nextR-curR)<1)return;
+  // Applied on the next frame: resizing inside a ResizeObserver callback would loop.
+  requestAnimationFrame(()=>{svg.style.marginLeft=nextL+'px';svg.style.marginRight=nextR+'px';svg.style.width=nextL||nextR?`calc(100% - ${nextL+nextR}px)`:'';});
+}
 export function scoreRing(score,size=128,label='מתוך 100'){
   const color=score>=70?tone.positive:score>=45?tone.warning:tone.negative,v=Math.max(0,Math.min(100,score));
   return `<div class="score-ring" style="width:${size}px;height:${size}px"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" style="stroke:var(--track)" stroke-width="9" fill="none"/><circle cx="60" cy="60" r="52" pathLength="100" style="stroke:${color}" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="${v} ${100-v}" transform="rotate(-90 60 60)"/></svg><div><b>${Math.round(score)}</b><small>${e(label)}</small></div></div>`;

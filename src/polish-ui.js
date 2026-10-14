@@ -76,6 +76,14 @@ document.addEventListener('click',event=>{
     if(action==='whats-new')target?goToFeature(target):openWhatsNew();
   }catch(err){toast(err.message,true);}
 });
+// Keep chart text and dots undistorted at every card width (fitChart in charts.js), including charts
+// added outside render() (lab results, calculators, chat) and after resizes.
+if(typeof ResizeObserver==='function'&&typeof MutationObserver==='function'&&typeof document!=='undefined'&&document.body){
+  const chartSizes=new ResizeObserver(entries=>entries.forEach(({target})=>target.isConnected?fitChart(target):chartSizes.unobserve(target)));
+  const watchCharts=()=>document.querySelectorAll('.native-chart svg:not([data-watched])').forEach(svg=>{svg.setAttribute('data-watched','');chartSizes.observe(svg);});
+  new MutationObserver(watchCharts).observe(document.body,{childList:true,subtree:true});
+  watchCharts();
+}
 if(typeof setTimeout==='function'&&typeof document!=='undefined'&&document.head){
   setTimeout(()=>{
     let seen=null;try{seen=localStorage.getItem(WHATS_NEW_KEY);}catch{}

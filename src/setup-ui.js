@@ -13,6 +13,11 @@ const SETUP_STEPS=4;
 // ---------- Checking balance ----------
 const checkingAccounts=d=>d.accounts.filter(a=>a.kind==='bank');
 function checkingTotal(d){return checkingAccounts(d).reduce((s,a)=>s+toILS(a.balance,a.currency,d.fx),0);}
+// How fresh a typed-in balance is: a week-old balance still counts as current; never typed = stale.
+function balanceFreshness(date){
+  if(!date)return 'stale never';
+  return Math.round((new Date(today())-new Date(date))/864e5)<8?'fresh':'stale';
+}
 function updatedLabel(date){
   if(!date)return 'עדכון היתרה מהבנק עוזר לדיוק';
   const days=Math.round((new Date(today())-new Date(date))/864e5);
@@ -66,7 +71,7 @@ function openSetup(step=0){
   else if(step===3)body=`<form id="setup-form" class="setup-form" novalidate>${dots}<h2>עוד כסף שכדאי לספור</h2><p class="muted">לא חובה — אפשר להשאיר ריק ולהוסיף אחר כך.</p>${amount('cash','מזומן בארנק')}${amount('savings','חיסכון או פיקדון','למשל: קרן חירום, פיקדון בבנק, מענק השחרור שעוד לא נגעת בו')}<div class="form-error"></div>${nav('הבא',true)}</form>`;
   else body=`<form id="setup-form" class="setup-form" novalidate>${dots}<h2>הכנסה והוצאות</h2><p class="muted">כדי שאופק תדע כמה בטוח לבזבז כל יום. גם זה לא חובה.</p>${amount('salary','משכורת חודשית (נטו)')}${field('באיזה יום בחודש היא נכנסת?',input('salaryDay',s.salaryDay,'number','min="1" max="31" inputmode="numeric"'))}${amount('budget','כמה אתה רוצה להוציא בחודש?','יעד ההוצאות החודשי — אופק תתריע כשמתקרבים אליו')}<div class="form-error"></div>${nav('סיום')}</form>`;
   showDialog(step===0?'אופק':'הגדרה ראשונה',body,step===0);
-  const dialog=document.querySelector('dialog');dialog?.classList.add('setup-dialog');
+  const dialog=document.querySelector('dialog');dialog?.classList.add('setup-dialog',step===0?'setup-welcome-dialog':'setup-step-dialog');
   setTimeout(()=>dialog?.querySelector('input:not([type=hidden])')?.focus(),80);
 }
 function readSetup(form){for(const [k,v] of new FormData(form))setupState[k]=String(v).trim();}

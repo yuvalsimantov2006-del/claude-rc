@@ -264,6 +264,8 @@ input.switch:focus-visible { outline: 2px solid var(--focus-color); outline-offs
   font-size: var(--fs-small); font-weight: var(--fw-semibold);
 }
 .form-error:empty { display: none; }
+/* A form that reports its error as a .notice already draws a box: do not draw a second one around it. */
+.form-error:has(> .notice) { padding: 0; background: none; border: 0; box-shadow: none; }
 #entity-error:empty { display: none; }
 #entity-error > .notice { margin-block-end: var(--sp-4); }
 
