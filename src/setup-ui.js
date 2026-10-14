@@ -27,19 +27,21 @@ function openBalanceEditor(accountId){
   const accounts=data.accounts.filter(a=>['bank','cash','savings'].includes(a.kind));
   if(!accounts.length){openSetupAccount();return;}
   const account=accounts.find(a=>a.id===accountId)||checkingAccounts(data)[0]||accounts[0];
-  showDialog('עדכון יתרה',`<form id="balance-form" class="balance-form" novalidate><div class="form-error"></div>${accounts.length>1?field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),account.id,'data-balance-account')):`<input type="hidden" name="accountId" value="${e(account.id)}">`}<div class="balance-current"><span>היתרה הרשומה עכשיו</span><b dir="ltr" data-balance-current>${money(account.balance,account.currency,2)}</b></div><label class="balance-amount"><span class="balance-label">כמה יש בחשבון לפי הבנק?</span><span class="balance-input"><input name="balance" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="0" aria-label="היתרה בחשבון" value=""><span class="balance-currency" data-balance-currency>${account.currency==='USD'?'$':'₪'}</span></span></label><div class="balance-diff" data-balance-diff hidden></div><label class="check-field balance-record"><input type="checkbox" name="record"><span>לרשום את ההפרש כתנועת ״התאמת יתרה״<small>כך ההפרש יופיע בתנועות של החודש. בלי הסימון, רק היתרה מתעדכנת.</small></span></label><div class="form-actions">${submit('שמירת היתרה','Check')}${btn('ביטול','dialog-close')}</div></form>`);
+  showDialog('עדכון יתרה',`<form id="balance-form" class="balance-form" novalidate><div class="form-error"></div>${accounts.length>1?field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),account.id,'data-balance-account')):`<input type="hidden" name="accountId" value="${e(account.id)}">`}<div class="balance-current"><span>היתרה הרשומה עכשיו</span><b dir="ltr" data-balance-current>${money(account.balance,account.currency,wholeOrCents(account.balance))}</b></div><label class="balance-amount"><span class="balance-label">כמה יש בחשבון לפי הבנק?</span><span class="balance-input"><input name="balance" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="0" aria-label="היתרה בחשבון" value=""><span class="balance-currency" data-balance-currency>${account.currency==='USD'?'$':'₪'}</span></span></label><div class="balance-diff" data-balance-diff hidden></div><label class="check-field balance-record"><input type="checkbox" name="record"><span>לרשום את ההפרש כתנועת ״התאמת יתרה״<small>כך ההפרש יופיע בתנועות של החודש. בלי הסימון, רק היתרה מתעדכנת.</small></span></label><div class="form-actions">${submit('שמירת היתרה','Check')}${btn('ביטול','dialog-close')}</div></form>`);
   const dialog=document.querySelector('dialog');dialog?.classList.add('sheet');
   setTimeout(()=>dialog?.querySelector('[name=balance]')?.focus(),80);
 }
+// Whole shekels show no agorot ("26,450 ₪", like the hero); a balance with agorot keeps them.
+const wholeOrCents=n=>Number.isInteger(Math.round(n*100)/100)?0:2;
 function refreshBalanceForm(form){
   const account=data.accounts.find(a=>a.id===form.accountId.value);if(!account)return;
-  form.querySelector('[data-balance-current]').textContent=money(account.balance,account.currency,2);
+  form.querySelector('[data-balance-current]').textContent=money(account.balance,account.currency,wholeOrCents(account.balance));
   form.querySelector('[data-balance-currency]').textContent=account.currency==='USD'?'$':'₪';
   const value=parseNumber(form.balance.value),box=form.querySelector('[data-balance-diff]');
   if(!Number.isFinite(value)||form.balance.value.trim()===''){box.hidden=true;return;}
   const diff=Math.round((value-account.balance)*100)/100;
   box.hidden=false;box.className=`balance-diff ${diff>0?'up':diff<0?'down':'same'}`;
-  box.textContent=diff===0?'בדיוק כמו שרשום — מצוין.':`${diff>0?'יותר':'פחות'} ב־${money(Math.abs(diff),account.currency,2)} ממה שרשום`;
+  box.textContent=diff===0?'בדיוק כמו שרשום — מצוין.':`${diff>0?'יותר':'פחות'} ב־${money(Math.abs(diff),account.currency,wholeOrCents(diff))} ממה שרשום`;
 }
 function saveBalance(form){
   const account=data.accounts.find(a=>a.id===form.accountId.value),value=parseNumber(form.balance.value);

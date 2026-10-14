@@ -8,7 +8,7 @@ import {fetchUsdIls,rememberRate,cachedRate} from './fx.js';
 const FX_CACHE_KEY='ofek-fx-cache',FRESH_MS=6*3600e3;
 const fxRuntime={busy:false,error:null,pending:null};
 const fxAuto=()=>data.fxAuto!==false;
-const formatRate=rate=>Number(rate).toLocaleString('he-IL',{minimumFractionDigits:3,maximumFractionDigits:4});
+const formatRate=rate=>Number(rate).toLocaleString('he-IL',{minimumFractionDigits:4,maximumFractionDigits:4});
 function readFxCache(){try{return JSON.parse(localStorage.getItem(FX_CACHE_KEY)||'null')||{};}catch{return {};}}
 function writeFxCache(cache){try{localStorage.setItem(FX_CACHE_KEY,JSON.stringify(cache));}catch{}}
 function fxDateLine(){
@@ -54,7 +54,7 @@ function fxCard(){
   const auto=fxAuto();
   return card(head('שער הדולר',auto?'מתעדכן לבד כל יום, ממקורות ציבוריים חינמיים.':'שער ידני — אופק לא תשנה אותו.',badge(auto?'אוטומטי':'ידני',auto?'green':'neutral'))+`<div class="fx-now"><span class="fx-symbol" aria-hidden="true">$</span><div><b dir="ltr">${formatRate(data.fx)} ₪</b><small>${e(fxDateLine())}</small></div>${auto?btn(fxRuntime.busy?'מעדכן…':'עדכון עכשיו','fx-refresh','RefreshCw'):''}</div><label class="notify-row"><span><b>עדכון אוטומטי</b><small>השער היומי, וגם שער לפי תאריך בתנועות דולריות ובעדכון החודשי</small></span><input type="checkbox" class="switch" data-fx-auto ${auto?'checked':''}></label>${auto?'':`<form id="fx-form" class="fx-manual">${field('שער ידני (₪ לדולר אחד)',input('fx',data.fx,'number','min="0.001" step="any" required inputmode="decimal"'))}<div class="form-actions">${submit('שמירת השער')}</div></form>`}${fxRuntime.error&&auto?notice('לא הצלחנו להתעדכן כרגע — משתמשים בשער האחרון שנשמר. ננסה שוב אוטומטית.','error'):''}`,'fx-card" id="fx-card');
 }
-function fxChip(){return `<span class="fx-chip" title="${e(fxDateLine())}">${icon('CircleDollarSign',15)}<span>דולר <b dir="ltr">${formatRate(data.fx)}</b> ₪</span>${fxAuto()?'<i>אוטומטי</i>':''}</span>`;}
+function fxChip(){return `<span class="fx-chip" title="${e(fxDateLine())}">${icon('CircleDollarSign',15)}<span>דולר <b dir="ltr">${formatRate(data.fx)} ₪</b></span>${fxAuto()?'<i>אוטומטי</i>':''}</span>`;}
 function refreshFxUI(){const box=document.querySelector('#fx-card');if(box)box.outerHTML=fxCard();}
 
 // ---------- Filling forms with the rate for their date ----------

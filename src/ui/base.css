@@ -159,7 +159,7 @@ input[dir="ltr"], textarea[dir="ltr"] { text-align: end; }
   padding: 0 var(--sp-3); font-size: var(--fs-micro); color: var(--text-subtle);
 }
 .local-status svg { color: var(--positive); }
-.local-status span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.local-status span { min-width: 0; white-space: normal; line-height: 1.4; }
 .profile {
   display: flex; align-items: center; gap: var(--sp-3);
   width: 100%; padding: var(--sp-2) var(--sp-3); margin-block-start: var(--sp-1);
@@ -221,6 +221,7 @@ input[dir="ltr"], textarea[dir="ltr"] { text-align: end; }
 .palette-foot > span:last-child { flex-basis: 100%; color: var(--text-muted); }
 .palette-foot > span:last-child > svg { color: var(--accent-2); }
 .palette-foot kbd { margin-inline-end: 2px; }
+@media (pointer: coarse) { .palette-foot > span:not(:last-child), .palette-item > svg:last-child:not(:first-child) { display: none; } } /* no keyboard on touch */
 
 /* Main column */
 .main-shell { margin-inline-start: var(--sidebar-w); min-width: 0; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
@@ -398,16 +399,19 @@ main > .notice { margin-block-end: var(--sp-4); }
 .more-tile.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); font-weight: var(--fw-bold); }
 
 /* ---------- Privacy mode: blur amounts, hover/focus reveals ---------- */
-html.privacy main [dir="ltr"]:not(input):not(textarea):not(.chart):not(.donut):not(.chart *),
+/* The dollar rate (.fx-chip) is public data and stays sharp. Amounts written into sentences and
+   sub-labels are wrapped in <bdi class="amt"> (amt() in app.js) and blur like the boxed ones. */
+html.privacy main [dir="ltr"]:not(input):not(textarea):not(.chart):not(.donut):not(.chart *):not(.fx-chip *),
 html.privacy .hero-balance, html.privacy .metric-value, html.privacy .widget-number, html.privacy .large-number,
 html.privacy .donut-center b, html.privacy .chart svg text, html.privacy .net-value, html.privacy .budget-big b,
-html.privacy .safe-number, html.privacy .score-ring + b, html.privacy .topbar .fx-chip b {
-  filter: blur(7px); transition: filter var(--dur-base) var(--ease-out);
+html.privacy .safe-number, html.privacy .score-ring + b, html.privacy main .amt, html.privacy dialog .amt {
+  filter: blur(6px); transition: filter var(--dur-base) var(--ease-out);
 }
 html.privacy main [dir="ltr"]:not(input):not(textarea):hover, html.privacy .hero-balance:hover,
 html.privacy .metric-value:hover, html.privacy .widget-number:hover, html.privacy .large-number:hover,
 html.privacy .donut-center b:hover, html.privacy .net-value:hover, html.privacy .budget-big b:hover,
-html.privacy .safe-number:hover { filter: none; }
+html.privacy .safe-number:hover, html.privacy .amt:hover { filter: none; }
+html.privacy .metric-value .amt, html.privacy .hero-balance .amt { filter: none; } /* already blurred as a whole */
 
 /* ---------- Tablet (761–1100) ---------- */
 @media (max-width: 1100px) {

@@ -52,12 +52,12 @@
   padding-block-start: var(--sp-4); border-block-start: 1px solid var(--border);
 }
 .savings-overview-bottom > span {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 var(--sp-3);
+  display: inline-flex; align-items: center; gap: 0; min-height: 32px; padding: 0 var(--sp-3);
   border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border);
   font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.savings-overview-bottom svg { flex: none; color: var(--accent-text); }
+.savings-overview-bottom svg { flex: none; margin-inline-end: 6px; color: var(--accent-text); } /* no flex gap: an .amt bdi inside the text would get one */
 
 .savings-section-head { margin-block: var(--sp-2) calc(-1 * var(--sp-1)); }
 .savings-section-head h2 { font-size: var(--fs-h2); }
@@ -645,9 +645,9 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   /* without the note the holdings fit a tablet card: no sideways scroll */
   .investment-table { min-width: 0; }
   .investment-table td, .investment-table th { padding-inline: var(--sp-2); }
-  .investment-table td:first-child { white-space: normal; }
-  .investment-table .asset-name b { max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .investment-table td:first-child { min-width: 220px; }
+  .investment-table td:first-child { min-width: 190px; white-space: normal; }
+  .investment-table th { white-space: normal; } /* 'כמות / מחיר ממוצע' may take two lines; the figures never do */
+  .investment-table .asset-name b { max-width: 156px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .investment-table td:nth-child(2) > small { white-space: nowrap; }
   /* the update date moves out: the row keeps value, profit and both actions on one line */
   .investment-table :is(th, td):nth-child(6) { display: none; }
@@ -726,7 +726,7 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .investment-table tbody tr:hover td, .investment-table tbody tr:hover td:first-child { background: none; }
   .investment-table td:nth-child(1) { grid-column: 1; grid-row: 1; }
   .investment-table td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; text-align: end; }
-  .investment-table td:nth-child(5) { grid-column: 2; grid-row: 2; justify-self: end; text-align: end; }
+  .investment-table td:nth-child(5) { grid-column: 2; grid-row: 2; align-self: center; justify-self: end; text-align: end; }
   .investment-table td:nth-child(7) { grid-column: 1; grid-row: 2; align-self: center; }
   .investment-table td:is(:nth-child(2), :nth-child(3), :nth-child(6)), .investment-table small.profit-note { display: none; }
   /* amounts hug the card's inline-end edge (left), one under the other */

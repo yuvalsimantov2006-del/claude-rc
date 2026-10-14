@@ -11,10 +11,12 @@ export const AI_SETTINGS_KEY='ofek-ai-v1';
 export const AI_CHAT_KEY='ofek-ai-chat-v1';
 export const AI_LETTERS_KEY='ofek-ai-letters-v1';
 export const AI_MODELS=[
-  ['claude-opus-5-5','Claude Opus 5.5 · הכי חכם (מומלץ)',{input:4,output:20}],
-  ['claude-sonnet-5-5','Claude Sonnet 5.5 · מהיר וחסכוני',{input:2,output:10}],
-  ['claude-haiku-4-5','Claude Haiku 4.5 · הכי מהיר וזול',{input:1,output:5}]
+  // [id, short label for the picker (fits a phone-width select), pricing per million tokens]
+  ['claude-opus-5-5','Opus 5.5 · מומלץ',{input:4,output:20}],
+  ['claude-sonnet-5-5','Sonnet 5.5 · מהיר',{input:2,output:10}],
+  ['claude-haiku-4-5','Haiku 4.5 · חסכוני',{input:1,output:5}]
 ];
+export const AI_MODEL_HINT='Opus — הכי חכם · Sonnet — מהיר וחסכוני · Haiku — הכי מהיר וזול';
 const DEFAULT_SETTINGS={apiKey:'',model:'claude-opus-5-5',effort:'medium',baseUrl:'https://api.anthropic.com',usage:{input:0,output:0,cost:0}};
 
 export function aiSettings(){

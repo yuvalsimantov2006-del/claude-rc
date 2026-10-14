@@ -1,4 +1,4 @@
-import {uid,today,money,dateLabel,validDate,applyTransaction,categorySpend} from './finance.js';
+import {uid,today,money,plainText,dateLabel,validDate,applyTransaction,categorySpend} from './finance.js';
 import {detectAnomalies,suggestCategory,shiftDate} from './smart.js';
 import {scheduledItems} from './money.js';
 import {parseNumber} from './xlsx.js';
@@ -121,8 +121,8 @@ function refreshBell(){
   try{if(hasNavigator&&navigator.setAppBadge)(n?navigator.setAppBadge(n):navigator.clearAppBadge())?.catch?.(()=>{});}catch{}
 }
 async function showSystemNotification(title,body,tag,url){
-  const options={body,tag,dir:'rtl',lang:'he',icon:'icons/icon-192.png',badge:'icons/badge-96.png',data:{url}};
-  try{const reg=await navigator.serviceWorker?.getRegistration?.();if(reg){await reg.showNotification(title,options);return true;}}catch{}
+  const options={body:plainText(body),tag,dir:'rtl',lang:'he',icon:'icons/icon-192.png',badge:'icons/badge-96.png',data:{url}};
+  try{const reg=await navigator.serviceWorker?.getRegistration?.();title=plainText(title);if(reg){await reg.showNotification(title,options);return true;}}catch{}
   try{new Notification(title,options);return true;}catch{return false;}
 }
 // Reminders the service worker already showed in the background (same ids), so nothing repeats.
@@ -157,7 +157,7 @@ async function sendDigest(st,sent){
   if(st.monthly&&data.assets.length&&last){const due=shiftDate(last.date,30);items.push({id:`monthly-${due.slice(0,7)}`,at:`${due}T10:00`,title:'זמן לעדכון החודשי',body:'כמה דקות, ותראה איך התיק התקדם.',url:'./#monthly'});}
   try{
     const reg=await navigator.serviceWorker.ready;
-    reg.active?.postMessage({type:'ofek-digest',items:items.filter(x=>!sent[x.id])});
+    reg.active?.postMessage({type:'ofek-digest',items:items.filter(x=>!sent[x.id]).map(x=>({...x,title:plainText(x.title),body:plainText(x.body)}))});
     if(reg.periodicSync&&items.length){const status=await navigator.permissions.query({name:'periodic-background-sync'});if(status.state==='granted')await reg.periodicSync.register('ofek-reminders',{minInterval:6*3600e3});}
   }catch{}
 }

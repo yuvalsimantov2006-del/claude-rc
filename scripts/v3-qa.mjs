@@ -52,9 +52,11 @@ try{
   await page.screenshot({path:path.join(shots,'v3-02-home-editor.png')});
   await page.locator('[data-action="home-preset:investor"]').click();
   assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'preset');
-  await page.waitForTimeout(1200);// Chromium writes localStorage to its store asynchronously; give it time before reloading
+  // Chromium hands localStorage writes to its storage service asynchronously; under heavy CPU load a reload
+  // within a second can still read the previous value. Give it time, and report which case a failure is.
+  await page.waitForTimeout(2500);
   await page.reload();await page.locator('.home-board').waitFor();
-  assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'layout persists in data.prefs.home');
+  assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'layout persists in data.prefs.home (stored order after reload: '+JSON.stringify((await stored(page)).prefs?.home?.order?.slice(0,6))+')');
   assert.equal((await stored(page)).prefs.home.order[0],'hero');
   await page.locator('[data-action="home-edit"]').click();await page.locator('[data-action="home-preset:calm"]').click();
   assert.deepEqual(await widgets(),defaults,'calm preset restores the default');

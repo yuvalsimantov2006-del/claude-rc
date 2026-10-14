@@ -14,11 +14,11 @@ const HOME_WIDGETS=[
   {id:'month',label:'סיכום החודש',icon:'ArrowDownLeft',hint:'הכנסות, הוצאות וחיסכון',w:7.6,stack:true},
   {id:'assets',label:'פס הנכסים',icon:'Landmark',hint:'מזומן, חסכונות, השקעות וחובות',w:12},
   {id:'worth',label:'הכסף לאורך זמן',icon:'ChartNoAxesCombined',hint:'גרף השווי הנקי',w:7.8},
-  {id:'spending',label:'לאן הכסף הולך',icon:'ShoppingBag',hint:'התפלגות ההוצאות החודש',w:4.2},
+  {id:'spending',label:'לאן הכסף הולך',icon:'ChartPie',hint:'התפלגות ההוצאות החודש',w:4.2},
   {id:'insight',label:'התובנה החודשית',icon:'Sparkles',hint:'משפט אחד על החודש ועל התיק',w:12},
   {id:'health',label:'הציון הפיננסי',icon:'HeartPulse',hint:'המצב הפיננסי במספר אחד',w:3.7},
   {id:'pace',label:'קצב ההוצאות',icon:'Gauge',hint:'צפי לסוף החודש',w:3.7},
-  {id:'ask',label:'שאל את Claude',icon:'Bot',hint:'שאלה מהירה על הכסף שלך',w:4.6},
+  {id:'ask',label:'שאל את Claude',icon:'Sparkles',hint:'שאלה מהירה על הכסף שלך',w:4.6},
   {id:'safe',label:'בטוח לבזבז היום',icon:'Wallet',hint:'כמה אפשר להוציא היום',w:3.81},
   {id:'upcoming',label:'חיובים קרובים',icon:'CalendarDays',hint:'תשלומים בשבועיים הקרובים',w:4.38},
   {id:'split',label:'חלוקות ומשאלות',icon:'ArrowLeftRight',hint:'מי חייב למי, ומה מחכה ברשימה',w:3.81},
@@ -26,7 +26,7 @@ const HOME_WIDGETS=[
   {id:'free',label:'כסף פנוי',icon:'PiggyBank',hint:'מה שלא מוקצה לאף יעד',w:4,fresh:true},
   {id:'budgets',label:'תקציבים',icon:'SlidersHorizontal',hint:'התקציבים הקרובים ביותר לגבול',w:4,fresh:true},
   {id:'cashflow',label:'תחזית תזרים',icon:'Activity',hint:'היתרה הצפויה בעו״ש ב־45 הימים הקרובים',w:6,fresh:true},
-  {id:'recent',label:'התנועות האחרונות',icon:'Receipt',hint:'התנועות האחרונות החודש',w:7.8},
+  {id:'recent',label:'התנועות האחרונות',icon:'ArrowLeftRight',hint:'התנועות האחרונות החודש',w:7.8},
   {id:'goals',label:'היעדים שלך',icon:'Target',hint:'ההתקדמות ביעדי החיסכון',w:4.2}
 ];
 // A calm default: the balance hero, this month, what's coming, then the rest.
@@ -78,7 +78,7 @@ const HOME_RENDER={
   spending:({d,s})=>{
     const breakdown=d.categories.map((name,i)=>({name,value:categorySpend(d,name,ui.month),color:palette[i%palette.length]})).filter(a=>a.value>0).sort((a,b)=>b.value-a.value),top=breakdown.slice(0,4);
     if(breakdown.length>4)top.push({name:'אחר',value:breakdown.slice(4).reduce((s,v)=>s+v.value,0),color:tone.muted});
-    return card(head('לאן הכסף הולך?','התפלגות ההוצאות החודשית',textBtn('לתנועות','navigate:transactions'))+(top.length?donut(top,s.expenses,'הוצאות החודש',155):empty('חודש חדש, התחלה חדשה','ההוצאות שתוסיף יופיעו כאן.')),'expenses-chart');
+    return card(widgetHead('ChartPie','לאן הכסף הולך?','navigate:transactions','לתנועות')+(top.length?donut(top,s.expenses,'הוצאות החודש',155):empty('חודש חדש, התחלה חדשה','ההוצאות שתוסיף יופיעו כאן.')),'expenses-chart');
   },
   insight:({s,p})=>`<div class="insight-banner"><span class="insight-icon">${icon('Sparkles',22)}</span><div><b>${s.rate>0?`יפה, חסכת ${pct(s.rate)} מההכנסה החודש!`:'צעד קטן היום, יותר חופש מחר.'}</b><span>${p.return==null?'עדכון חודשי יעזור לך לראות את ההתקדמות.':`תיק ההשקעות שלך ${p.return>=0?'עלה':'ירד'} ב־${pct(Math.abs(p.return))} בעדכון האחרון, אחרי נטרול תזרימים.`}</span></div><button data-action="navigate:insights">לתובנות שלך${icon('ChevronLeft',16)}</button></div>`,
   health:()=>healthMiniCard(),
@@ -89,29 +89,29 @@ const HOME_RENDER={
   split:()=>splitMiniCard(),
   investments:({d,p})=>{
     if(!d.assets.length)return card(widgetHead('TrendingUp','השקעות','navigate:investments','לתיק')+`<p class="muted small">עוד אין השקעות במעקב. אחרי שתוסיף נכס, תראה כאן את השווי, התשואה והפיזור.</p>${btn('הוספת השקעה','open:asset','Plus')}`,'home-widget invest-widget');
-    const r=riskProfile(d),top=r.holdings.slice(0,3);
+    const r=riskProfile(d),top=r.holdings.slice(0,5);
     return card(widgetHead('TrendingUp','השקעות','navigate:investments','לתיק')+`<div class="widget-number" dir="ltr">${money(portfolioValue(d))}</div><div class="widget-sub">${p.return==null?'<span class="muted">כולל מזומן בתיק</span>':change(p.return,'בעדכון האחרון')}</div><div class="widget-alloc" aria-hidden="true">${r.holdings.slice(0,6).map((h,i)=>`<span style="width:${(h.share*100).toFixed(2)}%;background:${palette[i%palette.length]}"></span>`).join('')}</div><div class="widget-list">${top.map((h,i)=>`<div><i style="background:${palette[i%palette.length]}"></i><span>${e(h.name)}</span><b dir="ltr">${pct(h.share)}</b></div>`).join('')}</div><small class="muted">${pct(r.usdShare)} בדולר${r.concentration==='high'?' · ריכוז גבוה בנכס אחד':''}</small>`,'home-widget invest-widget');
   },
   free:()=>{
     const f=freeMoney(data),total=f.total+f.allocated;
-    return card(widgetHead('PiggyBank','כסף פנוי','navigate:goals','ליעדים')+`<div class="widget-number" dir="ltr">${money(f.total)}</div><small class="muted">לא מוקצה לאף יעד · מתוך ${money(total)} בעו״ש, במזומן ובחיסכון</small>${total>0?`<div class="free-bar" role="img" aria-label="${e(`${money(f.allocated)} מוקצים ליעדים, ${money(f.total)} פנויים`)}"><span style="width:${Math.min(100,f.allocated/total*100).toFixed(2)}%"></span></div><div class="free-legend"><span><i class="k-goal"></i>ליעדים ${money(f.allocated)}</span><span><i class="k-free"></i>פנוי ${money(f.total)}</span></div>`:''}${f.accounts.filter(x=>x.balance>0).length?`<div class="widget-list free-accounts">${f.accounts.filter(x=>x.balance>0).sort((a,b)=>b.balance-a.balance).slice(0,3).map(x=>`<div><span>${e(x.account.name)}</span><small class="muted">${x.allocated?`${money(x.allocated)} ליעדים · `:''}</small><b dir="ltr">${money(x.free)}</b></div>`).join('')}</div>`:''}`,'home-widget free-widget');
+    return card(widgetHead('PiggyBank','כסף פנוי','navigate:goals','ליעדים')+`<div class="widget-number" dir="ltr">${money(f.total)}</div><small class="muted">לא מוקצה לאף יעד · מתוך ${amt(total)} בעו״ש, במזומן ובחיסכון</small>${total>0?`<div class="free-bar" role="img" aria-label="${e(`${money(f.allocated)} מוקצים ליעדים, ${money(f.total)} פנויים`)}"><span style="width:${Math.min(100,f.allocated/total*100).toFixed(2)}%"></span></div><div class="free-legend"><span><i class="k-goal"></i>ליעדים ${amt(f.allocated)}</span><span><i class="k-free"></i>פנוי ${amt(f.total)}</span></div>`:''}${f.accounts.filter(x=>x.balance>0).length?`<div class="widget-list free-accounts">${f.accounts.filter(x=>x.balance>0).sort((a,b)=>b.balance-a.balance).slice(0,3).map(x=>`<div><span>${e(x.account.name)}</span><small class="muted">${x.allocated?`${amt(x.allocated)} ליעדים · `:''}</small><b dir="ltr">${money(x.free)}</b></div>`).join('')}</div>`:''}`,'home-widget free-widget');
   },
   budgets:({d})=>{
     const list=d.budgets.map(b=>{const spent=categorySpend(d,b.category,ui.month);return {...b,spent,ratio:b.limit?spent/b.limit:0};}).sort((a,b)=>b.ratio-a.ratio),over=list.filter(b=>b.ratio>1).length;
     if(!list.length)return card(widgetHead('SlidersHorizontal','תקציבים','navigate:budgets','לתקציבים')+`<p class="muted small">עוד לא הוגדרו תקציבים לקטגוריות.</p>${btn('תקציב חדש','open:budget','Plus')}`,'home-widget budgets-widget');
-    return card(widgetHead('SlidersHorizontal','תקציבים','navigate:budgets','לכל התקציבים')+`<div class="widget-budgets">${list.slice(0,4).map(b=>`<div><div class="row-between"><span>${e(b.category)}</span><small class="${b.ratio>1?'negative':'muted'}">${money(b.spent)} מתוך ${money(b.limit)}</small></div>${progress(b.ratio*100,b.ratio>1?'red':b.ratio>.85?'purple':'')}</div>`).join('')}</div><small class="${over?'negative':'muted'}">${over?`${over===1?'תקציב אחד חרג':`${over} תקציבים חרגו`} ב${monthLabel(ui.month).split(' ')[0]}`:`כל התקציבים בשליטה ב${monthLabel(ui.month).split(' ')[0]}`}</small>`,'home-widget budgets-widget');
+    return card(widgetHead('SlidersHorizontal','תקציבים','navigate:budgets','לכל התקציבים')+`<div class="widget-budgets">${list.slice(0,6).map(b=>`<div><div class="row-between"><span class="cat-label">${categoryBadge(b.category,14,'mini')}${e(b.category)}</span><small class="${b.ratio>1?'negative':b.ratio>=.8?'warning':'muted'}">${amt(b.spent)} מתוך ${amt(b.limit)}</small></div>${progress(b.ratio*100,b.ratio>1?'red':b.ratio>=.8?'gold':'')}</div>`).join('')}</div><small class="${over?'negative':'muted'}">${over?`${over===1?'תקציב אחד חרג':`${over} תקציבים חרגו`} ב${monthLabel(ui.month).split(' ')[0]}`:`כל התקציבים בשליטה ב${monthLabel(ui.month).split(' ')[0]}`}</small>`,'home-widget budgets-widget');
   },
   cashflow:()=>{
     const f=cashflowForecast(data,{days:45}),step=Math.max(1,Math.ceil(f.points.length/46)),chart=f.points.filter((p,i)=>i%step===0||i===f.points.length-1||p.date===f.lowest.date);
     const shortDay=d=>new Date(d+'T12:00:00').toLocaleDateString('he-IL',{day:'numeric',month:'short'});
     return card(widgetHead('Activity','תחזית תזרים','navigate:bills','לתחזית המלאה')+`<div class="row-between cashflow-numbers"><div><span>היום</span><b dir="ltr">${money(f.start)}</b></div><div><span>בעוד 45 יום</span><b dir="ltr">${money(f.end)}</b></div><div><span>הנקודה הנמוכה</span><b dir="ltr" class="${f.lowest.balance<0?'negative':''}">${money(f.lowest.balance)}</b><small>${shortDay(f.lowest.date)}</small></div></div>`+graph(chart.map(p=>({date:p.date,label:shortDay(p.date),balance:p.balance})),[{key:'balance',name:'יתרה צפויה',color:f.overdraft?tone.negative:palette[0]}],{height:150,area:true}),'home-widget cashflow-widget');
   },
-  recent:({d})=>card(head('התנועות האחרונות','',textBtn('לכל התנועות','navigate:transactions'))+transactionsTable(d.transactions.filter(t=>t.date.startsWith(ui.month)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4),true),'recent-card'),
-  goals:({d})=>card(head('היעדים שלך','',ib('Plus','הוספת יעד','open:goal'))+d.goals.slice(0,3).map((g,i)=>{const v=goalDetails(g);return `<button class="goal-preview" data-action="navigate:goals"><span class="asset-icon ${i%2?'purple':'gold'}">${icon(g.type==='קרן חירום'?'ShieldCheck':'Target')}</span><div><div class="row-between"><b>${e(g.name)}</b><span class="muted">${v.hasTarget?Math.round(v.progress)+'%':'תחזית'}</span></div>${progress(v.progress,i%2?'purple':'')}<small>${v.hasTarget?money(v.saved)+' מתוך '+money(g.target):money(v.saved)+' היום · '+money(v.projected)+' צפויים'}</small></div></button>`;}).join('')+(!d.goals.length?empty('מה היעד הבא שלך?','',btn('יצירת יעד','open:goal')):'')+`<div class="goal-more">${textBtn('לכל היעדים','navigate:goals')}</div>`,'goals-preview')
+  recent:({d})=>card(widgetHead('ArrowLeftRight','התנועות האחרונות','navigate:transactions','לכל התנועות')+transactionsTable(d.transactions.filter(t=>t.date.startsWith(ui.month)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4),true),'recent-card'),
+  goals:({d})=>card(widgetHead('Target','היעדים שלך','navigate:goals','לכל היעדים')+d.goals.slice(0,3).map((g,i)=>{const v=goalDetails(g);return `<button class="goal-preview" data-action="navigate:goals"><span class="asset-icon ${i%2?'purple':'gold'}">${icon(g.type==='קרן חירום'?'ShieldCheck':'Target')}</span><div><div class="row-between"><b>${e(g.name)}</b><span class="muted">${v.hasTarget?Math.round(v.progress)+'%':'תחזית'}</span></div>${progress(v.progress,i%2?'purple':'')}<small>${v.hasTarget?amt(v.saved)+' מתוך '+amt(g.target):amt(v.saved)+' היום · '+amt(v.projected)+' צפויים'}</small></div></button>`;}).join('')+(!d.goals.length?empty('מה היעד הבא שלך?','',btn('יצירת יעד','open:goal','Plus')):'')+(d.goals.length&&d.goals.length<3?`<div class="goal-more">${textBtn('יעד חדש','open:goal')}</div>`:''),'goals-preview')
 };
 
 // In the hero the shekel sign is drawn smaller than the digits (styled by .hero-cur).
-const heroAmount=text=>e(text).replace('₪','<span class="hero-cur">₪</span>');
+const heroAmount=text=>e(text).replace(/[\s\u00a0\u202f]*₪/,'<span class="hero-cur">₪</span>');
 function heroCard(d,b){
   const banks=checkingAccounts(d);
   if(!banks.length)return card(`<div class="hero-empty"><span class="hero-label">${icon('Wallet',18)}בעו״ש עכשיו</span><h2>עוד לא הגדרת חשבון עו״ש</h2><p>הקלד כמה יש לך בחשבון, ואופק תחשב ממנו כמה בטוח לבזבז כל יום.</p>${btn('הגדרת היתרה בעו״ש','setup-start','Pencil','primary')}</div>`,'hero-card');

@@ -54,7 +54,7 @@ await page.locator('.hero-card').waitFor();
 assert.ok(await page.locator('.hero-card .hero-balance').count(),'checking balance hero on dashboard');
 await page.screenshot({path:path.join(shots,'01-dashboard.png'),fullPage:true});
 
-for(const [route,heading] of [['insights','התובנות שלך'],['lab','מעבדת העתיד'],['budgets','התקציבים שלך'],['copilot','אופק AI'],['settings','הגדרות וגיבוי']]){
+for(const [route,heading] of [['insights','התובנות שלך'],['lab','מעבדת העתיד'],['budgets','התקציבים שלך'],['copilot','Claude'],['settings','הגדרות וגיבוי']]){
   await go(page,route);
   await page.getByRole('heading',{name:heading,level:1}).waitFor();
   await page.screenshot({path:path.join(shots,`02-${route}.png`),fullPage:true});
@@ -129,7 +129,7 @@ assert.ok(docBlock,'attachment sent as a document block');
 await page.screenshot({path:path.join(shots,'06-copilot-chat.png'),fullPage:true});
 
 // Conversation survives reload (without thinking blocks or attachment payloads).
-await page.waitForTimeout(1200);await page.reload();
+await page.waitForTimeout(2500);await page.reload();
 await page.locator('.ai-proposal').first().waitFor();
 const stored=await page.evaluate(()=>localStorage.getItem('ofek-ai-chat-v1'));
 assert.ok(!stored.includes('"thinking"'));assert.ok(!stored.includes('חלב,6.9'));

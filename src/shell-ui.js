@@ -8,8 +8,8 @@ const HUBS=[
   {id:'plan',label:'תכנון וכלים',short:'תכנון',icon:'FlaskConical',pages:['lab','wishlist','split','tools','insights']},
   {id:'ai',label:'Claude',icon:'Sparkles',pages:['copilot']}
 ];
-const PAGE_LABELS={dashboard:'בית',accounts:'חשבונות',transactions:'תנועות',budgets:'תקציבים',bills:'תזרים',capture:'קליטה חכמה',goals:'יעדים',investments:'השקעות',performance:'ביצועים',monthly:'עדכון חודשי',lab:'מה יקרה אם',wishlist:'קנייה חכמה',split:'חלוקת הוצאות',tools:'מחשבונים',insights:'תובנות',copilot:'Claude',settings:'הגדרות'};
-const PAGE_ICONS={dashboard:'House',accounts:'Landmark',transactions:'ArrowLeftRight',budgets:'SlidersHorizontal',bills:'CalendarDays',capture:'ScanLine',goals:'Target',investments:'TrendingUp',performance:'ChartNoAxesCombined',monthly:'RefreshCw',lab:'FlaskConical',wishlist:'ShoppingBag',split:'Users',tools:'Calculator',insights:'Sparkles',copilot:'Bot',settings:'Settings'};
+const PAGE_LABELS={dashboard:'בית',accounts:'חשבונות',transactions:'תנועות',budgets:'תקציבים',bills:'תשלומים ותזרים',capture:'קליטה חכמה',goals:'יעדים',investments:'השקעות',performance:'ביצועים',monthly:'עדכון חודשי',lab:'מעבדת העתיד',wishlist:'קנייה חכמה',split:'חלוקת הוצאות',tools:'מחשבונים',insights:'תובנות',copilot:'Claude',settings:'הגדרות'};
+const PAGE_ICONS={dashboard:'House',accounts:'Landmark',transactions:'ArrowLeftRight',budgets:'SlidersHorizontal',bills:'CalendarDays',capture:'ScanLine',goals:'Target',investments:'TrendingUp',performance:'ChartNoAxesCombined',monthly:'RefreshCw',lab:'FlaskConical',wishlist:'ShoppingBag',split:'Users',tools:'Calculator',insights:'Lightbulb',copilot:'Sparkles',settings:'Settings'};
 const hubOf=page=>HUBS.find(h=>h.pages.includes(page))||null;
 const hubLast={};
 const hubTarget=hub=>hub.pages.includes(hubLast[hub.id])?hubLast[hub.id]:hub.pages[0];

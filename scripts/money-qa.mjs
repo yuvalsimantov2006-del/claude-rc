@@ -177,7 +177,7 @@ await page.locator('[data-action="tool-tab:loan"].active').waitFor();
 
 // Claude proposes a shared expense; the user approves it.
 await page.evaluate(()=>localStorage.setItem('ofek-ai-v1',JSON.stringify({apiKey:'sk-ant-test'})));
-await page.waitForTimeout(1200);await page.reload();
+await page.waitForTimeout(2500);await page.reload();
 await go('copilot');
 await page.locator('#ai-input').fill('תחלק את ארוחת הצהריים באילת');
 await page.keyboard.press('Enter');

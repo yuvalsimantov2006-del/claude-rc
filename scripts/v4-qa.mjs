@@ -72,7 +72,7 @@ try{
 
   // ---------- Dollar rate of the transaction date ----------
   await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('ofek-finance-v1'));d.accounts.push({id:'usd',name:'דולרי',institution:'',kind:'bank',currency:'USD',balance:100});localStorage.setItem('ofek-finance-v1',JSON.stringify(d));});
-  await page.waitForTimeout(1200);// Chromium writes localStorage to its store asynchronously
+  await page.waitForTimeout(2500);// Chromium writes localStorage to its store asynchronously
   await page.reload();await page.locator('.hub-item').first().waitFor();
   await page.locator('.hub-item[data-action="hub:money"]').click();
   await page.locator('[data-action="open:transaction"]').first().click();

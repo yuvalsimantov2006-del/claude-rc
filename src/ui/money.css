@@ -121,7 +121,9 @@
   font-family: var(--font-num); font-size: var(--fs-num-sm); font-weight: var(--fw-bold);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.comparison-row:last-child > b { color: var(--accent-text); }
+.comparison-row:last-child > b:not(.positive):not(.negative):not(.muted) { color: var(--accent-text); }
+.comparison-row > b.positive { color: var(--positive); }
+.comparison-row > b.negative { color: var(--negative); }
 .card:has(> .large-number) > .large-number + p { margin-block: var(--sp-1) var(--sp-2); font-size: var(--fs-small); }
 
 /* Calendar journal */
@@ -644,6 +646,8 @@ select.quick-more {
 @media (max-width: 1100px) {
   .bills-layout { grid-template-columns: minmax(0, 1fr); }
   .filters > select { flex-basis: 160px; }
+  /* 8 columns on a 1024 tablet: tighter cells so the low-point column is not cut at the card edge */
+  .flow-table :is(th, td) { padding-inline: var(--sp-2); }
 }
 
 /* ======================= Phone ======================= */
@@ -781,6 +785,15 @@ select.quick-more {
     font-family: var(--font-sans); font-size: var(--fs-micro); font-weight: var(--fw-regular);
     color: var(--text-subtle); direction: rtl; text-align: start;
   }
+  /* closing balance = the month's answer: a full-width summary line under the six figures
+     (the cell is LTR, so row-reverse puts its label on the RTL start side) */
+  .flow-table td:nth-child(7) {
+    order: 1; grid-column: 1 / -1; display: flex; flex-direction: row-reverse;
+    align-items: baseline; justify-content: space-between; gap: var(--sp-2);
+    padding-block-start: var(--sp-2); border-block-start: 1px dashed var(--border);
+  }
+  .flow-table td:nth-child(7)::before { margin: 0; font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--text-muted); }
+  .flow-table td:nth-child(7) > b { font-size: var(--fs-num-sm); }
   .flow-calendar-card .section-head > .button { width: 100%; }
   .agenda-item { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: var(--sp-1); }
   .agenda-item > .asset-icon { grid-row: 1 / span 2; align-self: start; }

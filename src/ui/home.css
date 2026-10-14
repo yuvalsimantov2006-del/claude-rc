@@ -451,6 +451,13 @@
 .widget-budgets .row-between > span { font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .widget-budgets .row-between > small { flex: none; font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
 .widget-budgets .progress { height: 7px; }
+/* Category tile before each budget name: same tone as the budget card and transaction rows */
+.widget-budgets .row-between > .cat-label { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.widget-budgets .category-icon.mini {
+  display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 7px;
+}
+.widget-budgets .category-icon.mini svg { width: 14px; height: 14px; }
+.widget-budgets .row-between > small.warning { color: var(--warning); }
 .budgets-widget > small { margin-block-start: auto; }
 
 .cashflow-numbers { align-items: stretch; gap: var(--sp-2); }
@@ -471,6 +478,8 @@
 }
 .recent-card td { padding-block: 10px; }
 .recent-card tbody tr:first-child td { padding-block-start: 2px; }
+/* widgetHead (a plain row, not a .section-head) carries no bottom margin of its own */
+.recent-card > .row-between:first-child { margin-block-end: var(--sp-2); }
 .recent-card td:last-child { text-align: end; width: 1%; white-space: nowrap; }
 .recent-card td:last-child b { font-size: var(--fs-num-sm); }
 .recent-card .transaction-icon { width: 40px; height: 40px; border-radius: var(--r-md); }

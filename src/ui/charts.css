@@ -23,6 +23,9 @@
 .graph-point .point-dot { fill: var(--surface); stroke-width: 2.4px; transition: r var(--dur-fast) var(--ease-out); }
 .graph-point:hover .point-dot, .graph-point:focus-visible .point-dot { r: 6px; }
 .graph-point:focus-visible .point-dot { stroke-width: 3px; }
+/* Many points (monthly or yearly series): no bead chain; a dot shows only on the hovered or focused point */
+.native-chart.dense .graph-point .point-dot { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out), r var(--dur-fast) var(--ease-out); }
+.native-chart.dense .graph-point:hover .point-dot, .native-chart.dense .graph-point:focus-visible .point-dot { opacity: 1; }
 .graph-point:focus-visible rect { stroke: var(--focus-color); stroke-width: 2px; }
 
 /* Tooltip (text set by app.js on hover/focus) */
@@ -45,7 +48,8 @@
   margin-block-start: var(--sp-3); padding-block-start: var(--sp-3); border-block-start: 1px solid var(--border);
   font-size: var(--fs-micro); color: var(--text-muted);
 }
-.chart-footer > span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-footer > span { display: inline-flex; align-items: center; gap: 0; }
+.chart-footer > span > i, .chart-footer > span > svg { margin-inline-end: 6px; }
 .gold-dot, .purple-dot {
   display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle;
   background: var(--chart-1);

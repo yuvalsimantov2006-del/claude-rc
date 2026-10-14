@@ -17,9 +17,9 @@ function allocationCard(){
     return `<div class="alloc-row"><div class="alloc-head"><span class="asset-icon ${a.kind==='savings'?'purple':a.kind==='investment'?'gold':'blue'}">${icon(allocIcon[a.kind]||'Wallet',19)}</span><div><b>${e(a.name)}</b><small>${e(accountKinds[a.kind])}${a.institution?' · '+e(a.institution):''}</small></div><b dir="ltr" class="alloc-balance">${money(info.balance)}</b><div class="alloc-actions">${btn('חלוקה ליעדים','alloc:'+a.id,'Target')}${ib('Edit3','עריכת '+a.name,'edit:account:'+a.id)}</div></div>
     <div class="alloc-bar" role="img" aria-label="${e(parts.map(p=>`${p.goal.name} ${money(p.amount)}`).concat(`פנוי ${money(info.free)}`).join(', '))}">${parts.map(p=>`<span style="width:${width(p.amount)}%;background:${goalColor(p.goal)}" title="${e(p.goal.name)}: ${money(p.amount)}"></span>`).join('')}<span class="free" style="width:${width(info.free)}%"></span></div>
     <div class="alloc-legend">${parts.map(p=>`<span><i style="background:${goalColor(p.goal)}"></i>${e(p.goal.name)} <b dir="ltr">${money(p.amount)}</b>${hasAllocation(p.goal)?'':'<small>(מה שלא הוקצה)</small>'}</span>`).join('')}<span><i class="free"></i>${a.kind==='investment'?'לא מוקצה':'פנוי'} <b dir="ltr">${money(info.free)}</b></span></div>
-    ${info.overAllocated?notice(`ההקצאות (${money(info.requested)}) גבוהות מהיתרה. כל יעד מקבל חלק יחסי, עד שתעדכן את החלוקה.`,'error'):''}</div>`;
+    ${info.overAllocated?notice(safe(`ההקצאות (${amt(info.requested)}) גבוהות מהיתרה. כל יעד מקבל חלק יחסי, עד שתעדכן את החלוקה.`),'error'):''}</div>`;
   }).join('');
-  return card(head('הכסף שלך, לפי יעדים',`${money(free.allocated)} מוקצים ליעדים · ${money(free.total)} כסף פנוי`,btn('הוספת חשבון','open:account','Plus'))+(accounts.length?`<div class="alloc-list">${rows}</div>`:empty('אין חשבונות לחלוקה','הוסף חשבון בנק או חיסכון, ואז חלק את היתרה בין היעדים שלך.')),'alloc-card');
+  return card(head('הכסף שלך, לפי יעדים',safe(`${amt(free.allocated)} מוקצים ליעדים · ${amt(free.total)} כסף פנוי`),btn('הוספת חשבון','open:account','Plus'))+(accounts.length?`<div class="alloc-list">${rows}</div>`:empty('אין חשבונות לחלוקה','הוסף חשבון בנק או חיסכון, ואז חלק את היתרה בין היעדים שלך.')),'alloc-card');
 }
 function allocSummary(balance,total){
   const free=balance-total,over=free<-.005;
@@ -30,7 +30,7 @@ function openAllocation(accountId){
   if(!data.goals.length){toast('אין עדיין יעדים לחלוקה. צור תוכנית חיסכון קודם.',true);return;}
   const rows=data.goals.map(g=>({g,value:g.accountId===accountId?Math.round((info.shares.get(g.id)||0)*100)/100:'',other:g.accountId&&g.accountId!==accountId?data.accounts.find(a=>a.id===g.accountId)?.name||'':''}));
   const total=rows.reduce((s,r)=>s+(Number(r.value)||0),0);
-  showDialog(`חלוקת ״${info.account.name}״ בין היעדים`,`<form id="alloc-form" data-account="${e(accountId)}" data-balance="${info.balance}"><div class="form-error"></div><p class="confirm-text">יתרה של <b dir="ltr">${money(info.balance)}</b>. קבע כמה מתוכה שייך לכל יעד — מה שלא יוקצה יישאר כסף פנוי.</p><div class="alloc-inputs">${rows.map(({g,value,other})=>`<label class="alloc-input"><i style="background:${goalColor(g)}"></i><span><b>${e(g.name)}</b><small>${other?`כרגע מקושר ל״${e(other)}״ — הקצאה כאן תעביר אותו`:g.target?`סכום היעד: ${money(g.target)}`:'ללא סכום יעד'}</small></span><input type="number" min="0" step="any" name="g_${e(g.id)}" value="${e(value)}" placeholder="0" data-alloc aria-label="הקצאה ל${e(g.name)}"></label>`).join('')}</div><div id="alloc-summary" class="alloc-summary">${allocSummary(info.balance,total)}</div><div class="form-actions">${submit('שמירת החלוקה')}${btn('חלוקה אוטומטית','alloc-auto','Sparkles')}${btn('ביטול','dialog-close')}</div></form>`,true);
+  showDialog(`חלוקת ״${info.account.name}״ בין היעדים`,`<form id="alloc-form" data-account="${e(accountId)}" data-balance="${info.balance}"><div class="form-error"></div><p class="confirm-text">יתרה של <b dir="ltr">${money(info.balance)}</b>. קבע כמה מתוכה שייך לכל יעד — מה שלא יוקצה יישאר כסף פנוי.</p><div class="alloc-inputs">${rows.map(({g,value,other})=>`<label class="alloc-input"><i style="background:${goalColor(g)}"></i><span><b>${e(g.name)}</b><small>${other?`כרגע מקושר ל״${e(other)}״ — הקצאה כאן תעביר אותו`:g.target?`סכום היעד: ${amt(g.target)}`:'ללא סכום יעד'}</small></span><input type="number" min="0" step="any" name="g_${e(g.id)}" value="${e(value)}" placeholder="0" data-alloc aria-label="הקצאה ל${e(g.name)}"></label>`).join('')}</div><div id="alloc-summary" class="alloc-summary">${allocSummary(info.balance,total)}</div><div class="form-actions">${submit('שמירת החלוקה')}${btn('חלוקה אוטומטית','alloc-auto','Sparkles')}${btn('ביטול','dialog-close')}</div></form>`,true);
 }
 function refreshAllocSummary(form){
   const total=[...form.querySelectorAll('[data-alloc]')].reduce((s,el)=>s+(Number(el.value)||0),0),box=form.querySelector('#alloc-summary');
@@ -63,7 +63,7 @@ function saveAllocation(form){
 }
 function goalAllocationHint(v){
   const others={...data,goals:data.goals.filter(g=>g.id!==v.id)},info=accountAllocations(others,v.accountId);
-  return info?`יתרת החשבון ${money(info.balance)} · ${money(Math.max(0,info.balance-info.requested))} עדיין לא הוקצו ליעדים אחרים`:'';
+  return info?safe(`יתרת החשבון ${amt(info.balance)} · ${amt(Math.max(0,info.balance-info.requested))} עדיין לא הוקצו ליעדים אחרים`):'';
 }
 
 document.addEventListener('click',event=>{

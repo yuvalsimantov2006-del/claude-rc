@@ -17,20 +17,20 @@ function riskCard(){
   const h=historyRisk(data),[levelLabel,levelColor]=levelText[r.concentration],tests=STRESS_SCENARIOS.map(s=>stressTest(data,s));
   const notes=[];
   if(r.largest&&r.largest.share>.25)notes.push(`${r.largest.fullName} מהווה ${pct(r.largest.share)} מהתיק. נכס יחיד גדול מגדיל את הסיכון.`);
-  if(r.usdShare>.5)notes.push(`${pct(r.usdShare)} מהתיק חשוף לדולר. התחזקות של 10% בשקל תוריד כ־${money(r.usd*.1)} מהשווי בשקלים.`);
+  if(r.usdShare>.5)notes.push(safe(`${pct(r.usdShare)} מהתיק חשוף לדולר. התחזקות של 10% בשקל תוריד כ־${amt(r.usd*.1)} מהשווי בשקלים.`));
   const crypto=r.bySector.find(x=>x.name==='קריפטו');if(crypto&&crypto.share>.05)notes.push(`קריפטו מהווה ${pct(crypto.share)} מהתיק — נכס תנודתי במיוחד.`);
   if(r.effective>=4&&!notes.length)notes.push('התיק מפוזר בין כמה נכסים ותחומים. כדאי לבדוק את הפיזור מחדש בכל עדכון חודשי.');
   return card(head('סיכון ופיזור','לפי השווי הנוכחי של התיק · הערכה בלבד, לא ייעוץ השקעות',aiReady()?btn('ניתוח עם Claude','ai-prompt:risk','Sparkles'):'')+`
   <div class="risk-kpis">
     <div><span>הנכס הגדול</span><b>${e(r.largest?.name||'—')}</b><small>${pct(r.largest?.share||0)} מהתיק</small></div>
     <div><span>ריכוז</span><b>${badge(levelLabel,levelColor)}</b><small>כמו ${r.effective.toLocaleString('he-IL',{maximumFractionDigits:1})} נכסים שווים</small></div>
-    <div><span>חשיפה לדולר</span><b dir="ltr">${pct(r.usdShare)}</b><small>${money(r.usd)}</small></div>
+    <div><span>חשיפה לדולר</span><b dir="ltr">${pct(r.usdShare)}</b><small>${amt(r.usd)}</small></div>
     <div><span>תנודתיות שנתית</span><b dir="ltr">${h?pct(h.annualVolatility):'—'}</b><small>${h?`ירידה מרבית ${pct(h.maxDrawdown)} · ${h.months} חודשים`:'נדרשות 3 תמונות מצב'}</small></div>
   </div>
   ${notes.length?`<ul class="risk-notes">${notes.map(n=>`<li>${e(n)}</li>`).join('')}</ul>`:''}
   <div class="risk-columns"><div><h3>לפי תחום</h3>${shareBars(r.bySector)}</div><div><h3>לפי סוג נכס</h3>${shareBars(r.byType)}<h3 class="risk-sub">לפי מטבע</h3>${shareBars([{name:'דולר',share:r.usdShare},{name:'שקל',share:1-r.usdShare}].filter(x=>x.share>0))}</div></div>
   <h3 class="risk-sub">מה יקרה לתיק אם…</h3>
-  <div class="table-wrap"><table class="stress-table"><thead><tr><th>תרחיש</th><th>שינוי בתיק</th><th>מהתיק</th><th>שווי נקי אחרי</th><th>בחודשי הוצאות</th></tr></thead><tbody>${tests.map(t=>`<tr><td><b>${e(t.name)}</b><small class="muted">${e(t.detail)}</small></td><td dir="ltr" data-label="שינוי בתיק" class="${t.change<0?'negative':''}">${t.change<0?'−':''}${money(Math.abs(t.change))}</td><td dir="ltr" data-label="מהתיק">${pct(t.share)}</td><td dir="ltr" data-label="שווי נקי אחרי">${money(t.netWorthAfter)}</td><td data-label="בחודשי הוצאות">${t.months==null?'—':`${Math.abs(t.months).toLocaleString('he-IL',{maximumFractionDigits:1})} חודשים`}</td></tr>`).join('')}</tbody></table></div>
+  <div class="table-wrap"><table class="stress-table"><thead><tr><th>תרחיש</th><th>שינוי בתיק</th><th>מהתיק</th><th>שווי נקי אחרי</th><th>בחודשי הוצאות</th></tr></thead><tbody>${tests.map(t=>`<tr><td><b>${e(t.name)}</b><small class="muted">${e(t.detail)}</small></td><td dir="ltr" data-label="שינוי בתיק" class="${t.change<0?'negative':''}">${t.change<0?'−':''}${money(Math.abs(t.change))}</td><td dir="ltr" data-label="מהתיק" class="${t.change<0?'negative':''}">${pct(t.share)}</td><td dir="ltr" data-label="שווי נקי אחרי">${money(t.netWorthAfter)}</td><td data-label="בחודשי הוצאות">${t.months==null?'—':`${Math.abs(t.months).toLocaleString('he-IL',{maximumFractionDigits:1})} חודשים`}</td></tr>`).join('')}</tbody></table></div>
   <p class="muted small">התרחישים משתמשים ברגישות משוערת של כל תחום לשוק המניות (למשל טכנולוגיה ×1.3, אג״ח ×0.15, קריפטו ×2.2). אפשר לקבוע תחום לכל נכס בעריכת הנכס.</p>`,'risk-card');
 }
 
@@ -49,7 +49,7 @@ function analyzeHoldings(rows){
 }
 function showHoldingsReview(){
   const {matches,unmatched,missing}=holdingsImport.result;
-  showDialog('בדיקת העדכון לפני החלה',`<div class="holdings-review">${matches.length?`<div class="table-wrap"><table><thead><tr><th aria-label="בחירה"></th><th>נכס</th><th>עכשיו</th><th>בדוח</th><th>שינוי</th></tr></thead><tbody>${matches.map((m,i)=>`<tr><td><input type="checkbox" data-holding="${i}" checked aria-label="לעדכן את ${e(m.asset.name)}"></td><td><b>${e(m.asset.name)}</b><small class="muted">${m.field==='currentPrice'?'מחיר ליחידה':'שווי כולל'}${m.flags.length?' · '+m.flags.map(f=>flagText[f]).join(' · '):''}</small></td><td dir="ltr">${money(m.old,m.asset.currency,2)}</td><td dir="ltr"><b>${money(m.next,m.asset.currency,2)}</b></td><td dir="ltr" class="${m.change>=0?'positive':'negative'}">${m.change==null?'—':pct(m.change)}</td></tr>`).join('')}</tbody></table></div>`:notice('אף שורה בדוח לא הותאמה לנכס קיים באופק.','error')}
+  showDialog('בדיקת העדכון לפני החלה',`<div class="holdings-review">${matches.length?`<div class="table-wrap"><table><thead><tr><th aria-label="בחירה"></th><th>נכס</th><th>עכשיו</th><th>בדוח</th><th>שינוי</th></tr></thead><tbody>${matches.map((m,i)=>`<tr><td><input type="checkbox" data-holding="${i}" checked aria-label="לעדכן את ${e(m.asset.name)}"></td><td><b>${e(m.asset.name)}</b><small class="muted">${m.field==='currentPrice'?'מחיר ליחידה':'שווי כולל'}${m.flags.length?' · '+m.flags.map(f=>flagText[f]).join(' · '):''}</small></td><td dir="ltr">${money(m.old,m.asset.currency,2)}</td><td dir="ltr"><b>${money(m.next,m.asset.currency,2)}</b></td><td dir="ltr" class="${m.change>=0?'positive':'negative'}">${m.change==null?'—':pctPrecise(m.change)}</td></tr>`).join('')}</tbody></table></div>`:notice('אף שורה בדוח לא הותאמה לנכס קיים באופק.','error')}
   ${unmatched.length?`<details class="import-notes"><summary>${unmatched.length} שורות לא זוהו</summary><p class="muted small">${unmatched.map(r=>e(r.name||r.symbol)).join(' · ')}</p><p class="small">נכס חדש מוסיפים במסך ההשקעות ואז מעדכנים שוב.</p></details>`:''}
   ${missing.length?`<p class="muted small">${missing.length} נכסים לא הופיעו בדוח ויישארו בערכם הנוכחי: ${missing.map(a=>e(a.ticker||a.name)).join(', ')}.</p>`:''}</div><div class="form-actions">${matches.length?btn(`החלה על העדכון החודשי`,'holdings-apply','Check','primary'):''}${btn('חזרה','holdings-import')}${btn('ביטול','dialog-close')}</div>`,true);
 }

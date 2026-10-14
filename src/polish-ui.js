@@ -13,7 +13,13 @@ function animateNumbers(entering){
     if(el.closest('dialog'))return;
     const text=el.textContent,m=text.match(/\d[\d,]*(?:\.\d+)?/);if(!m)return;
     const target=Number(m[0].replace(/,/g,''));if(!Number.isFinite(target))return;
-    const key=`${ui.page}:${el.closest('[data-widget]')?.dataset.widget||i}:${el.className}`,previous=shownNumbers.get(key);
+    // Unique per element: several numbers in one widget (the month card's three metrics) must not share a key,
+    // or each would start from its neighbour's value.
+    const scope=el.closest('[data-widget]'),idx=scope?[...scope.querySelectorAll(NUMBER_SELECTOR)].indexOf(el):i;
+    // The label and the number's shape (%, שנים, ₪) are part of the key too, so a different metric shown in the
+    // same place after a tab switch never counts up from an unrelated value.
+    const label=el.closest('.metric')?.querySelector('.metric-top span')?.textContent||'',shape=text.replace(/\d[\d,]*(?:\.\d+)?/,'#');
+    const key=`${ui.page}:${scope?.dataset.widget||'page'}:${idx}:${el.className}:${label}:${shape}`,previous=shownNumbers.get(key);
     seen.add(key);shownNumbers.set(key,target);
     if(reducedMotion()||previous===target||(previous==null&&!entering)||target===0)return;
     const from=previous??target*.82,decimals=m[0].includes('.')?m[0].split('.')[1].length:0;
