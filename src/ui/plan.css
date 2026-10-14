@@ -258,15 +258,19 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
 .split-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .split-card h3 { font-size: 17px; font-weight: var(--fw-bold); line-height: 1.35; overflow-wrap: anywhere; }
 .group-avatar {
+  --tone: var(--chart-1); --tone-soft: var(--chart-1-soft);
   display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: var(--r-md);
-  background: var(--chart-1-soft); color: var(--chart-1);
+  background: var(--tone-soft);
+  /* a touch of text colour keeps the lighter hues (sky, amber) readable on their soft tint in both themes */
+  color: color-mix(in srgb, var(--tone) 72%, var(--text));
   font-size: 19px; font-weight: var(--fw-black); line-height: 1;
 }
-.split-grid > .split-card:nth-child(6n+2) .group-avatar { background: var(--chart-2-soft); color: var(--chart-2); }
-.split-grid > .split-card:nth-child(6n+3) .group-avatar { background: var(--chart-3-soft); color: var(--chart-3); }
-.split-grid > .split-card:nth-child(6n+4) .group-avatar { background: var(--chart-6-soft); color: var(--chart-6); }
-.split-grid > .split-card:nth-child(6n+5) .group-avatar { background: var(--chart-5-soft); color: var(--warning); }
-.split-grid > .split-card:nth-child(6n+6) .group-avatar { background: var(--chart-4-soft); color: var(--chart-4); }
+/* data-tone is stable per group (1-6 → chart tokens) */
+.group-avatar[data-tone="2"] { --tone: var(--chart-2); --tone-soft: var(--chart-2-soft); }
+.group-avatar[data-tone="3"] { --tone: var(--chart-3); --tone-soft: var(--chart-3-soft); }
+.group-avatar[data-tone="4"] { --tone: var(--chart-4); --tone-soft: var(--chart-4-soft); }
+.group-avatar[data-tone="5"] { --tone: var(--chart-5); --tone-soft: var(--chart-5-soft); }
+.group-avatar[data-tone="6"] { --tone: var(--chart-6); --tone-soft: var(--chart-6-soft); }
 .member-row { display: flex; align-items: center; padding-inline-start: 6px; }
 .member-dot {
   display: grid; place-items: center; flex: none; width: 32px; height: 32px; margin-inline-start: -6px;
@@ -296,6 +300,14 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
 .split-expenses td b, .split-expenses td small { display: block; }
 .split-expenses td small { margin-block-start: 2px; font-size: var(--fs-micro); }
 .split-expenses td:nth-child(3) { white-space: normal; min-width: 90px; }
+/* Edit / delete: quiet round icon buttons; delete turns red on hover */
+.split-expenses .table-actions { gap: 2px; }
+.split-expenses .table-actions .icon-button {
+  width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: var(--r-pill); color: var(--text-muted);
+}
+.split-expenses .table-actions .icon-button svg { width: 17px; height: 17px; }
+.split-expenses .table-actions .icon-button:hover { background: var(--hover); color: var(--accent-text); }
+.split-expenses .table-actions .icon-button:last-child:hover { background: var(--negative-soft); color: var(--negative); }
 .balances { display: flex; flex-direction: column; gap: var(--sp-3); }
 .balance-row {
   display: grid; grid-template-columns: minmax(56px, 84px) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3);
@@ -614,7 +626,7 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .group-title h2 { font-size: 22px; }
   .group-head > .actions { flex: 1 1 100%; }
   .group-head > .actions .button { flex: 1 1 auto; }
-  /* expenses table → stacked rows: name + amount, payer + actions */
+  /* expenses table → stacked rows: name + amount, then "שילם · מתחלק בין" (data-label) + actions */
   .split-expenses table, .split-expenses tbody { display: block; white-space: normal; }
   .split-expenses thead { display: none; }
   .split-expenses tr {
@@ -622,15 +634,21 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
     padding-block: var(--sp-3);
   }
   .split-expenses tr + tr { border-block-start: 1px solid var(--border); }
-  .split-expenses td { padding: 0; border: 0; background: none; }
+  .split-expenses td { padding: 0; border: 0; background: none; min-width: 0; }
   .split-expenses td:nth-child(1) { grid-column: 1; grid-row: 1; }
-  .split-expenses td:nth-child(2) { grid-column: 1; grid-row: 2; font-size: var(--fs-micro); color: var(--text-muted); }
-  .split-expenses td:nth-child(2)::before { content: "שילם: "; }
-  .split-expenses td:nth-child(3) { display: none; }
+  .split-expenses td:nth-child(2), .split-expenses td:nth-child(3) {
+    grid-column: 1; font-size: var(--fs-micro); line-height: 1.45; color: var(--text-muted); white-space: normal;
+  }
+  .split-expenses td:nth-child(2) { grid-row: 2; color: var(--text); font-weight: var(--fw-semibold); }
+  .split-expenses td:nth-child(3) { grid-row: 3; }
+  .split-expenses td:is(:nth-child(2), :nth-child(3))::before {
+    content: attr(data-label) ": "; color: var(--text-subtle); font-weight: var(--fw-regular);
+  }
   .split-expenses td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; }
   .split-expenses td:nth-child(4) b { font-size: var(--fs-num-sm); }
-  .split-expenses td:nth-child(5) { grid-column: 2; grid-row: 2; justify-self: end; }
+  .split-expenses td:nth-child(5) { grid-column: 2; grid-row: 2 / span 2; justify-self: end; align-self: end; }
   .split-expenses .table-actions { margin-inline-end: calc(-1 * var(--sp-2)); }
+  .split-expenses .table-actions .icon-button { width: var(--touch); height: var(--touch); }
   .transfer { padding: var(--sp-3); }
   .transfer .pay-button { min-height: var(--touch); flex-basis: 100%; justify-content: center; }
   .group-head .back, .settled summary { min-height: var(--touch); }

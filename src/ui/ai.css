@@ -357,12 +357,12 @@
 .ai-side .card > p.small { line-height: 1.6; }
 
 /* ---------- First-run setup wizard ---------- */
-dialog.modal.setup-dialog { padding: var(--sp-6) var(--sp-8) var(--sp-8); }
-dialog.modal.setup-dialog .modal-head { margin-block-end: var(--sp-2); }
-dialog.modal.setup-dialog .modal-head h2 { font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text-muted); letter-spacing: 0; }
+dialog.modal.setup-step-dialog { padding: var(--sp-6) var(--sp-8) var(--sp-8); }
+dialog.modal.setup-step-dialog .modal-head { margin-block-end: var(--sp-2); }
+dialog.modal.setup-step-dialog .modal-head h2 { font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text-muted); letter-spacing: 0; }
 
 /* Welcome (step 0) */
-dialog.modal.setup-dialog:has(.setup-welcome) {
+dialog.modal.setup-welcome-dialog {
   width: min(600px, calc(100vw - 32px)); padding: 0; overflow: hidden auto;
   background:
     radial-gradient(90% 60% at 50% -8%, color-mix(in srgb, var(--accent-vivid) 22%, transparent), transparent 70%),
@@ -370,12 +370,12 @@ dialog.modal.setup-dialog:has(.setup-welcome) {
     radial-gradient(55% 45% at 0% 0%, color-mix(in srgb, var(--chart-2) 14%, transparent), transparent 75%),
     var(--elevated);
 }
-dialog.modal.setup-dialog:has(.setup-welcome) .modal-head {
+dialog.modal.setup-welcome-dialog .modal-head {
   position: absolute; inset-block-start: var(--sp-4); inset-inline: var(--sp-4); z-index: 1; margin: 0;
   justify-content: flex-end; pointer-events: none;
 }
-dialog.modal.setup-dialog:has(.setup-welcome) .modal-head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-dialog.modal.setup-dialog:has(.setup-welcome) .modal-head .icon-button { pointer-events: auto; background: color-mix(in srgb, var(--surface) 70%, transparent); }
+dialog.modal.setup-welcome-dialog .modal-head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+dialog.modal.setup-welcome-dialog .modal-head .icon-button { pointer-events: auto; background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .setup-welcome {
   display: flex; flex-direction: column; align-items: center; gap: var(--sp-4);
   padding: var(--sp-12) var(--sp-10) var(--sp-8); text-align: center;
@@ -426,10 +426,7 @@ dialog.modal.setup-dialog:has(.setup-welcome) .modal-head .icon-button { pointer
 .setup-form:has(.setup-amount ~ .setup-amount) .balance-input > input:not(#\_) { font-size: 34px; min-height: 48px; }
 .setup-form:has(.setup-amount ~ .setup-amount) .balance-currency { font-size: 22px; }
 .setup-form > .form-error:not(:empty) { margin-block-start: var(--sp-1); }
-/* The error box already wraps a .notice: drop the outer box so it reads as one message */
-:is(.setup-form, #sync-form, #backup-form, #decrypt-form) > .form-error:has(> .notice) {
-  margin-block-end: var(--sp-3); padding: 0; background: none; border-radius: 0;
-}
+/* components.css drops the outer box when the error is a .notice; keep only one bottom gap */
 :is(.setup-form, #sync-form, #backup-form, #decrypt-form) > .form-error > .notice { margin: 0; }
 .setup-actions { margin-block-start: var(--sp-4); }
 .modal .setup-actions { margin-block-start: var(--sp-5); }
@@ -676,38 +673,26 @@ dialog.modal > .all-clear { padding: var(--sp-4); }
   .ai-welcome .ai-chip { position: relative; min-height: 38px; padding-inline: var(--sp-3); font-size: var(--fs-micro); }
   .ai-welcome .ai-chip::after { content: ""; position: absolute; inset: -3px -1px; }
 
-  /* Selectable transaction proposals: each row becomes a compact two-line item */
-  .ai-proposal-table:has(td input) thead { display: none; }
-  .ai-proposal-table:has(td input), .ai-proposal-table:has(td input) tbody { display: block; white-space: normal; }
-  .ai-proposal-table:has(td input) tr {
-    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-3); row-gap: 2px;
-    align-items: center; padding: var(--sp-3); border-block-end: 1px solid var(--border);
+  /* Transaction proposals: each row becomes a compact two-line item (description + amount, date + category),
+     with the checkbox at the start while the proposal is still open */
+  .ai-proposal-table.tx thead { display: none; }
+  .ai-proposal-table.tx, .ai-proposal-table.tx tbody { display: block; white-space: normal; }
+  .ai-proposal-table.tx tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "desc amt" "date cat";
+    column-gap: var(--sp-3); row-gap: 2px; align-items: center;
+    padding: var(--sp-3); border-block-end: 1px solid var(--border);
   }
-  .ai-proposal-table:has(td input) tr:last-child { border-block-end: 0; }
-  .ai-proposal-table:has(td input) td { display: block; padding: 0 !important; border: 0; background: none !important; min-width: 0; }
-  .ai-proposal-table:has(td input) td:nth-child(1) { grid-row: 1 / span 2; grid-column: 1; width: auto; }
-  .ai-proposal-table:has(td input) td:nth-child(2) { grid-row: 2; grid-column: 2; font-size: var(--fs-micro); }
-  .ai-proposal-table:has(td input) td:nth-child(3) { grid-row: 1; grid-column: 2; overflow-wrap: anywhere; }
-  .ai-proposal-table:has(td input) td:nth-child(3) small { display: inline; margin-inline-start: 6px; }
-  .ai-proposal-table:has(td input) td:nth-child(4) { grid-row: 2; grid-column: 3; justify-self: end; }
-  .ai-proposal-table:has(td input) td:nth-child(4) .category-pill { min-height: 22px; font-size: var(--fs-micro); }
-  .ai-proposal-table:has(td input) td:nth-child(4) small { display: none; }
-  .ai-proposal-table:has(td input) td:nth-child(5) { grid-row: 1; grid-column: 3; justify-self: end; }
-  /* The same list after it was answered (no checkboxes; the first cell is the date) */
-  .ai-proposal-table:has(tbody td.muted:first-child) thead { display: none; }
-  .ai-proposal-table:has(tbody td.muted:first-child), .ai-proposal-table:has(tbody td.muted:first-child) tbody { display: block; white-space: normal; }
-  .ai-proposal-table:has(tbody td.muted:first-child) tr {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-3); row-gap: 2px;
-    align-items: center; padding: var(--sp-3); border-block-end: 1px solid var(--border);
-  }
-  .ai-proposal-table:has(tbody td.muted:first-child) tr:last-child { border-block-end: 0; }
-  .ai-proposal-table:has(tbody td.muted:first-child) td { display: block; padding: 0 !important; border: 0; background: none !important; min-width: 0; }
-  .ai-proposal-table:has(tbody td.muted:first-child) td:nth-child(1) { grid-row: 2; grid-column: 1; font-size: var(--fs-micro); }
-  .ai-proposal-table:has(tbody td.muted:first-child) td:nth-child(2) { grid-row: 1; grid-column: 1; overflow-wrap: anywhere; }
-  .ai-proposal-table:has(tbody td.muted:first-child) td:nth-child(2) small { display: inline; margin-inline-start: 6px; }
-  .ai-proposal-table:has(tbody td.muted:first-child) td:nth-child(3) { grid-row: 2; grid-column: 2; justify-self: end; }
-  .ai-proposal-table:has(tbody td.muted:first-child) td:nth-child(3) small { display: none; }
-  .ai-proposal-table:has(tbody td.muted:first-child) td:nth-child(4) { grid-row: 1; grid-column: 2; justify-self: end; }
+  .ai-proposal-table.tx tr:has(> td > input) { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "chk desc amt" "chk date cat"; }
+  .ai-proposal-table.tx tr:last-child { border-block-end: 0; }
+  .ai-proposal-table.tx td { display: block; padding: 0 !important; border: 0; background: none !important; min-width: 0; }
+  .ai-proposal-table.tx td:nth-last-child(5) { grid-area: chk; width: auto; }
+  .ai-proposal-table.tx td:nth-last-child(4) { grid-area: date; font-size: var(--fs-micro); }
+  .ai-proposal-table.tx td:nth-last-child(3) { grid-area: desc; overflow-wrap: anywhere; }
+  .ai-proposal-table.tx td:nth-last-child(3) small { display: inline; margin-inline-start: 6px; }
+  .ai-proposal-table.tx td:nth-last-child(2) { grid-area: cat; justify-self: end; }
+  .ai-proposal-table.tx td:nth-last-child(2) .category-pill { min-height: 22px; font-size: var(--fs-micro); }
+  .ai-proposal-table.tx td:nth-last-child(2) small { display: none; }
+  .ai-proposal-table.tx td:last-child { grid-area: amt; justify-self: end; }
   .ai-composer { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
   .ai-input-row { gap: 2px; padding: 4px; padding-inline-start: var(--sp-2); }
   .ai-actions .icon-button { width: var(--touch); height: var(--touch); }
@@ -721,10 +706,10 @@ dialog.modal > .all-clear { padding: var(--sp-4); }
   .ai-thinking summary { min-height: var(--touch); }
 
   /* Setup wizard as a calm bottom sheet */
-  dialog.modal.setup-dialog { padding: var(--sp-5) var(--gutter) calc(var(--sp-5) + var(--safe-bottom, 0px)); }
-  dialog.modal.setup-dialog:has(.setup-welcome) { width: 100%; padding: 0; }
-  dialog.modal.setup-dialog:has(.setup-welcome) .modal-head { inset-block-start: var(--sp-5); }
-  dialog.modal.setup-dialog:has(.setup-welcome) .modal-head::before { inset-block-start: calc(-1 * var(--sp-3)); }
+  dialog.modal.setup-step-dialog { padding: var(--sp-5) var(--gutter) calc(var(--sp-5) + var(--safe-bottom, 0px)); }
+  dialog.modal.setup-welcome-dialog { width: 100%; padding: 0; }
+  dialog.modal.setup-welcome-dialog .modal-head { inset-block-start: var(--sp-5); }
+  dialog.modal.setup-welcome-dialog .modal-head::before { inset-block-start: calc(-1 * var(--sp-3)); }
   .setup-welcome { gap: var(--sp-3); padding: var(--sp-10) var(--gutter) calc(var(--sp-6) + var(--safe-bottom, 0px)); }
   .setup-logo { width: 84px; height: 84px; border-radius: 26px; }
   .setup-logo .brand-svg { width: 56px; height: 56px; }
