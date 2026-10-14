@@ -98,6 +98,8 @@
   letter-spacing: var(--tracking-tight); font-variant-numeric: tabular-nums; color: var(--text);
 }
 html.privacy main .big-number, html.privacy main .wish-price, html.privacy main .plan-number { filter: blur(7px); transition: filter var(--dur-fast) var(--ease-out); }
+html.privacy main :is(.scn-results td small, .split-card .badge) { filter: blur(6px); }
+html.privacy main :is(.scn-results td small, .split-card .badge):hover { filter: none; }
 html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.privacy main .plan-number:hover { filter: none; }
 
 /* ============================================================
@@ -159,6 +161,8 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
 .lab-layout { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); gap: var(--gap-grid); align-items: start; }
 .lab-controls { display: flex; flex-direction: column; gap: var(--sp-4); }
 .lab-controls > .lab-slider:first-of-type { padding-block-start: var(--sp-4); border-block-start: 1px solid var(--border); }
+.lab-controls-card > .section-head { margin-block-end: var(--sp-4); }
+.fan-chart .chart-goal { font-weight: var(--fw-bold); }
 .lab-results { display: flex; flex-direction: column; gap: var(--gap-grid); min-width: 0; }
 .lab-chart .chart { margin-block-start: var(--sp-2); }
 .lab-chart .chart-footer { justify-content: flex-start; }
@@ -235,6 +239,7 @@ html.privacy main .big-number:hover, html.privacy main .wish-price:hover, html.p
 .wish-actions .icon-button { width: 36px; height: 36px; }
 .wish-actions .icon-button:first-of-type { margin-inline-start: auto; }
 .wish-actions .icon-button:last-child:hover { color: var(--negative); background: var(--negative-soft); }
+.wish-card.waiting .wish-price { color: var(--text); }
 .wish-card.skipped, .wish-card.bought { background: var(--surface-2); box-shadow: none; }
 .wish-card.skipped h3, .wish-card.bought h3, .wish-card.bought .wish-price { color: var(--text-muted); }
 .wish-card.skipped .wish-price { color: var(--positive); }
@@ -350,7 +355,7 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
 .tool-output { display: flex; flex-direction: column; gap: var(--gap-grid); min-width: 0; }
 .tool-output > .notice.error { padding: var(--sp-4); }
 .tool-output > .two-columns:has(.goal-details) { grid-template-columns: minmax(0, 1fr); }
-.tool-output .goal-details { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.tool-output .goal-details { grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); }
 :is(.scn-results, .lab-results, .tool-output) .three-metrics .metric-value { font-size: 24px; white-space: nowrap; }
 
 /* Salary */
@@ -372,7 +377,10 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
 .breakdown i { flex: none; display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
 .breakdown b { font-weight: var(--fw-bold); }
 .breakdown small { grid-column: 1 / -1; font-size: var(--fs-micro); color: var(--text-subtle); font-variant-numeric: tabular-nums; }
-.tool-output .goal-details b { font-variant-numeric: tabular-nums; }
+.tool-output .goal-details b { width: fit-content; max-width: 100%; font-variant-numeric: tabular-nums; }
+/* Table amounts: the ltr cell's end edge lines up with the start-aligned header */
+:is(.tool-output, .scn-results, .split-layout) td[dir="ltr"] { text-align: end; }
+:is(.tool-output, .scn-results, .split-layout) td > :is(b, span)[dir="ltr"] { display: block; width: fit-content; }
 .tool-output .large-number { width: fit-content; color: var(--accent-text); }
 .tool-output .large-number + p { margin-block-start: var(--sp-2); font-size: var(--fs-small); }
 
@@ -440,6 +448,7 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
 /* ============================================================
    Insights
    ============================================================ */
+.health-card > .section-head { margin-block-end: var(--sp-5); }
 .health { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: var(--sp-8); align-items: center; }
 .health-ring { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
 .health-ring > b {
@@ -557,11 +566,24 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .scn-event > .row-between > .icon-button { grid-column: 2; grid-row: 1; width: var(--touch); height: var(--touch); }
   .scn-event .scn-type { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
   .scn-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .scn-results table { white-space: normal; }
-  .scn-results td, .scn-results th { min-width: 72px; }
+  /* goals table → stacked rows: goal, then "now ← scenario" and the change */
+  .scn-results .table-wrap table, .scn-results .table-wrap tbody { display: block; white-space: normal; }
+  .scn-results .table-wrap thead { display: none; }
+  .scn-results .table-wrap tr {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-2);
+    padding-block: var(--sp-3); border-block-end: 1px solid var(--border);
+  }
+  .scn-results .table-wrap tr:last-child { border-block-end: 0; }
+  .scn-results .table-wrap td { padding: 0; border: 0; background: none; font-size: var(--fs-small); }
+  .scn-results .table-wrap td:nth-child(1) { flex: 1 1 100%; display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin-block-end: 2px; }
+  .scn-results .table-wrap td:nth-child(1) small { margin: 0; }
+  .scn-results .table-wrap td:nth-child(2) { color: var(--text-muted); }
+  .scn-results .table-wrap td:nth-child(3)::before { content: "←"; margin-inline-end: var(--sp-2); color: var(--text-subtle); font-weight: var(--fw-regular); }
+  .scn-results .table-wrap td:nth-child(3) b { display: inline; }
+  .scn-results .table-wrap td:nth-child(4) { margin-inline-start: auto; font-size: var(--fs-micro); }
   :is(.scn-results, .lab-results, .tool-output, .wish-stats) .three-metrics .metric-value,
   .wish-stats .metric-value { font-size: 20px; white-space: nowrap; }
-  .scn-presets .ai-chip { min-height: 40px; }
+  .scn-presets .ai-chip { min-height: var(--touch); }
 
   .tool-fields { grid-template-columns: minmax(0, 1fr); }
   .tool-fields > .check-field { margin-block-start: 0; }
@@ -569,11 +591,11 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .debt-rows { display: flex; }
   .big-number { font-size: 38px; }
   .breakdown { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .breakdown > div { grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: 10px 0; border-radius: 0; background: none; }
+  .breakdown > div { grid-template-columns: minmax(0, 1fr) 64px 92px; gap: var(--sp-3); padding: 10px 0; border-radius: 0; background: none; }
   .breakdown > div + div { border-block-start: 1px solid var(--border); }
   .breakdown span { grid-column: 1; grid-row: 1; }
   .breakdown small { grid-column: 2; grid-row: 1; min-width: 52px; text-align: end; }
-  .breakdown b { grid-column: 3; grid-row: 1; }
+  .breakdown b { grid-column: 3; grid-row: 1; justify-self: end; }
   .plan-number { font-size: 30px; }
 
   .buy-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -608,9 +630,13 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .split-expenses td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; }
   .split-expenses td:nth-child(4) b { font-size: var(--fs-num-sm); }
   .split-expenses td:nth-child(5) { grid-column: 2; grid-row: 2; justify-self: end; }
-  .split-expenses .table-actions button { min-height: 36px; }
+  .split-expenses .table-actions { margin-inline-end: calc(-1 * var(--sp-2)); }
   .transfer { padding: var(--sp-3); }
-  .transfer .pay-button { min-height: 36px; flex-basis: 100%; justify-content: center; }
+  .transfer .pay-button { min-height: var(--touch); flex-basis: 100%; justify-content: center; }
+  .group-head .back, .settled summary { min-height: var(--touch); }
+  .debt-row > label > input, .debt-row > input[type="text"] { min-height: var(--touch); }
+  .debt-row > .icon-button { width: var(--touch); height: var(--touch); }
+  .share-row input[type="number"] { min-height: var(--touch); }
   .share-row { grid-template-columns: auto minmax(0, 1fr) 110px; }
   .danger-zone .button { width: 100%; }
 

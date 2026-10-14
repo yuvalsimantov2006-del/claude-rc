@@ -12,8 +12,8 @@
    GOALS
    ============================================================ */
 
-/* ---------- Savings overview (page intro) ---------- */
-.savings-overview {
+/* ---------- Savings overview (page intro; .goals-intro is the same block) ---------- */
+.savings-overview, .goals-intro:where(.savings-overview) { /* same block; keep (0,1,0) so the media rules win */
   position: relative; overflow: hidden; isolation: isolate;
   display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: var(--sp-5) var(--sp-8);
@@ -68,7 +68,7 @@
   gap: var(--gap-grid); align-items: stretch;
 }
 .goal-grid:empty { display: none; }
-.saving-card { display: flex; flex-direction: column; gap: var(--sp-4); }
+.goal-card.saving-card, .saving-card { display: flex; flex-direction: column; gap: var(--sp-4); }
 .saving-card-top { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .goal-icon {
   display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 14px;
@@ -156,6 +156,7 @@
 .savings-note > svg { flex: none; margin-block-start: 2px; color: var(--info); }
 
 /* ---------- Allocation card ("הכסף שלך, לפי יעדים") ---------- */
+.alloc-card .section-head { margin-block-end: var(--sp-3); }
 .alloc-list { display: flex; flex-direction: column; }
 .alloc-row {
   display: flex; flex-direction: column; gap: var(--sp-3);
@@ -237,6 +238,7 @@
   display: inline-flex; align-items: center; gap: 6px;
   font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--accent-2);
 }
+.goal-live-heading > .badge.purple { background: var(--surface); }
 .goal-live-number {
   width: fit-content; max-width: 100%;
   font-family: var(--font-num); font-size: 38px; line-height: 1.1; font-weight: var(--fw-black);
@@ -300,6 +302,11 @@
 .investment-table td.positive small[dir="ltr"], .investment-table td.negative small[dir="ltr"] { font-weight: var(--fw-bold); }
 .investment-table td.positive small.muted, .investment-table td.negative small.muted { max-width: 170px; white-space: normal; line-height: 1.4; color: var(--text-subtle); }
 .investment-table td:first-child > small.muted { max-width: 260px; margin-block-start: var(--sp-2); white-space: normal; line-height: 1.45; }
+.investment-table td > small[dir="ltr"] { width: fit-content; }
+/* The same profit note repeats on every row: keep it on the first row only */
+.investment-table tbody tr + tr td:is(.positive, .negative) small.muted { display: none; }
+/* Activity log amounts: the ltr cell's end edge lines up with the start-aligned header */
+.page-content:has(> .monthly-prompt) td[dir="ltr"] { text-align: end; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .investment-table td.muted { font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
 .investment-table .table-actions { justify-content: flex-end; }
 /* Asset column stays in view while the numbers scroll on narrow screens */
@@ -382,7 +389,7 @@
 .stress-table td:first-child b { display: block; font-size: var(--fs-small); font-weight: var(--fw-bold); }
 .stress-table td:first-child small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); line-height: 1.4; }
 .stress-table td[dir="ltr"] { text-align: end; }
-.stress-table td:last-child { text-align: end; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.stress-table td:last-child { text-align: start; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .stress-table td.negative { color: var(--negative); }
 
 /* ============================================================
@@ -467,9 +474,9 @@
 .update-asset:last-child { border-block-end: 0; }
 .update-asset .asset-name .badge { margin-inline-start: var(--sp-1); vertical-align: 1px; }
 .update-asset .ticker-icon { background: var(--chart-1-soft); }
-.currency-input { position: relative; display: block; }
-.currency-input input { padding-inline-end: 40px; font-family: var(--font-num); font-weight: var(--fw-bold); direction: ltr; text-align: end; }
-.currency-input > span {
+/* Base .currency-input (components) keeps the amount end-aligned next to the symbol */
+.update-asset .currency-input > input:not(#\_) { font-family: var(--font-num); font-weight: var(--fw-bold); }
+.update-asset .currency-input > span {
   position: absolute; inset-block: 0; inset-inline-end: 1px; display: grid; place-items: center; width: 36px;
   border-inline-start: 1px solid var(--border); margin-block: 8px;
   font-family: var(--font-num); font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text-muted);
@@ -478,6 +485,13 @@
 .update-value { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .update-value small { font-size: var(--fs-micro); color: var(--text-subtle); }
 .update-value b { font-family: var(--font-num); font-size: var(--fs-num-md); font-weight: var(--fw-black); font-variant-numeric: tabular-nums; }
+/* Rate hint added under the dollar-rate field by fx-ui.js */
+#monthly-form .fx-hint, #entity-form .fx-hint {
+  display: flex; align-items: center; gap: 6px; color: var(--accent-text); font-weight: var(--fw-semibold);
+}
+#monthly-form .fx-hint::before, #entity-form .fx-hint::before {
+  content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-vivid);
+}
 .wallet-note {
   display: flex; align-items: center; gap: var(--sp-2); margin-block-start: var(--sp-4);
   padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--surface-2);
@@ -609,6 +623,10 @@ html.privacy .holdings-review td[dir="ltr"], html.privacy .confirm-text b[dir="l
 html.privacy .goal-live-number:hover, html.privacy .alloc-summary b:hover,
 html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[dir="ltr"]:hover { filter: none; }
 
+/* Standalone figures that are not wrapped in a dir="ltr" element */
+html.privacy main :is(.saving-card .goal-details b, .saving-target small, .investment-table td > small, .risk-kpis small, .wallet-note > span) { filter: blur(6px); }
+html.privacy main :is(.saving-card .goal-details b, .saving-target small, .investment-table td > small, .risk-kpis small, .wallet-note > span):hover { filter: none; }
+
 /* ============================================================
    TABLET (≤1100)
    ============================================================ */
@@ -676,13 +694,8 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .investment-table td:first-child > small.muted,
   .investment-table td.positive small.muted, .investment-table td.negative small.muted { display: none; }
   .investment-table td { padding-block: var(--sp-3); }
-  .stress-table td:first-child, .stress-table th:first-child {
-    position: sticky; inset-inline-start: 0; z-index: 1; background: var(--surface);
-    min-width: 150px; max-width: 150px; box-shadow: inset 1px 0 0 var(--border);
-  }
-  .stress-table thead th:first-child { z-index: 2; }
-  .stress-table tbody tr:hover td:first-child { background: linear-gradient(var(--hover), var(--hover)), var(--surface); }
-  .table-wrap:has(.investment-table), .table-wrap:has(.stress-table) { margin-inline: calc(-1 * var(--sp-4)); width: calc(100% + 2 * var(--sp-4)); padding-inline: var(--sp-4) 0; }
+  
+  .table-wrap:has(.investment-table) { margin-inline: calc(-1 * var(--sp-4)); width: calc(100% + 2 * var(--sp-4)); padding-inline: var(--sp-4) 0; }
   .table-wrap:has(.investment-table) > .empty { padding-inline: var(--sp-4); }
   .snapshot-list > div { grid-template-columns: minmax(0, 1fr) auto minmax(58px, auto); gap: var(--sp-2); }
   .snapshot-date svg { width: 28px; height: 28px; }
@@ -691,15 +704,12 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .risk-kpis > div { padding: var(--sp-3); }
   .risk-kpis b { font-size: 18px; }
   .risk-columns { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
-  .stress-table { min-width: 600px; }
-  .stress-table td:first-child { min-width: 180px; }
 
   /* Performance */
   .performance-filters { flex-direction: column; align-items: stretch; }
-  .performance-filters > .segmented {
-    -webkit-mask-image: linear-gradient(to left, var(--mask-solid) 85%, transparent);
-    mask-image: linear-gradient(to left, var(--mask-solid) 85%, transparent);
-  }
+  /* Seven periods: wrap into rows so the active one (often "טווח אישי") is never scrolled out of view */
+  .performance-filters > .segmented { display: flex; flex-wrap: wrap; overflow: visible; border-radius: 22px; row-gap: 4px; }
+  .performance-filters > .segmented > button { flex: 1 1 auto; padding-inline: var(--sp-3); }
   .custom-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .custom-range .field { width: auto; }
   .benchmark-numbers { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
@@ -735,6 +745,49 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .success-metrics b { font-size: 19px; }
   .monthly-success > .button { width: 100%; min-width: 0; }
 
+  /* Stress tests: stacked rows (scenario, then change + share, then net worth + months) */
+  .stress-table, .stress-table tbody { display: block; min-width: 0; white-space: normal; }
+  .stress-table thead { display: none; }
+  .stress-table tbody tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px var(--sp-3);
+    padding-block: var(--sp-3); border-block-end: 1px solid var(--border);
+  }
+  .stress-table tbody tr:last-child { border-block-end: 0; }
+  .stress-table tbody tr:hover td { background: none; }
+  .stress-table td {
+    min-width: 0; max-width: none; padding: 0; border: 0; box-shadow: none; background: none;
+  }
+  .stress-table td:nth-child(1) { grid-column: 1 / -1; min-width: 0; margin-block-end: 2px; }
+  .stress-table td:nth-child(2) { grid-column: 1; justify-self: start; font-size: var(--fs-num-md); font-weight: var(--fw-black); }
+  .stress-table td:nth-child(3) {
+    grid-column: 2; justify-self: end; padding: 2px var(--sp-2); border-radius: var(--r-pill);
+    background: var(--surface-2); color: var(--text-muted); font-size: var(--fs-micro); font-weight: var(--fw-bold);
+  }
+  .stress-table td:nth-child(4) {
+    grid-column: 1; display: flex; flex-direction: row-reverse; justify-content: flex-start; gap: 6px;
+    font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--text);
+  }
+  .stress-table td:nth-child(4)::before { content: "שווי נקי אחרי"; font-family: var(--font-sans); font-weight: var(--fw-regular); color: var(--text-muted); }
+  .stress-table td:nth-child(5) { grid-column: 2; justify-self: end; font-size: var(--fs-micro); }
+
+  /* Activity log (last card on the investments page): stacked rows, amount always visible */
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]),
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) > tbody { display: block; white-space: normal; }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) > thead { display: none; }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px var(--sp-3);
+    padding-block: var(--sp-3); border-block-end: 1px solid var(--border);
+  }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) tr:last-child { border-block-end: 0; }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td { padding: 0; border: 0; background: none; min-width: 0; }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: var(--fw-bold); }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; font-family: var(--font-num); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(3) { grid-column: 1; grid-row: 2; font-size: var(--fs-micro); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(2) { grid-column: 2; grid-row: 2; justify-self: end; font-size: var(--fs-micro); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(5) { display: none; }
+
+  .benchmark-toggles > .legend-name, .benchmark-toggles > label { min-height: var(--touch); }
+
   /* Import dialog */
   #holdings-form textarea { min-height: 150px; }
   #holdings-form .import-file-row > .button { width: 100%; }
@@ -769,4 +822,13 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
   .page-content.enter .alloc-bar > span,
   .page-content.enter .share-track > span,
   .page-content.enter .monthly-success .success-orb { animation: none; }
+}
+
+/* Performance chart head: the benchmark-edit button and the metric picker sit on one row */
+.section-head > .actions:has(select[name="chartMetric"]) { flex-wrap: nowrap; }
+.section-head > .actions select[name="chartMetric"] { width: auto; min-width: 210px; min-height: 42px; border-radius: var(--r-pill); }
+@media (max-width: 760px) {
+  .section-head > .actions:has(select[name="chartMetric"]) { flex-wrap: wrap; width: 100%; }
+  .section-head > .actions select[name="chartMetric"] { width: 100%; min-height: var(--touch); }
+  .section-head > .actions:has(select[name="chartMetric"]) > .button { flex: 1 1 100%; }
 }

@@ -27,7 +27,8 @@
 }
 .home-cell > .card > .button { align-self: flex-start; }
 .home-cell > .card > .row-between:first-child { min-height: 32px; }
-.home-cell > .card > .row-between:first-child .eyebrow { font-size: var(--fs-small); color: var(--text); }
+.home-cell > .card > .row-between:first-child .eyebrow { gap: var(--sp-2); font-size: 16px; line-height: 1.35; color: var(--text); letter-spacing: 0; }
+.home-cell .section-head h2 { font-size: 16px; }
 .home-cell > .card > .row-between:first-child .eyebrow svg { color: var(--text-subtle); }
 .home-cell > .card > small.muted, .home-cell > .card > small.negative { font-size: var(--fs-micro); line-height: 1.5; }
 .home-cell > .card > small.muted { color: var(--text-muted); }
@@ -35,6 +36,8 @@
 .home-cell .section-head { margin-block-end: var(--sp-3); }
 .home-cell .section-head:has(> .icon-button), .home-cell .section-head:has(> .text-button) { flex-wrap: nowrap; }
 .home-cell .section-head:has(> .text-button) > div:first-child { flex-basis: auto; }
+/* A one-line title with a 44px link/button: centre them on one axis */
+.home-cell .section-head:not(:has(p)) { align-items: center; }
 
 /* A widget that could not render */
 .home-cell > .card:not([class*="-"]) > p.muted:only-child { margin: 0; }
@@ -248,6 +251,16 @@
 .expenses-chart { display: flex; flex-direction: column; }
 .expenses-chart .section-head .icon-button { margin-block-start: -6px; color: var(--accent-text); }
 .expenses-chart .donut-wrap { flex: 1 1 auto; align-content: center; }
+/* Colours follow the rank (top 4 + "other"), so two categories never share a colour */
+.expenses-chart .donut circle:nth-of-type(1) { stroke: var(--chart-1) !important; }
+.expenses-chart .donut circle:nth-of-type(2) { stroke: var(--chart-2) !important; }
+.expenses-chart .donut circle:nth-of-type(3) { stroke: var(--chart-6) !important; }
+.expenses-chart .donut circle:nth-of-type(4) { stroke: var(--chart-3) !important; }
+.expenses-chart .donut-legend > div:nth-child(1) i { background: var(--chart-1) !important; }
+.expenses-chart .donut-legend > div:nth-child(2) i { background: var(--chart-2) !important; }
+.expenses-chart .donut-legend > div:nth-child(3) i { background: var(--chart-6) !important; }
+.expenses-chart .donut-legend > div:nth-child(4) i { background: var(--chart-3) !important; }
+.expenses-chart .donut-legend b { color: var(--text); }
 @container home-cell (max-width: 460px) {
   .expenses-chart .donut-legend { flex-basis: 100%; max-width: none; }
 }
@@ -340,11 +353,12 @@
   font-size: var(--fs-small);
 }
 .mini-agenda > div + div { border-block-start: 1px solid var(--border); }
-.mini-date {
-  display: grid; place-items: center; min-width: 52px; min-height: 38px; padding: 2px var(--sp-2);
+.mini-date { /* "16 באוק׳" wraps into a stacked tile: day on top, month under it */
+  display: block; inline-size: min-content; min-inline-size: 46px; padding: 5px 6px;
   border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border);
-  font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--text-muted); line-height: 1.2; text-align: center; white-space: nowrap;
+  font-size: 11px; font-weight: var(--fw-bold); color: var(--text-muted); line-height: 1.25; text-align: center; white-space: normal;
 }
+.mini-date::first-line { font-family: var(--font-num); font-size: 17px; font-weight: var(--fw-black); color: var(--text); }
 .mini-agenda > div > span:nth-child(2) { font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini-agenda b { font-size: var(--fs-num-sm); font-weight: var(--fw-bold); white-space: nowrap; }
 .after-charges {
@@ -417,6 +431,9 @@
 .cashflow-numbers span, .cashflow-numbers small { font-size: var(--fs-micro); color: var(--text-muted); }
 .cashflow-numbers b { width: fit-content; max-width: 100%; font-size: var(--fs-num-sm); font-weight: var(--fw-black); overflow-wrap: anywhere; }
 .cashflow-widget .chart { margin-block-start: auto; }
+/* ~45 daily points: the line carries the shape, a point shows on hover/focus */
+.cashflow-widget .graph-point .point-dot { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.cashflow-widget .graph-point:hover .point-dot, .cashflow-widget .graph-point:focus-visible .point-dot { opacity: 1; }
 
 /* ---------- Recent transactions ---------- */
 .recent-card thead {
@@ -431,8 +448,12 @@
 .recent-card .empty { padding-block: var(--sp-6); }
 @container home-cell (max-width: 560px) {
   .recent-card th:nth-child(2), .recent-card td:nth-child(2) { display: none; }
-  .recent-card td:first-child { width: 100%; }
-  .recent-card .transaction-name b, .recent-card .transaction-name small { max-width: 100%; white-space: nowrap; }
+  .recent-card td:first-child { width: 100%; max-width: 0; } /* the name column gives way, the amount never clips */
+  .recent-card .transaction-name { min-width: 0; }
+  .recent-card .transaction-name > div { min-width: 0; }
+  .recent-card .transaction-name b, .recent-card .transaction-name small {
+    display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 }
 
 /* ---------- Goals preview ---------- */
@@ -621,6 +642,8 @@
   .card.hero-card { grid-template-areas: "label label" "balance balance" "updated updated" "edit edit" "stats stats" "foot foot"; }
   .hero-edit { justify-self: start; margin-block-start: var(--sp-3); }
   .summary-grid .metric-value { font-size: 19px; }
+  .hero-stat { padding: var(--sp-2) var(--sp-3); }
+  .hero-stat > b { font-size: 17px; }
 }
 
 /* ---------- Privacy: blur the remaining big numbers ---------- */
