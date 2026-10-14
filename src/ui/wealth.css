@@ -645,10 +645,13 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   /* without the note the holdings fit a tablet card: no sideways scroll */
   .investment-table { min-width: 0; }
   .investment-table td, .investment-table th { padding-inline: var(--sp-2); }
-  .investment-table .asset-name b { max-width: 128px; }
   .investment-table td:first-child { white-space: normal; }
-  .investment-table .table-actions { flex-direction: column; align-items: flex-end; gap: 0; }
-  .investment-table .table-actions button { min-height: 28px; }
+  .investment-table .asset-name b { max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .investment-table td:first-child { min-width: 220px; }
+  .investment-table td:nth-child(2) > small { white-space: nowrap; }
+  /* the update date moves out: the row keeps value, profit and both actions on one line */
+  .investment-table :is(th, td):nth-child(6) { display: none; }
+  .investment-table .table-actions { flex-wrap: nowrap; gap: 2px; }
 }
 
 /* ============================================================
@@ -706,20 +709,40 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .monthly-prompt-icon { width: 44px; height: 44px; border-radius: 14px; }
   .monthly-prompt h2 { font-size: 16px; }
   .monthly-prompt > .button { width: 100%; }
-  .investment-table { min-width: 720px; }
-  .investment-table td:first-child, .investment-table th:first-child {
-    max-width: 168px; min-width: 168px; white-space: normal;
-    box-shadow: inset 1px 0 0 var(--border);
+  /* Holdings: each asset is a stacked row (name + actions | value + profit), no sideways scroll */
+  .investment-table { min-width: 0; }
+  .investment-table, .investment-table tbody { display: block; white-space: normal; }
+  .investment-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .investment-table tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+    gap: var(--sp-1) var(--sp-3); padding-block: var(--sp-3);
+    border-block-end: 1px solid var(--border);
   }
-  .investment-table td:first-child:dir(ltr), .investment-table th:first-child:dir(ltr) { box-shadow: inset -1px 0 0 var(--border); }
+  .investment-table tbody tr:last-child { border-block-end: 0; }
+  .investment-table td, .investment-table td:first-child {
+    position: static; min-width: 0; max-width: none; padding: 0; border: 0;
+    background: none; box-shadow: none; white-space: normal;
+  }
+  .investment-table tbody tr:hover td, .investment-table tbody tr:hover td:first-child { background: none; }
+  .investment-table td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .investment-table td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; text-align: end; }
+  .investment-table td:nth-child(5) { grid-column: 2; grid-row: 2; justify-self: end; text-align: end; }
+  .investment-table td:nth-child(7) { grid-column: 1; grid-row: 2; align-self: center; }
+  .investment-table td:is(:nth-child(2), :nth-child(3), :nth-child(6)), .investment-table small.profit-note { display: none; }
+  /* amounts hug the card's inline-end edge (left), one under the other */
+  .investment-table td:nth-child(4) { display: flex; flex-direction: column; align-items: flex-end; }
+  .investment-table td:nth-child(4) > b[dir="ltr"] { font-size: var(--fs-num-md); font-weight: var(--fw-bold); }
+  .investment-table td:nth-child(5) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 0 var(--sp-2); }
+  .investment-table td:nth-child(5) > small { margin: 0; }
+  .investment-table td:nth-child(5) > b[dir="ltr"] { font-size: var(--fs-small); }
+  .investment-table .table-actions { justify-content: flex-start; gap: var(--sp-2); padding-inline-start: 42px; }
   .investment-table .asset-name { gap: var(--sp-2); }
+  .investment-table .asset-name b { max-width: none; white-space: normal; }
   .investment-table .ticker-icon { width: 34px; height: 34px; border-radius: 10px; font-size: 10px; }
   .investment-table .ticker-icon.long { font-size: 8.5px; }
   .investment-table td:first-child > small.muted { display: none; }
-  .investment-table td { padding-block: var(--sp-3); }
-  
-  .table-wrap:has(.investment-table) { margin-inline: calc(-1 * var(--sp-4)); width: calc(100% + 2 * var(--sp-4)); padding-inline: var(--sp-4) 0; }
-  .table-wrap:has(.investment-table) > .empty { padding-inline: var(--sp-4); }
+  .table-wrap:has(.investment-table) { overflow: visible; }
+
   .snapshot-list > div { grid-template-columns: minmax(0, 1fr) auto minmax(58px, auto); gap: var(--sp-2); }
   .snapshot-date svg { width: 28px; height: 28px; }
 
@@ -731,8 +754,12 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   /* Performance */
   .performance-filters { flex-direction: column; align-items: stretch; }
   /* Seven periods: wrap into rows so the active one (often "טווח אישי") is never scrolled out of view */
-  .performance-filters > .segmented { display: flex; flex-wrap: wrap; overflow: visible; border-radius: 22px; row-gap: 4px; }
-  .performance-filters > .segmented > button { flex: 1 1 auto; padding-inline: var(--sp-3); }
+  .performance-filters > .segmented {
+    display: grid; grid-template-columns: repeat(4, auto); gap: 4px;
+    width: 100%; overflow: visible; border-radius: 22px;
+  }
+  .performance-filters > .segmented > button { min-width: 0; min-height: 40px; padding-inline: var(--sp-1); white-space: nowrap; }
+  .performance-filters > .segmented > button::after { inset: -2px; }
   .custom-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .custom-range .field { width: auto; }
   .benchmark-numbers { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }

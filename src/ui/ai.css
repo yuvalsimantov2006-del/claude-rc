@@ -621,7 +621,7 @@ html.privacy .fx-now b:hover { filter: none; }
 dialog.modal .versions-list { max-height: min(52dvh, 460px); overflow-y: auto; margin-block-end: 0; }
 
 /* App + notifications */
-.app-cards { align-items: stretch; }
+.app-cards { align-items: start; } /* each card keeps its own height: no empty block under the shorter app card */
 .app-card > .confirm-text, .app-card > .notice, .app-card > .sync-steps, .app-card > .app-status { margin-block-start: var(--sp-4); }
 .app-card > .sync-steps { margin-block-end: var(--sp-3); }
 .app-card > .notice { margin-block-end: 0; }

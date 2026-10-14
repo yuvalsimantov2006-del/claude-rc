@@ -1,20 +1,29 @@
 export const uid = () => globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export const today = () => new Date().toISOString().slice(0,10);
 // Intl's he-IL text ("\u200f18,500 \u200f₪") carries bidi marks that, inside the left-to-right amount boxes,
-// push a gap in front of the number and glue the ₪ to it. Drop them; a negative amount keeps one LRM so
-// "−250 ₪" also stays together inside Hebrew sentences.
+// push a gap in front of the number and glue the ₪ to it. Drop them, and wrap the amount in a left-to-right
+// isolate (U+2066 … U+2069) so it reads "6,000 ₪" everywhere: in amount boxes and inside Hebrew sentences alike.
+// A negative amount keeps an LRM so "−250 ₪" stays together. Text that leaves the HTML UI (share text,
+// clipboard, notifications, prompts) goes through plainText() to drop the isolate marks.
+export const LRI='\u2066',PDI='\u2069';
+export const plainText=v=>String(v??'').replace(/[\u2066-\u2069]/g,'');
 export const money = (n,c='ILS',digits=0) => {
   const value=Number.isFinite(+n)?+n:0,rounded=Math.round(value*10**digits)/10**digits;
   const text=new Intl.NumberFormat('he-IL',{style:'currency',currency:c,maximumFractionDigits:digits,minimumFractionDigits:digits}).format(rounded||0).replace(/[\u200e\u200f]/g,'');
-  return text.startsWith('-')?'\u200e−'+text.slice(1):text;
+  return LRI+(text.startsWith('-')?'\u200e−'+text.slice(1):text)+PDI;
 };
-// An amount that is taken off, e.g. "−1,200 ₪" (nothing to take off reads "0 ₪", not "−0 ₪").
-export const minusMoney = (n,c='ILS',digits=0) => Math.abs(+n)>=(digits?10**-digits/2:.5)?'−'+money(Math.abs(+n),c,digits):money(0,c,digits);
-export const pct = n => {
+// An amount that is taken off, e.g. "−1,200 ₪" (nothing to take off reads "0 ₪", not "−0 ₪"). The minus sits
+// inside the isolate, so it stays on the number's left in Hebrew sentences too.
+export const minusMoney = (n,c='ILS',digits=0) => Math.abs(+n)>=(digits?10**-digits/2:.5)?money(-Math.abs(+n),c,digits):money(0,c,digits);
+// Percentages: whole numbers from 10% up (43%), one decimal below that (8.9%, 0.9%).
+const percentText=(n,digits)=>{
   if(n==null||!Number.isFinite(n))return 'אין מספיק נתונים';
-  const text=new Intl.NumberFormat('he-IL',{style:'percent',maximumFractionDigits:2}).format(n).replace(/[\u200e\u200f]/g,'');
-  return text.startsWith('-')?(text==='-0%'?'0%':'\u200e−'+text.slice(1)):text;
+  const text=new Intl.NumberFormat('he-IL',{style:'percent',maximumFractionDigits:digits}).format(n).replace(/[\u200e\u200f]/g,'');
+  return text.startsWith('-')?(/^-0(\.0+)?%$/.test(text)?'0%':'\u200e−'+text.slice(1)):text;
 };
+export const pct = n => percentText(n,Number.isFinite(n)&&Math.abs(n)>=.1?0:1);
+// Two decimals where precision is the point: returns, XIRR, benchmark gaps, fees.
+export const pctPrecise = n => percentText(n,2);
 export const dateLabel = d => new Date(d+'T12:00:00').toLocaleDateString('he-IL');
 export const monthLabel = m => new Date(m+'-01T12:00:00').toLocaleDateString('he-IL',{month:'long',year:'numeric'});
 export const toILS=(n,c,fx)=>Number(n)*(c==='USD'?fx:1);

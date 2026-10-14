@@ -425,6 +425,12 @@
 .widget-list span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .widget-list b { font-weight: var(--fw-bold); white-space: nowrap; }
 .invest-widget > small.muted { margin-block-start: auto; }
+/* A widget stretched to its row's height (next to the donut) spreads its rows a little instead of leaving
+   a dead block above the footer; each row grows at most ~1.5× so short lists still read as a list */
+.invest-widget > .widget-list, .budgets-widget > .widget-budgets { flex: 1 1 auto; }
+.invest-widget > .widget-list > div { flex: 1 1 34px; max-block-size: 50px; }
+.budgets-widget > .widget-budgets { gap: 0; }
+.budgets-widget > .widget-budgets > div { flex: 1 1 auto; justify-content: center; max-block-size: 72px; padding-block: 6px; }
 
 .free-bar { height: 10px; border-radius: var(--r-pill); background: var(--positive-vivid); overflow: hidden; }
 .free-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent-2-vivid); box-shadow: 2px 0 0 var(--card-bg); }
