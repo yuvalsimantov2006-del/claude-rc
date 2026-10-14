@@ -78,7 +78,7 @@ const HOME_RENDER={
   spending:({d,s})=>{
     const breakdown=d.categories.map((name,i)=>({name,value:categorySpend(d,name,ui.month),color:palette[i%palette.length]})).filter(a=>a.value>0).sort((a,b)=>b.value-a.value),top=breakdown.slice(0,4);
     if(breakdown.length>4)top.push({name:'אחר',value:breakdown.slice(4).reduce((s,v)=>s+v.value,0),color:tone.muted});
-    return card(head('לאן הכסף הולך?','התפלגות ההוצאות החודשית',ib('ChevronLeft','לכל התנועות','navigate:transactions'))+(top.length?donut(top,s.expenses,'הוצאות החודש',155):empty('חודש חדש, התחלה חדשה','ההוצאות שתוסיף יופיעו כאן.')),'expenses-chart');
+    return card(head('לאן הכסף הולך?','התפלגות ההוצאות החודשית',textBtn('לתנועות','navigate:transactions'))+(top.length?donut(top,s.expenses,'הוצאות החודש',155):empty('חודש חדש, התחלה חדשה','ההוצאות שתוסיף יופיעו כאן.')),'expenses-chart');
   },
   insight:({s,p})=>`<div class="insight-banner"><span class="insight-icon">${icon('Sparkles',22)}</span><div><b>${s.rate>0?`יפה, חסכת ${pct(s.rate)} מההכנסה החודש!`:'צעד קטן היום, יותר חופש מחר.'}</b><span>${p.return==null?'עדכון חודשי יעזור לך לראות את ההתקדמות.':`תיק ההשקעות שלך ${p.return>=0?'עלה':'ירד'} ב־${pct(Math.abs(p.return))} בעדכון האחרון, אחרי נטרול תזרימים.`}</span></div><button data-action="navigate:insights">לתובנות שלך${icon('ChevronLeft',16)}</button></div>`,
   health:()=>healthMiniCard(),
