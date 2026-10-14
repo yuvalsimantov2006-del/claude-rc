@@ -391,7 +391,8 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
 .breakdown small { grid-column: 1 / -1; font-size: var(--fs-micro); color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 .tool-output .goal-details b { width: fit-content; max-width: 100%; font-variant-numeric: tabular-nums; }
 /* Table amounts: the ltr cell's end edge lines up with the start-aligned header */
-:is(.tool-output, .scn-results, .split-layout) td[dir="ltr"] { text-align: end; }
+:is(.tool-output, .scn-results, .split-layout) td[dir="ltr"],
+.page-content:has(> .insights-intro) > section.card td[dir="ltr"] { text-align: end; font-variant-numeric: tabular-nums; }
 :is(.tool-output, .scn-results, .split-layout) td > :is(b, span)[dir="ltr"] { display: block; width: fit-content; }
 .tool-output .large-number { width: fit-content; color: var(--accent-text); }
 .tool-output .large-number + p { margin-block-start: var(--sp-2); font-size: var(--fs-small); }
@@ -622,31 +623,35 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .wish-actions .button { min-height: var(--touch); flex: 1 1 auto; }
   .wish-actions .icon-button { width: var(--touch); height: var(--touch); }
   .wish-actions .icon-button:first-of-type { margin-inline-start: 0; }
+  .wish-card:is(.skipped, .bought) .wish-actions .button { flex: 0 0 auto; }
 
   .group-title h2 { font-size: 22px; }
   .group-head > .actions { flex: 1 1 100%; }
   .group-head > .actions .button { flex: 1 1 auto; }
-  /* expenses table → stacked rows: name + amount, then "שילם · מתחלק בין" (data-label) + actions */
+  /* expenses table → stacked rows (data-label): name + amount, then date · payer, then who shares it; actions at the end */
   .split-expenses table, .split-expenses tbody { display: block; white-space: normal; }
   .split-expenses thead { display: none; }
   .split-expenses tr {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px var(--sp-3);
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 2px var(--sp-2);
     padding-block: var(--sp-3);
   }
   .split-expenses tr + tr { border-block-start: 1px solid var(--border); }
   .split-expenses td { padding: 0; border: 0; background: none; min-width: 0; }
-  .split-expenses td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .split-expenses td:nth-child(1) { display: contents; }
+  .split-expenses td:nth-child(1) > b { grid-column: 1 / 3; grid-row: 1; font-size: var(--fs-body); }
+  .split-expenses td:nth-child(1) > small { grid-column: 1; grid-row: 2; margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .split-expenses td:nth-child(1) > small::after { content: "·"; margin-inline-start: var(--sp-2); color: var(--text-subtle); }
   .split-expenses td:nth-child(2), .split-expenses td:nth-child(3) {
-    grid-column: 1; font-size: var(--fs-micro); line-height: 1.45; color: var(--text-muted); white-space: normal;
+    font-size: var(--fs-micro); line-height: 1.45; color: var(--text-muted); white-space: normal;
   }
-  .split-expenses td:nth-child(2) { grid-row: 2; color: var(--text); font-weight: var(--fw-semibold); }
-  .split-expenses td:nth-child(3) { grid-row: 3; }
+  .split-expenses td:nth-child(2) { grid-column: 2; grid-row: 2; color: var(--text); font-weight: var(--fw-semibold); }
+  .split-expenses td:nth-child(3) { grid-column: 1 / 3; grid-row: 3; }
   .split-expenses td:is(:nth-child(2), :nth-child(3))::before {
     content: attr(data-label) ": "; color: var(--text-subtle); font-weight: var(--fw-regular);
   }
-  .split-expenses td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; }
+  .split-expenses td:nth-child(4) { grid-column: 3; grid-row: 1; justify-self: end; }
   .split-expenses td:nth-child(4) b { font-size: var(--fs-num-sm); }
-  .split-expenses td:nth-child(5) { grid-column: 2; grid-row: 2 / span 2; justify-self: end; align-self: end; }
+  .split-expenses td:nth-child(5) { grid-column: 3; grid-row: 2 / span 2; justify-self: end; align-self: center; }
   .split-expenses .table-actions { margin-inline-end: calc(-1 * var(--sp-2)); }
   .split-expenses .table-actions .icon-button { width: var(--touch); height: var(--touch); }
   .transfer { padding: var(--sp-3); }
@@ -657,6 +662,24 @@ textarea.share-text { min-height: 220px; font-size: var(--fs-small); line-height
   .share-row input[type="number"] { min-height: var(--touch); }
   .share-row { grid-template-columns: auto minmax(0, 1fr) 110px; }
   .danger-zone .button { width: 100%; }
+
+  /* Detected recurring payments (insights): stacked rows, the monthly amount always in view; the yearly column is ×12 and drops */
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]),
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) > tbody { display: block; white-space: normal; }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) > thead { display: none; }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-1) var(--sp-3);
+    padding-block: var(--sp-3); border-block-end: 1px solid var(--border);
+  }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) tr:last-child { border-block-end: 0; }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) td { padding: 0; border: 0; background: none; min-width: 0; }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) td:nth-child(3) { grid-column: 2; grid-row: 1; justify-self: end; }
+  /* the pill sits under the name, past the 36px icon */
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) td:nth-child(2) { grid-column: 1; grid-row: 2; padding-inline-start: calc(36px + var(--sp-3)); }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) td:nth-child(4) { display: none; }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) td:nth-child(5) { grid-column: 2; grid-row: 2; justify-self: end; font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
+  .page-content:has(> .insights-intro) > section.card .table-wrap > table:not([class]) tbody tr:hover td { background: none; }
 
   .health { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: var(--sp-5); }
   .health-factors { width: 100%; }

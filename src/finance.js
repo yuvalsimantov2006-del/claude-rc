@@ -1,7 +1,20 @@
 export const uid = () => globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export const today = () => new Date().toISOString().slice(0,10);
-export const money = (n,c='ILS',digits=0) => new Intl.NumberFormat('he-IL',{style:'currency',currency:c,maximumFractionDigits:digits,minimumFractionDigits:digits}).format(Number.isFinite(+n)?+n:0);
-export const pct = n => n==null || !Number.isFinite(n) ? 'אין מספיק נתונים' : new Intl.NumberFormat('he-IL',{style:'percent',maximumFractionDigits:2}).format(n);
+// Intl's he-IL text ("\u200f18,500 \u200f₪") carries bidi marks that, inside the left-to-right amount boxes,
+// push a gap in front of the number and glue the ₪ to it. Drop them; a negative amount keeps one LRM so
+// "−250 ₪" also stays together inside Hebrew sentences.
+export const money = (n,c='ILS',digits=0) => {
+  const value=Number.isFinite(+n)?+n:0,rounded=Math.round(value*10**digits)/10**digits;
+  const text=new Intl.NumberFormat('he-IL',{style:'currency',currency:c,maximumFractionDigits:digits,minimumFractionDigits:digits}).format(rounded||0).replace(/[\u200e\u200f]/g,'');
+  return text.startsWith('-')?'\u200e−'+text.slice(1):text;
+};
+// An amount that is taken off, e.g. "−1,200 ₪" (nothing to take off reads "0 ₪", not "−0 ₪").
+export const minusMoney = (n,c='ILS',digits=0) => Math.abs(+n)>=(digits?10**-digits/2:.5)?'−'+money(Math.abs(+n),c,digits):money(0,c,digits);
+export const pct = n => {
+  if(n==null||!Number.isFinite(n))return 'אין מספיק נתונים';
+  const text=new Intl.NumberFormat('he-IL',{style:'percent',maximumFractionDigits:2}).format(n).replace(/[\u200e\u200f]/g,'');
+  return text.startsWith('-')?(text==='-0%'?'0%':'\u200e−'+text.slice(1)):text;
+};
 export const dateLabel = d => new Date(d+'T12:00:00').toLocaleDateString('he-IL');
 export const monthLabel = m => new Date(m+'-01T12:00:00').toLocaleDateString('he-IL',{month:'long',year:'numeric'});
 export const toILS=(n,c,fx)=>Number(n)*(c==='USD'?fx:1);

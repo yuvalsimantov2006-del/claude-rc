@@ -292,7 +292,7 @@
 .monthly-prompt > .button { flex: none; }
 
 /* ---------- Holdings table ---------- */
-.investment-table { min-width: 860px; }
+.investment-table { min-width: 760px; }
 .investment-table td { padding-block: var(--sp-4); vertical-align: top; }
 .investment-table td > small, .investment-table td > b + small, .investment-table td > span + small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); font-weight: var(--fw-medium); }
 .investment-table td > b[dir="ltr"], .investment-table td > span[dir="ltr"] { display: block; width: fit-content; font-size: var(--fs-num-sm); }
@@ -473,7 +473,7 @@
 .update-asset:first-child { padding-block-start: 0; }
 .update-asset:last-child { border-block-end: 0; }
 .update-asset .asset-name .badge { margin-inline-start: var(--sp-1); vertical-align: 1px; }
-.update-asset .ticker-icon { background: var(--chart-1-soft); }
+.update-asset .ticker-icon { background: color-mix(in srgb, currentColor 13%, transparent); } /* the JS sets only the hue colour here */
 /* Five-character tickers (TA125) fit the tile: smaller, tighter type */
 .ticker-icon.long { font-size: 9px; letter-spacing: -.02em; }
 /* Base .currency-input (components) keeps the amount end-aligned next to the symbol */
@@ -639,6 +639,18 @@ html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[
 html.privacy main :is(.saving-card .goal-details b, .saving-target small, .investment-table td > small, .risk-kpis small, .wallet-note > span) { filter: blur(6px); }
 html.privacy main :is(.saving-card .goal-details b, .saving-target small, .investment-table td > small, .risk-kpis small, .wallet-note > span):hover { filter: none; }
 
+/* Narrow desktop / tablet: the repeated profit note goes, and the holdings fit the card without sideways scroll */
+@media (max-width: 1220px) {
+  .investment-table small.profit-note { display: none; }
+  /* without the note the holdings fit a tablet card: no sideways scroll */
+  .investment-table { min-width: 0; }
+  .investment-table td, .investment-table th { padding-inline: var(--sp-2); }
+  .investment-table .asset-name b { max-width: 128px; }
+  .investment-table td:first-child { white-space: normal; }
+  .investment-table .table-actions { flex-direction: column; align-items: flex-end; gap: 0; }
+  .investment-table .table-actions button { min-height: 28px; }
+}
+
 /* ============================================================
    TABLET (≤1100)
    ============================================================ */
@@ -648,7 +660,6 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .savings-overview-number > b { font-size: 38px; }
   .savings-overview-copy h2 { font-size: 22px; }
   .risk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .investment-table small.profit-note { display: none; }
   .update-asset { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .update-asset > .update-value { grid-column: 2; }
   .asset-performance { grid-template-columns: minmax(0, 1fr) auto; }
@@ -757,22 +768,22 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .success-metrics b { font-size: 19px; }
   .monthly-success > .button { width: 100%; min-width: 0; }
 
-  /* Stress tests: one block per scenario: the scenario on top, then a 2×2 grid of labelled figures (data-label) */
+  /* Stress tests: one tile per scenario: the scenario on top, then a 2×2 grid of labelled figures (data-label) */
   .stress-table, .stress-table tbody { display: block; min-width: 0; white-space: normal; }
+  .stress-table tbody { display: flex; flex-direction: column; gap: var(--sp-2); }
   .stress-table thead { display: none; }
   .stress-table tbody tr {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2);
-    padding-block: var(--sp-4); border-block-end: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-4);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border);
   }
-  .stress-table tbody tr:first-child { padding-block-start: var(--sp-1); }
-  .stress-table tbody tr:last-child { border-block-end: 0; padding-block-end: 0; }
   .stress-table tbody tr:hover td { background: none; }
   .stress-table td { min-width: 0; max-width: none; padding: 0; border: 0; box-shadow: none; background: none; }
-  .stress-table td:first-child { grid-column: 1 / -1; min-width: 0; margin-block-end: 2px; }
+  .stress-table td:first-child {
+    grid-column: 1 / -1; min-width: 0; padding-block-end: var(--sp-3); border-block-end: 1px solid var(--border);
+  }
   .stress-table td[data-label] {
-    display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3);
-    border-radius: var(--r-sm); background: var(--surface-2);
-    font-family: var(--font-num); font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text);
+    display: flex; flex-direction: column; gap: 1px;
+    font-family: var(--font-num); font-size: var(--fs-num-sm); font-weight: var(--fw-bold); color: var(--text);
     font-variant-numeric: tabular-nums; text-align: start;
   }
   /* figure cells are dir="ltr": flex-end is their right edge, i.e. the RTL start, so label and value line up with the Hebrew cells */
@@ -782,7 +793,6 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
     font-family: var(--font-sans); font-size: var(--fs-micro); font-weight: var(--fw-semibold); color: var(--text-muted);
   }
   .stress-table td.negative { color: var(--negative); }
-  .stress-table td:last-child { color: var(--text); }
 
   /* Activity log (last card on the investments page): stacked rows, amount always visible */
   .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]),

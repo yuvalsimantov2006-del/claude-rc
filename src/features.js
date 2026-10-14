@@ -74,7 +74,8 @@ function aiChartCard(input){
 }
 function proposalRows(kind,items,id,selectable){
   if(kind!=='transactions')return '';
-  const checked=markDuplicates(data,items.map(t=>({...t,amount:Number(t.amount)||0})));
+  // Duplicates are checked only while the proposal waits for approval: once approved, the rows are in the data.
+  const checked=selectable?markDuplicates(data,items.map(t=>({...t,amount:Number(t.amount)||0}))):items.map(()=>({status:'new'}));
   return `<div class="table-wrap"><table class="ai-proposal-table tx"><thead><tr>${selectable?'<th aria-label="בחירה"></th>':''}<th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סכום</th></tr></thead><tbody>${items.map((t,i)=>{const dup=checked[i].status;return `<tr>${selectable?`<td><input type="checkbox" ${dup==='duplicate'?'':'checked'} data-ai-row="${e(id)}" value="${i}" aria-label="לכלול את ${e(t.description||t.category)}"></td>`:''}<td class="muted">${dateLabel(t.date)}</td><td><b>${e(t.description||'—')}</b>${dup==='duplicate'?`<small class="negative">כבר קיימת: ${e(checked[i].matchedLabel)}</small>`:dup==='possible'?'<small class="muted">ייתכן כפילות — בדוק</small>':''}${t.accountId?`<small class="muted">${e(data.accounts.find(a=>a.id===t.accountId)?.name||t.account||'')}</small>`:''}</td><td><span class="category-pill">${e(t.category)}</span>${data.categories.includes(t.category)?'':'<small class="muted">קטגוריה חדשה</small>'}</td><td><b dir="ltr" class="${t.type==='income'?'positive':''}">${t.type==='income'?'+':'−'}${money(t.amount,t.currency||'ILS',t.amount%1?2:0)}</b></td></tr>`;}).join('')}</tbody></table></div>`;
 }
 function proposalCard(b,live){
@@ -426,7 +427,7 @@ function paletteItems(q){
     {icon:'Upload',title:'עדכון השקעות מהדבקת דוח',sub:'טבלה מבית ההשקעות או קובץ Excel',run:()=>{closeDialog();navigate('investments');setTimeout(()=>openHoldingsImport(),60);}},
     {icon:'LayoutGrid',title:'התאמת דף הבית',sub:'אילו כרטיסים יופיעו ובאיזה סדר',run:()=>{closeDialog();ui.homeEdit=true;navigate('dashboard');}},
     {icon:'Repeat',title:'סנכרון בין מכשירים',sub:'טלפון ומחשב, מוצפן',run:()=>{closeDialog();navigate('settings');setTimeout(()=>document.querySelector('#sync-card')?.scrollIntoView({block:'start'}),60);}},
-    {icon:'Sparkles',title:'מה חדש באופק 3.0',run:()=>{closeDialog();openWhatsNew();}}
+    {icon:'Sparkles',title:'מה חדש באופק 4.0',run:()=>{closeDialog();openWhatsNew();}}
   ];
   const nav=[...routes,['settings','הגדרות וגיבוי','Settings']].map(([id,label,ic])=>({icon:ic,title:label,sub:'מעבר למסך',run:()=>{closeDialog();navigate(id);}}));
   const match=item=>!query||item.title.includes(query)||query.split(' ').every(w=>item.title.includes(w));

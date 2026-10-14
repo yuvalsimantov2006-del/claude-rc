@@ -182,7 +182,7 @@ function appCard(){
   else if(!servedOnline())body=notice('כדי להתקין את אופק בטלפון, פתח אותה מכתובת אינטרנט (למשל מ־GitHub Pages) ולא מקובץ שמור. ההוראות ב־README.');
   else if(isIOS())body=`<ol class="sync-steps"><li>ב־Safari, לחץ על כפתור השיתוף ${icon('Share',15)}.</li><li>בחר ״הוספה למסך הבית״.</li><li>מעכשיו פתח את אופק מהאייקון — במסך מלא.</li></ol>`;
   else body=`<ol class="sync-steps"><li>פתח את תפריט הדפדפן (⋮).</li><li>בחר ״התקנת האפליקציה״ או ״הוספה למסך הבית״.</li></ol>`;
-  return card(head('אופק כאפליקציה','התקנה למסך הבית, ניווט ביד אחת והוספה מהירה מהכפתור שבתחתית המסך.',isStandalone()?badge('מותקנת','green'):textBtn('מה חדש ב־3.0','whats-new'))+body+`<div class="app-perks"><span>${icon('Smartphone',16)}ניווט ביד אחת</span><span>${icon('Plus',16)}הוספה מהירה</span><span>${icon('WifiOff',16)}עובדת בלי רשת</span><span>${icon('BellRing',16)}התראות לבחירתך</span></div>`,'app-card" id="app-card');
+  return card(head('אופק כאפליקציה','התקנה למסך הבית, ניווט ביד אחת והוספה מהירה מהכפתור שבתחתית המסך.',isStandalone()?badge('מותקנת','green'):textBtn('מה חדש ב־4.0','whats-new'))+body+`<div class="app-perks"><span>${icon('Smartphone',16)}ניווט ביד אחת</span><span>${icon('Plus',16)}הוספה מהירה</span><span>${icon('WifiOff',16)}עובדת בלי רשת</span><span>${icon('BellRing',16)}התראות לבחירתך</span></div>`,'app-card" id="app-card');
 }
 function notifyCard(){
   const st=notifySettings(),supported=typeof Notification!=='undefined',permission=supported?Notification.permission:'unsupported';

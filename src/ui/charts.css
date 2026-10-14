@@ -89,9 +89,10 @@
 .fan-chart .chart-goal { font-weight: var(--fw-bold); }
 
 /* ---------- Entrance (navigation only) ---------- */
-.page-content.enter .native-chart svg { animation: chart-reveal var(--dur-slow) var(--ease-out) both; }
+/* backwards, not both: a clip-path left on after the reveal would cut the axis labels that sit just outside the plot */
+.page-content.enter .native-chart svg { animation: chart-reveal var(--dur-slow) var(--ease-out) backwards; }
 .page-content.enter .donut svg, .page-content.enter .score-ring svg { animation: ring-in var(--dur-slow) var(--ease-out) both; }
-@keyframes chart-reveal { from { opacity: 0; clip-path: inset(0 0 0 100%); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes chart-reveal { from { opacity: 0; clip-path: inset(-20px -80px -20px 100%); } to { opacity: 1; clip-path: inset(-20px -80px -20px -80px); } }
 @keyframes ring-in { from { opacity: 0; transform: rotate(-20deg) scale(.94); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 760px) {
