@@ -300,11 +300,11 @@
 .investment-table td.positive b, .investment-table td.positive small[dir="ltr"] { color: var(--positive); }
 .investment-table td.negative b, .investment-table td.negative small[dir="ltr"] { color: var(--negative); }
 .investment-table td.positive small[dir="ltr"], .investment-table td.negative small[dir="ltr"] { font-weight: var(--fw-bold); }
-.investment-table td.positive small.muted, .investment-table td.negative small.muted { max-width: 170px; white-space: normal; line-height: 1.4; color: var(--text-subtle); }
+.investment-table small.profit-note { max-width: 170px; white-space: normal; line-height: 1.4; color: var(--text-subtle); }
 .investment-table td:first-child > small.muted { max-width: 260px; margin-block-start: var(--sp-2); white-space: normal; line-height: 1.45; }
 .investment-table td > small[dir="ltr"] { width: fit-content; }
 /* The same profit note repeats on every row: keep it on the first row only */
-.investment-table tbody tr + tr td:is(.positive, .negative) small.muted { display: none; }
+.investment-table tbody tr + tr small.profit-note { display: none; }
 /* Activity log amounts: the ltr cell's end edge lines up with the start-aligned header */
 .page-content:has(> .monthly-prompt) td[dir="ltr"] { text-align: end; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .investment-table td.muted { font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
@@ -474,6 +474,8 @@
 .update-asset:last-child { border-block-end: 0; }
 .update-asset .asset-name .badge { margin-inline-start: var(--sp-1); vertical-align: 1px; }
 .update-asset .ticker-icon { background: var(--chart-1-soft); }
+/* Five-character tickers (TA125) fit the tile: smaller, tighter type */
+.ticker-icon.long { font-size: 9px; letter-spacing: -.02em; }
 /* Base .currency-input (components) keeps the amount end-aligned next to the symbol */
 .update-asset .currency-input > input:not(#\_) { font-family: var(--font-num); font-weight: var(--fw-bold); }
 .update-asset .currency-input > span {
@@ -550,8 +552,18 @@
   font-family: var(--font-num); font-size: var(--fs-num-lg); font-weight: var(--fw-black); letter-spacing: var(--tracking-tight);
   font-variant-numeric: tabular-nums;
 }
-#monthly-estimate > span:not(.muted) { font-size: var(--fs-small); color: var(--text-muted); font-variant-numeric: tabular-nums; }
-#monthly-estimate > span.muted { grid-column: 1 / -1; max-width: 520px; font-size: var(--fs-small); color: var(--negative); }
+#monthly-estimate > span:not(.estimate-error) { font-size: var(--fs-small); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+#monthly-estimate > .estimate-error {
+  grid-column: 1 / -1; display: flex; align-items: flex-start; gap: var(--sp-2); max-width: 520px;
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--negative-soft);
+  font-size: var(--fs-small); font-weight: var(--fw-semibold); line-height: 1.5; color: var(--negative);
+}
+#monthly-estimate > .estimate-error::before {
+  content: "!"; display: grid; place-items: center; flex: none; width: 18px; height: 18px; margin-block-start: 2px;
+  border-radius: 50%; background: var(--negative-vivid); color: var(--on-vivid);
+  font-family: var(--font-num); font-size: 11px; font-weight: var(--fw-black); line-height: 1;
+}
+.update-save:has(.estimate-error) { border-color: color-mix(in srgb, var(--negative) 40%, var(--border)); }
 .update-save > .button { min-height: 48px; padding: 0 var(--sp-6); }
 
 /* ---------- Success ---------- */
@@ -636,7 +648,7 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .savings-overview-number > b { font-size: 38px; }
   .savings-overview-copy h2 { font-size: 22px; }
   .risk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .investment-table td.positive small.muted, .investment-table td.negative small.muted { display: none; }
+  .investment-table small.profit-note { display: none; }
   .update-asset { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .update-asset > .update-value { grid-column: 2; }
   .asset-performance { grid-template-columns: minmax(0, 1fr) auto; }
@@ -690,9 +702,9 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   }
   .investment-table td:first-child:dir(ltr), .investment-table th:first-child:dir(ltr) { box-shadow: inset -1px 0 0 var(--border); }
   .investment-table .asset-name { gap: var(--sp-2); }
-  .investment-table .ticker-icon { width: 32px; height: 32px; border-radius: 10px; font-size: 10px; }
-  .investment-table td:first-child > small.muted,
-  .investment-table td.positive small.muted, .investment-table td.negative small.muted { display: none; }
+  .investment-table .ticker-icon { width: 34px; height: 34px; border-radius: 10px; font-size: 10px; }
+  .investment-table .ticker-icon.long { font-size: 8.5px; }
+  .investment-table td:first-child > small.muted { display: none; }
   .investment-table td { padding-block: var(--sp-3); }
   
   .table-wrap:has(.investment-table) { margin-inline: calc(-1 * var(--sp-4)); width: calc(100% + 2 * var(--sp-4)); padding-inline: var(--sp-4) 0; }
@@ -735,7 +747,7 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .benchmark-details > .form-grid { grid-template-columns: minmax(0, 1fr); }
   .update-save { flex-direction: column; align-items: stretch; gap: var(--sp-3); padding: var(--sp-4); border-radius: 18px; }
   #monthly-estimate > b { font-size: 20px; }
-  #monthly-estimate > span:not(.muted) { font-size: var(--fs-micro); }
+  #monthly-estimate > span:not(.estimate-error) { font-size: var(--fs-micro); }
   .update-save > .button { width: 100%; }
 
   .monthly-success { padding: var(--sp-8) var(--sp-4) var(--sp-5); }
@@ -745,30 +757,32 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .success-metrics b { font-size: 19px; }
   .monthly-success > .button { width: 100%; min-width: 0; }
 
-  /* Stress tests: stacked rows (scenario, then change + share, then net worth + months) */
+  /* Stress tests: one block per scenario: the scenario on top, then a 2×2 grid of labelled figures (data-label) */
   .stress-table, .stress-table tbody { display: block; min-width: 0; white-space: normal; }
   .stress-table thead { display: none; }
   .stress-table tbody tr {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px var(--sp-3);
-    padding-block: var(--sp-3); border-block-end: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2);
+    padding-block: var(--sp-4); border-block-end: 1px solid var(--border);
   }
-  .stress-table tbody tr:last-child { border-block-end: 0; }
+  .stress-table tbody tr:first-child { padding-block-start: var(--sp-1); }
+  .stress-table tbody tr:last-child { border-block-end: 0; padding-block-end: 0; }
   .stress-table tbody tr:hover td { background: none; }
-  .stress-table td {
-    min-width: 0; max-width: none; padding: 0; border: 0; box-shadow: none; background: none;
+  .stress-table td { min-width: 0; max-width: none; padding: 0; border: 0; box-shadow: none; background: none; }
+  .stress-table td:first-child { grid-column: 1 / -1; min-width: 0; margin-block-end: 2px; }
+  .stress-table td[data-label] {
+    display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm); background: var(--surface-2);
+    font-family: var(--font-num); font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text);
+    font-variant-numeric: tabular-nums; text-align: start;
   }
-  .stress-table td:nth-child(1) { grid-column: 1 / -1; min-width: 0; margin-block-end: 2px; }
-  .stress-table td:nth-child(2) { grid-column: 1; justify-self: start; font-size: var(--fs-num-md); font-weight: var(--fw-black); }
-  .stress-table td:nth-child(3) {
-    grid-column: 2; justify-self: end; padding: 2px var(--sp-2); border-radius: var(--r-pill);
-    background: var(--surface-2); color: var(--text-muted); font-size: var(--fs-micro); font-weight: var(--fw-bold);
+  /* figure cells are dir="ltr": flex-end is their right edge, i.e. the RTL start, so label and value line up with the Hebrew cells */
+  .stress-table td[data-label][dir="ltr"] { align-items: flex-end; }
+  .stress-table td[data-label]::before {
+    content: attr(data-label);
+    font-family: var(--font-sans); font-size: var(--fs-micro); font-weight: var(--fw-semibold); color: var(--text-muted);
   }
-  .stress-table td:nth-child(4) {
-    grid-column: 1; display: flex; flex-direction: row-reverse; justify-content: flex-start; gap: 6px;
-    font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--text);
-  }
-  .stress-table td:nth-child(4)::before { content: "שווי נקי אחרי"; font-family: var(--font-sans); font-weight: var(--fw-regular); color: var(--text-muted); }
-  .stress-table td:nth-child(5) { grid-column: 2; justify-self: end; font-size: var(--fs-micro); }
+  .stress-table td.negative { color: var(--negative); }
+  .stress-table td:last-child { color: var(--text); }
 
   /* Activity log (last card on the investments page): stacked rows, amount always visible */
   .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]),
