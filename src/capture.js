@@ -60,10 +60,13 @@ export function parseStatementRows(rows,now=today()){
   // Card statements list charges as positive numbers; bank statements show expenses as negative ones.
   const debitColumns=map.debit!=null||map.credit!=null,mostlyPositive=signed.filter(s=>s>0).length>=signed.filter(s=>s<0).length;
   const kind=debitColumns?'bank':mostlyPositive?'card':'bank';
-  for(const item of items){item.type=debitColumns?(item.sign<0?'expense':'income'):(mostlyPositive?(item.sign>0?'expense':'income'):(item.sign<0?'expense':'income'));if(kind==='card'&&item.type==='income')item.refund=true;delete item.sign;}
+  // Money back on a card statement, or a bank credit that says זיכוי/החזר (not החזר מס), is a refund (§C.5). The parsed
+  // rows keep the 4.0 shape (type 'income' + refund:true); prepareCapture turns them into type 'refund'.
+  for(const item of items){item.type=debitColumns?(item.sign<0?'expense':'income'):(mostlyPositive?(item.sign>0?'expense':'income'):(item.sign<0?'expense':'income'));if(item.type==='income'&&(kind==='card'||CAPTURE_REFUND_RE.test(`${item.description} ${item.notes||''}`)))item.refund=true;delete item.sign;}
   return {items,skipped,columns:map,kind};
 }
 
+const CAPTURE_REFUND_RE=/זיכוי|החזר(?! מס)|ביטול עסקה|refund/i;
 const ISSUER_CATEGORIES=[[/מסעד|קפה|ברים|מזון מהיר|food|restaurant|cafe/i,'מסעדות'],[/סופר|מזון ומשקאות|מכולת|grocer|supermarket/i,'קניות בסופר'],[/דלק|תחנות|fuel|gas station/i,'דלק'],[/רכב|תחבורה|חניה|מוסך|car|parking|transport/i,'רכב'],[/תקשורת|סלולר|אינטרנט|חשמל|מים|גז|עירי|ארנונה|ביטוח|utilities|insurance|telecom/i,'חשבונות'],[/רפוא|בריאות|מרקחת|פארם|health|pharm|medical/i,'בריאות'],[/ספורט|כושר|gym|fitness/i,'כושר'],[/פנאי|בידור|תרבות|קולנוע|entertainment|leisure/i,'בילויים'],[/אופנה|הלבשה|ביגוד|הנעלה|קניות|fashion|clothing|shopping|אלקטרוניקה|מחשבים|עיצוב הבית|ריהוט|home/i,'קניות'],[/תיירות|טיסות|מלונות|travel|airline|hotel/i,'נסיעות'],[/חינוך|לימוד|ספרים|education/i,'לימודים'],[/תרומ|donat|charity/i,'תרומות'],[/מתנ|gift/i,'מתנות']];
 const normalize=s=>String(s||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').replace(/\b\d+\b/g,' ').replace(/\s+/g,' ').trim();
 
@@ -71,7 +74,7 @@ const normalize=s=>String(s||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').r
 // then keywords and partial history.
 export function captureCategory(d,item){
   // A refund on a card offsets an expense, so it takes an expense category.
-  if(item.type==='income'&&(item.refund||/החזר|זיכוי|refund|ביטול עסקה/i.test(`${item.description} ${item.notes||''}`)))return captureCategory(d,{...item,type:'expense',refund:false});
+  if(item.type==='refund'||(item.type==='income'&&(item.refund||/החזר|זיכוי|refund|ביטול עסקה/i.test(`${item.description} ${item.notes||''}`))))return captureCategory(d,{...item,type:'expense',refund:false});
   const key=normalize(item.description),counts=new Map();
   if(key)for(const t of d.transactions)if(t.type===item.type&&normalize(t.description)===key)counts.set(t.category,(counts.get(t.category)||0)+1);
   const best=[...counts].sort((a,b)=>b[1]-a[1])[0];
@@ -86,7 +89,7 @@ const similar=(a,b)=>{const x=normalize(a),y=normalize(b);if(!x||!y)return false
 export function markDuplicates(d,items){
   const seen=[];
   return items.map(item=>{
-    const candidates=d.transactions.filter(t=>t.type===item.type&&Math.abs(toILS(t.amount,t.currency||'ILS',t.fx||d.fx)-item.amount)<.01&&daysApart(t.date,item.date)<=3);
+    const candidates=d.transactions.filter(t=>(t.type===item.type||(item.type==='refund'&&t.type==='income'))&&Math.abs(toILS(t.amount,t.currency||'ILS',t.fx||d.fx)-item.amount)<.01&&daysApart(t.date,item.date)<=3);
     const match=candidates.find(t=>similar(t.description,item.description)||similar(t.category,item.description));
     let status=match?'duplicate':candidates.length?'possible':'new',matched=match||candidates[0]||null;
     if(status==='new'&&seen.some(x=>x.date===item.date&&x.amount===item.amount&&normalize(x.description)===normalize(item.description)))status='repeat';
@@ -96,5 +99,6 @@ export function markDuplicates(d,items){
 }
 
 export function prepareCapture(d,items){
+  items=items.map(item=>item.type==='income'&&item.refund?{...item,type:'refund'}:item);
   return markDuplicates(d,items).map((item,i)=>({...item,key:`c${i}`,category:item.category&&d.categories.includes(item.category)?item.category:captureCategory(d,item),include:item.status!=='duplicate'}));
 }

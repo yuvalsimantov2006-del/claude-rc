@@ -1,4 +1,5 @@
-import {uid,today,money,plainText,dateLabel,validDate,applyTransaction,categorySpend} from './finance.js';
+import {uid,today,money,plainText,dateLabel,validDate,applyTransaction,categorySpend,accountDelta,accountsOf,isLiability,TX_KINDS,TRANSFER_FROM_KINDS,TRANSFER_TO_KINDS} from './finance.js';
+import {makeTransfer,transferProblem} from './ledger.js';
 import {detectAnomalies,suggestCategory,shiftDate} from './smart.js';
 import {scheduledItems} from './money.js';
 import {parseNumber} from './xlsx.js';
@@ -25,72 +26,104 @@ function mobileNav(){
 }
 
 // ---------- Quick add ----------
+// Three types: expense, income and a transfer between your own accounts (§D.2). A refund is entered in the full
+// form; its categories are the spending ones.
 function quickCategories(type){
-  const since=shiftDate(today(),-120),count=new Map();
-  for(const t of data.transactions)if(t.type===type&&t.date>=since&&data.categories.includes(t.category))count.set(t.category,(count.get(t.category)||0)+1);
+  if(type==='transfer')return [];
+  const want=type==='refund'?'expense':type,since=shiftDate(today(),-120),count=new Map();
+  for(const t of data.transactions)if(t.type===want&&t.date>=since&&data.categories.includes(t.category))count.set(t.category,(count.get(t.category)||0)+1);
   const list=[...count].sort((a,b)=>b[1]-a[1]).map(([c])=>c);
   const incomeLike=c=>/משכורת|הכנס|מענק|החזר|דיבידנד/.test(c);
-  for(const c of data.categories)if(list.length<8&&!list.includes(c)&&(type==='income'?incomeLike(c):!incomeLike(c)))list.push(c);
+  for(const c of data.categories)if(list.length<8&&!list.includes(c)&&(want==='income'?incomeLike(c):!incomeLike(c)))list.push(c);
   return list.slice(0,8);
 }
-function quickAccounts(){return data.accounts.filter(a=>!['investment','debt'].includes(a.kind));}
+function quickAccounts(){return data.accounts.filter(a=>TX_KINDS.includes(a.kind));}
 function quickChips(){
   const q=ui.quick,list=quickCategories(q.type);
   if(q.category&&!list.includes(q.category))list.unshift(q.category);
   return list.map(c=>`<button type="button" class="quick-cat ${c===q.category?'active':''}" role="radio" aria-checked="${c===q.category}" data-quick-cat="${e(c)}">${e(c)}</button>`).join('')+`<select class="quick-more" aria-label="קטגוריה אחרת" data-quick-more><option value="">אחרת…</option>${options(data.categories.filter(c=>!list.includes(c)),'')}</select>`;
 }
+// Common transfers, each shown only when its accounts exist: ATM, into savings, paying the card.
+function quickPresets(){
+  const first=kind=>data.accounts.find(a=>a.kind===kind),bank=first('bank'),cash=first('cash'),savings=first('savings'),card=first('credit');
+  return [bank&&cash?['משיכה מכספומט',bank.id,cash.id]:null,bank&&savings?['הפקדה לחיסכון',bank.id,savings.id]:null,card&&data.accounts.some(a=>a.id===card.payFrom&&a.kind==='bank')?['תשלום לכרטיס',card.payFrom,card.id]:null].filter(Boolean);
+}
+function quickTransferHTML(){
+  const q=ui.quick,from=accountsOf(data,TRANSFER_FROM_KINDS),to=accountsOf(data,TRANSFER_TO_KINDS).filter(a=>a.id!==q.fromId),presets=quickPresets();
+  return `<div class="lg-quick-transfer">${presets.length?`<div class="lg-presets" role="group" aria-label="העברות נפוצות">${presets.map(([label,f,t])=>`<button type="button" class="quick-cat ${q.fromId===f&&q.toId===t?'active':''}" aria-pressed="${q.fromId===f&&q.toId===t}" data-quick-preset="${e(f)}:${e(t)}">${e(label)}</button>`).join('')}</div>`:''}<div class="lg-transfer-pair">${field('מחשבון',select('fromId',from.map(a=>[a.id,a.name]),q.fromId,'data-quick-transfer'))}<span class="lg-transfer-arrow" aria-hidden="true">${icon('ArrowLeft',18)}</span>${field('לחשבון',select('toId',[['','בחירת חשבון'],...to.map(a=>[a.id,a.name])],q.toId,'data-quick-transfer'))}</div></div>`;
+}
+const quickBody=()=>ui.quick.type==='transfer'?quickTransferHTML():`<div class="quick-cats" role="radiogroup" aria-label="קטגוריה">${quickChips()}</div>`;
+const quickSymbol=id=>data.accounts.find(a=>a.id===id)?.currency==='USD'?'$':'₪';
 function openQuickAdd(prefill={}){
   const accounts=quickAccounts();
   if(!accounts.length){toast('כדי לרשום תנועה צריך קודם חשבון בנק או מזומן.',true);navigate('accounts');return;}
-  const type=prefill.type==='income'?'income':'expense';
-  ui.quick={type,category:prefill.category||'',manual:!!prefill.category};
+  const type=['income','transfer'].includes(prefill.type)?prefill.type:'expense';
   const last=[...data.transactions].filter(t=>t.type===type).sort((a,b)=>b.date.localeCompare(a.date))[0];
   const accountId=prefill.accountId||(accounts.some(a=>a.id===last?.accountId)?last.accountId:(accounts.find(a=>a.kind==='bank')||accounts[0]).id);
-  const symbol=id=>data.accounts.find(a=>a.id===id)?.currency==='USD'?'$':'₪';
+  const fromId=prefill.fromId||(accountsOf(data,TRANSFER_FROM_KINDS).some(a=>a.id===accountId)?accountId:accountsOf(data,TRANSFER_FROM_KINDS)[0]?.id||'');
+  ui.quick={type,category:prefill.category||'',manual:!!prefill.category,fromId,toId:prefill.toId||'',preset:''};
   const descriptions=[...new Set([...data.transactions].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>t.description).filter(Boolean))].slice(0,40);
-  showDialog('הוספה מהירה',`<form id="quick-form" class="quick-form" novalidate><div class="form-error"></div><div class="segmented quick-type" role="group" aria-label="סוג התנועה"><button type="button" class="${type==='expense'?'active':''}" data-quick-type="expense">הוצאה</button><button type="button" class="${type==='income'?'active':''}" data-quick-type="income">הכנסה</button></div><label class="quick-amount ${type}"><span class="quick-sign" aria-hidden="true">${type==='income'?'+':'−'}</span><input name="amount" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="0" aria-label="סכום" value="${e(prefill.amount||'')}"><span class="quick-currency">${symbol(accountId)}</span></label><div class="quick-effect" data-quick-effect aria-live="polite"></div><div class="quick-cats" role="radiogroup" aria-label="קטגוריה">${quickChips()}</div><div class="quick-fields">${field('תיאור',input('description',prefill.description||'','text','list="quick-desc" autocomplete="off" enterkeyhint="done" placeholder="על מה? (לא חובה)"'))}<div class="quick-row">${field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),accountId))}${field('תאריך',input('date',prefill.date||today(),'date',`max="${today()}"`))}</div></div><datalist id="quick-desc">${descriptions.map(d=>`<option value="${e(d)}">`).join('')}</datalist><div class="form-actions quick-actions"><button class="button primary" type="submit">${icon('Check',17)}<span data-quick-save>שמירה</span></button>${btn('לטופס המלא','quick-full')}</div></form>`);
+  showDialog('הוספה מהירה',`<form id="quick-form" class="quick-form" novalidate><div class="form-error"></div><div class="segmented quick-type" role="group" aria-label="סוג התנועה"><button type="button" class="${type==='expense'?'active':''}" data-quick-type="expense">הוצאה</button><button type="button" class="${type==='income'?'active':''}" data-quick-type="income">הכנסה</button><button type="button" class="${type==='transfer'?'active':''}" data-quick-type="transfer">העברה</button></div><label class="quick-amount ${type}"><span class="quick-sign" aria-hidden="true">${type==='income'?'+':type==='transfer'?'⇄':'−'}</span><input name="amount" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="0" aria-label="סכום" value="${e(prefill.amount||'')}"><span class="quick-currency">${quickSymbol(type==='transfer'?fromId:accountId)}</span></label><div class="quick-effect" data-quick-effect aria-live="polite"></div><div data-quick-body>${quickBody()}</div><div class="quick-fields">${field('תיאור',input('description',prefill.description||'','text','list="quick-desc" autocomplete="off" enterkeyhint="done" placeholder="על מה? (לא חובה)"'))}<div class="quick-row">${field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),accountId),'',type==='transfer'?'lg-hidden':'')}${field('תאריך',input('date',prefill.date||today(),'date',`max="${today()}"`))}</div></div><datalist id="quick-desc">${descriptions.map(d=>`<option value="${e(d)}">`).join('')}</datalist><div class="form-actions quick-actions"><button class="button primary" type="submit">${icon('Check',17)}<span data-quick-save>שמירה</span></button>${btn('לטופס המלא','quick-full')}</div></form>`);
   refreshQuickEffect();
   const dialog=document.querySelector('dialog');dialog?.classList.add('sheet');
   setTimeout(()=>dialog?.querySelector('[name=amount]')?.focus(),80);
 }
 function refreshQuick(){
   const form=document.querySelector('#quick-form');if(!form||!ui.quick)return;
-  const q=ui.quick;
+  const q=ui.quick,transfer=q.type==='transfer';
   form.querySelectorAll('[data-quick-type]').forEach(b=>b.classList.toggle('active',b.dataset.quickType===q.type));
-  const amount=form.querySelector('.quick-amount');amount.classList.toggle('income',q.type==='income');amount.classList.toggle('expense',q.type==='expense');
-  amount.querySelector('.quick-sign').textContent=q.type==='income'?'+':'−';
-  form.querySelector('.quick-cats').innerHTML=quickChips();
+  const amount=form.querySelector('.quick-amount');for(const k of ['income','expense','transfer'])amount.classList.toggle(k,q.type===k);
+  amount.querySelector('.quick-sign').textContent=q.type==='income'?'+':transfer?'⇄':'−';
+  amount.querySelector('.quick-currency').textContent=quickSymbol(transfer?q.fromId:form.accountId.value);
+  form.querySelector('[data-quick-body]').innerHTML=quickBody();
+  form.accountId.closest('.field')?.classList.toggle('lg-hidden',transfer);
   refreshQuickEffect();
+}
+// One effect line per account: what its balance (or what is owed on it) becomes.
+function quickEffectLine(account,t){
+  const before=Number(account.balance),after=before+accountDelta(data,account,t),label=account.kind==='credit'?'חוב בכרטיס':account.kind==='debt'?'נשאר לשלם':`ב״${e(account.name)}״`;
+  return `<span>${label}: <b dir="ltr">${money(before,account.currency)}</b> ← <b dir="ltr" class="${!isLiability(account)&&after<0?'negative':''}">${money(after,account.currency)}</b></span>`;
 }
 // Under the amount: what the account balance becomes, and the amount in the other currency.
 function refreshQuickEffect(){
   const form=document.querySelector('#quick-form');if(!form||!ui.quick)return;
-  const amount=parseNumber(form.amount.value),account=data.accounts.find(a=>a.id===form.accountId.value),box=form.querySelector('[data-quick-effect]'),save=form.querySelector('[data-quick-save]');
-  const kind=ui.quick.type==='income'?'הכנסה':'הוצאה';
+  const amount=parseNumber(form.amount.value),box=form.querySelector('[data-quick-effect]'),save=form.querySelector('[data-quick-save]');
+  if(ui.quick.type==='transfer'){
+    const from=data.accounts.find(a=>a.id===ui.quick.fromId),to=data.accounts.find(a=>a.id===ui.quick.toId&&a.id!==ui.quick.fromId);
+    if(!(amount>0)||!from||!to){box.textContent='';box.hidden=true;save.textContent='שמירת העברה';return;}
+    const t=makeTransfer(data,{fromId:from.id,toId:to.id,amount});
+    box.hidden=false;box.innerHTML=`<div class="lg-effect-lines">${quickEffectLine(from,t)}${quickEffectLine(to,t)}</div>`;
+    save.textContent=`שמירת העברה · ${money(amount,from.currency,Number.isInteger(amount)?0:2)}`;
+    return;
+  }
+  const account=data.accounts.find(a=>a.id===form.accountId.value),kind=ui.quick.type==='income'?'הכנסה':'הוצאה';
   if(!(amount>0)||!account){box.textContent='';box.hidden=true;save.textContent=`שמירת ${kind}`;return;}
-  const after=account.balance+(ui.quick.type==='income'?amount:-amount),other=account.currency==='USD'?`≈ ${money(amount*data.fx)}`:`≈ ${money(amount/data.fx,'USD',2)}`;
-  box.hidden=false;box.innerHTML=`<span>היתרה ב״${e(account.name)}״ תהיה <b dir="ltr" class="${after<0?'negative':''}">${money(after,account.currency)}</b></span><span class="quick-fx" dir="ltr">${other}</span>`;
+  const after=account.balance+accountDelta(data,account,{type:ui.quick.type,amount,currency:account.currency,accountId:account.id}),other=account.currency==='USD'?`≈ ${money(amount*data.fx)}`:`≈ ${money(amount/data.fx,'USD',2)}`;
+  box.hidden=false;box.innerHTML=`<span>${account.kind==='credit'?'החוב בכרטיס':`היתרה ב״${e(account.name)}״`} תהיה <b dir="ltr" class="${after<0&&!isLiability(account)?'negative':''}">${money(after,account.currency)}</b></span><span class="quick-fx" dir="ltr">${other}</span>`;
   save.textContent=`שמירת ${kind} · ${money(amount,account.currency,Number.isInteger(amount)?0:2)}`;
 }
-function quickValues(form){const f=new FormData(form);return {type:ui.quick?.type||'expense',category:ui.quick?.category||'',amount:String(f.get('amount')||'').trim(),description:String(f.get('description')||'').trim(),accountId:String(f.get('accountId')||''),date:String(f.get('date')||today())};}
+function quickValues(form){const f=new FormData(form);return {type:ui.quick?.type||'expense',category:ui.quick?.category||'',amount:String(f.get('amount')||'').trim(),description:String(f.get('description')||'').trim(),accountId:String(f.get('accountId')||''),date:String(f.get('date')||today()),fromId:ui.quick?.fromId||'',toId:ui.quick?.toId||''};}
 function saveQuick(form){
-  const v=quickValues(form),amount=parseNumber(v.amount),account=data.accounts.find(a=>a.id===v.accountId);
+  const v=quickValues(form),amount=parseNumber(v.amount);
   if(!(amount>0))throw Error('יש להזין סכום חיובי.');
+  if(!validDate(v.date)||v.date>today())throw Error('התאריך אינו תקין.');
+  if(v.type==='transfer'){
+    const from=data.accounts.find(a=>a.id===v.fromId),to=data.accounts.find(a=>a.id===v.toId);
+    if(!from)throw Error('בחר מאיזה חשבון.');if(!to)throw Error('בחר לאיזה חשבון.');
+    const t=makeTransfer(data,{fromId:from.id,toId:to.id,amount:Math.round(amount*100)/100,date:v.date,description:(v.description||ui.quick.preset||'').slice(0,120)});
+    const problem=transferProblem(data,t);if(problem)throw Error(problem);
+    closeDialog();
+    mutate(next=>{applyTransaction(next,t);next.transactions.push(t);},`העברה של ${money(t.amount,t.currency,Number.isInteger(t.amount)?0:2)} נרשמה: מ־${from.name} ל־${to.name}`,{undo:true});
+    try{navigator.vibrate?.(12);}catch{}
+    return;
+  }
+  const account=data.accounts.find(a=>a.id===v.accountId);
   if(!v.category)throw Error('בחר קטגוריה.');
   if(!account)throw Error('בחר חשבון.');
-  if(!validDate(v.date)||v.date>today())throw Error('התאריך אינו תקין.');
   const t={id:uid(),type:v.type,amount:Math.round(amount*100)/100,currency:account.currency,fx:data.fx,date:v.date,category:v.category,subcategory:'',accountId:account.id,description:v.description.slice(0,120),tags:[],recurring:false};
   closeDialog();
-  mutate(next=>{if(!next.categories.includes(t.category))next.categories.push(t.category);applyTransaction(next,t);next.transactions.push(t);},'');
+  mutate(next=>{if(!next.categories.includes(t.category))next.categories.push(t.category);applyTransaction(next,t);next.transactions.push(t);},`${t.type==='income'?'הכנסה':'הוצאה'} של ${money(t.amount,t.currency,Number.isInteger(t.amount)?0:2)} נרשמה · ${t.category}`,{undo:true});
   try{navigator.vibrate?.(12);}catch{}
-  undoToast(`${t.type==='income'?'הכנסה':'הוצאה'} של ${money(t.amount,t.currency,Number.isInteger(t.amount)?0:2)} נרשמה · ${t.category}`,t.id);
-}
-function undoToast(message,id){
-  toast(message);
-  const el=document.querySelector('.toast');if(!el)return;
-  const undo=document.createElement('button');undo.type='button';undo.className='toast-undo';undo.textContent='ביטול';
-  undo.addEventListener('click',()=>{el.remove();mutate(next=>{const t=next.transactions.find(x=>x.id===id);if(!t)return;applyTransaction(next,t,-1);next.transactions=next.transactions.filter(x=>x.id!==id);},'התנועה בוטלה');});
-  el.insertBefore(undo,el.querySelector('.icon-button'));
 }
 
 // ---------- Alerts (bell) and notifications ----------
@@ -100,7 +133,7 @@ const notifySettings=()=>({monthly:false,bills:false,anomalies:false,budgets:fal
 function currentAlerts(){
   const now=today(),month=now.slice(0,7),list=[],last=sortedSnapshots().at(-1);
   if(data.assets.length&&(!last||(new Date(now)-new Date(last.date))/864e5>=30))list.push({id:`monthly-${month}`,type:'monthly',icon:'CalendarDays',color:'gold',title:'זמן לעדכון החודשי',body:last?`העדכון האחרון של התיק היה ב־${dateLabel(last.date)}.`:'עוד לא נשמר עדכון ראשון לתיק.',action:'navigate:monthly'});
-  for(const x of scheduledItems(data,now,shiftDate(now,2)).filter(x=>!x.paid&&x.type!=='income'))list.push({id:`bill-${x.key}`,type:'bills',icon:'Receipt',color:'purple',title:`${x.date===now?'היום':x.date===shiftDate(now,1)?'מחר':'בעוד יומיים'}: ${x.name}`,body:`${money(x.amount)} ${x.autopay?'יירדו אוטומטית':'לתשלום'}`,action:'navigate:bills'});
+  for(const x of scheduledItems(data,now,shiftDate(now,2),now).filter(x=>!x.paid&&x.type!=='income'&&!x.onCard))list.push({id:`bill-${x.key}`,type:'bills',icon:x.source==='card'?'CreditCard':'Receipt',color:'purple',title:`${x.date===now?'היום':x.date===shiftDate(now,1)?'מחר':'בעוד יומיים'}: ${x.name}`,body:`${money(x.amount)} ${x.autopay?'יירדו אוטומטית':'לתשלום'}`,action:'navigate:bills'});
   for(const a of detectAnomalies(data,month).slice(0,3))list.push({id:`anomaly-${a.kind}-${a.id||a.title}-${month}`,type:'anomalies',icon:'TriangleAlert',color:'red',title:a.kind==='category'?`ההוצאות על ${a.title} גבוהות מהרגיל`:`הוצאה חריגה: ${a.title}`,body:`${money(a.amount)} לעומת כ־${money(a.typical)} בדרך כלל`,action:'navigate:insights'});
   for(const b of data.budgets){const spent=categorySpend(data,b.category,month);if(b.limit>0&&spent>b.limit)list.push({id:`budget-${b.category}-${month}`,type:'budgets',icon:'SlidersHorizontal',color:'red',title:`חריגה מתקציב ${b.category}`,body:`${money(spent)} מתוך ${money(b.limit)} החודש`,action:'navigate:budgets'});}
   list.push(...moduleHook('alerts',[],now));
@@ -155,7 +188,7 @@ async function checkAlerts(){
 async function sendDigest(st,sent){
   if(!servedOnline()||!hasNavigator||!navigator.serviceWorker)return;
   const now=today(),items=[];
-  if(st.bills)for(const x of scheduledItems(data,shiftDate(now,1),shiftDate(now,21)).filter(x=>!x.paid&&x.type!=='income'))items.push({id:`bill-${x.key}`,at:`${shiftDate(x.date,-1)}T09:00`,title:`מחר: ${x.name}`,body:`${money(x.amount)} ${x.autopay?'יירדו אוטומטית':'לתשלום'}`,url:'./#bills'});
+  if(st.bills)for(const x of scheduledItems(data,shiftDate(now,1),shiftDate(now,21),now).filter(x=>!x.paid&&x.type!=='income'&&!x.onCard))items.push({id:`bill-${x.key}`,at:`${shiftDate(x.date,-1)}T09:00`,title:`מחר: ${x.name}`,body:`${money(x.amount)} ${x.autopay?'יירדו אוטומטית':'לתשלום'}`,url:'./#bills'});
   const last=sortedSnapshots().at(-1);
   if(st.monthly&&data.assets.length&&last){const due=shiftDate(last.date,30);items.push({id:`monthly-${due.slice(0,7)}`,at:`${due}T10:00`,title:'זמן לעדכון החודשי',body:'כמה דקות, ותראה איך התיק התקדם.',url:'./#monthly'});}
   try{
@@ -199,12 +232,14 @@ document.addEventListener('click',event=>{
   if(quickType&&ui.quick){ui.quick={...ui.quick,type:quickType.dataset.quickType,category:'',manual:false};refreshQuick();return;}
   const chip=event.target.closest('[data-quick-cat]');
   if(chip&&ui.quick){ui.quick={...ui.quick,category:chip.dataset.quickCat,manual:true};refreshQuick();return;}
+  const preset=event.target.closest('[data-quick-preset]');
+  if(preset&&ui.quick){const [fromId,toId]=preset.dataset.quickPreset.split(':');ui.quick={...ui.quick,fromId,toId,preset:preset.textContent.trim()};refreshQuick();return;}
   if(event.target.closest('.alert-row'))closeDialog();
   const button=event.target.closest('[data-action]');if(!button)return;
   const [action]=button.dataset.action.split(':');
   try{
     if(action==='quick-add')openQuickAdd();
-    else if(action==='quick-full'){const form=document.querySelector('#quick-form'),v=form?quickValues(form):{};closeDialog();const prefill=Object.fromEntries(Object.entries({type:v.type,amount:parseNumber(v.amount)||'',category:v.category,description:v.description,accountId:v.accountId,date:v.date}).filter(([,x])=>x!==''&&x!=null));openEntity('transaction',null,prefill);}
+    else if(action==='quick-full'){const form=document.querySelector('#quick-form'),v=form?quickValues(form):{};closeDialog();const transfer=v.type==='transfer',prefill=Object.fromEntries(Object.entries({type:v.type,amount:parseNumber(v.amount)||'',category:transfer?'':v.category,description:v.description||(transfer?ui.quick?.preset:''),accountId:transfer?v.fromId:v.accountId,toAccountId:transfer?v.toId:'',date:v.date}).filter(([,x])=>x!==''&&x!=null));openEntity('transaction',null,prefill);}
     else if(action==='alerts')openAlerts();
     else if(action==='alerts-settings'){closeDialog();navigate('settings');setTimeout(()=>document.querySelector('.notify-card')?.scrollIntoView({behavior:'smooth',block:'start'}),50);}
     else if(action==='app-install'&&mobileRuntime.installPrompt){const p=mobileRuntime.installPrompt;mobileRuntime.installPrompt=null;p.prompt();p.userChoice?.then(r=>{if(r?.outcome!=='accepted')toast('אפשר להתקין בכל זמן מההגדרות');render();});}
@@ -217,6 +252,7 @@ document.addEventListener('click',event=>{
 document.addEventListener('change',event=>{
   // The amount is saved in the account's currency, so the label follows the chosen account.
   if(event.target.name==='accountId'&&event.target.closest?.('#quick-form')){const label=event.target.closest('#quick-form').querySelector('.quick-currency');if(label)label.textContent=data.accounts.find(a=>a.id===event.target.value)?.currency==='USD'?'$':'₪';refreshQuickEffect();return;}
+  if(event.target.dataset?.quickTransfer!=null&&ui.quick){ui.quick={...ui.quick,[event.target.name]:event.target.value,preset:''};refreshQuick();return;}
   const more=event.target.closest?.('[data-quick-more]');
   if(more&&ui.quick&&more.value){ui.quick={...ui.quick,category:more.value,manual:true};refreshQuick();return;}
   const box=event.target.closest?.('[data-notify]');
@@ -224,7 +260,7 @@ document.addEventListener('change',event=>{
 });
 document.addEventListener('input',event=>{
   if(event.target.name==='amount'&&event.target.closest?.('#quick-form'))refreshQuickEffect();
-  if(event.target.name!=='description'||!event.target.closest?.('#quick-form')||!ui.quick||ui.quick.manual)return;
+  if(event.target.name!=='description'||!event.target.closest?.('#quick-form')||!ui.quick||ui.quick.manual||ui.quick.type==='transfer')return;
   const guess=suggestCategory(data,event.target.value,ui.quick.type);
   if(guess&&guess!==ui.quick.category){ui.quick={...ui.quick,category:guess};refreshQuick();}
 });

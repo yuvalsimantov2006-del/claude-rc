@@ -5,16 +5,17 @@ import {accountAllocations,freeMoney,hasAllocation} from './savings.js';
 // Splitting account balances between savings goals ("envelopes") and the free-money view.
 // Built on the UI helpers and state from app.js.
 
-const allocIcon={bank:'Wallet',cash:'Wallet',savings:'PiggyBank',investment:'TrendingUp'};
+const allocIcon={bank:'Wallet',cash:'Wallet',savings:'PiggyBank',investment:'TrendingUp',deposit:'Lock'};
 const goalColor=goal=>palette[Math.max(0,data.goals.findIndex(g=>g.id===goal.id))%palette.length];
 function allocationAccounts(){
-  return data.accounts.filter(a=>['bank','cash','savings'].includes(a.kind)||(a.kind==='investment'&&data.goals.some(g=>g.accountId===a.id)));
+  // A restricted deposit, like the portfolio, appears only when a goal is linked to it: it is never free money (§B.3).
+  return data.accounts.filter(a=>['bank','cash','savings'].includes(a.kind)||(['investment','deposit'].includes(a.kind)&&data.goals.some(g=>g.accountId===a.id)));
 }
 function allocationCard(){
   const accounts=allocationAccounts(),free=freeMoney(data);
   const rows=accounts.map(a=>{
     const info=accountAllocations(data,a.id),parts=[...info.shares].map(([id,amount])=>({goal:data.goals.find(g=>g.id===id),amount})).filter(p=>p.goal&&p.amount>.004),width=n=>info.balance>0?n/info.balance*100:0;
-    return `<div class="alloc-row"><div class="alloc-head"><span class="asset-icon ${a.kind==='savings'?'purple':a.kind==='investment'?'gold':'blue'}">${icon(allocIcon[a.kind]||'Wallet',19)}</span><div><b>${e(a.name)}</b><small>${e(accountKinds[a.kind])}${a.institution?' · '+e(a.institution):''}</small></div><b dir="ltr" class="alloc-balance">${money(info.balance)}</b><div class="alloc-actions">${btn('חלוקה ליעדים','alloc:'+a.id,'Target')}${ib('Edit3','עריכת '+a.name,'edit:account:'+a.id)}</div></div>
+    return `<div class="alloc-row"><div class="alloc-head"><span class="asset-icon ${a.kind==='savings'||a.kind==='deposit'?'purple':a.kind==='investment'?'gold':'blue'}">${icon(allocIcon[a.kind]||'Wallet',19)}</span><div><b>${e(a.name)}</b><small>${e(accountKinds[a.kind])}${a.institution?' · '+e(a.institution):''}</small></div><b dir="ltr" class="alloc-balance">${money(info.balance)}</b><div class="alloc-actions">${btn('חלוקה ליעדים','alloc:'+a.id,'Target')}${ib('Edit3','עריכת '+a.name,'edit:account:'+a.id)}</div></div>
     <div class="alloc-bar" role="img" aria-label="${e(parts.map(p=>`${p.goal.name} ${money(p.amount)}`).concat(`פנוי ${money(info.free)}`).join(', '))}">${parts.map(p=>`<span style="width:${width(p.amount)}%;background:${goalColor(p.goal)}" title="${e(p.goal.name)}: ${money(p.amount)}"></span>`).join('')}<span class="free" style="width:${width(info.free)}%"></span></div>
     <div class="alloc-legend">${parts.map(p=>`<span><i style="background:${goalColor(p.goal)}"></i>${e(p.goal.name)} <b dir="ltr">${money(p.amount)}</b>${hasAllocation(p.goal)?'':'<small>(מה שלא הוקצה)</small>'}</span>`).join('')}<span><i class="free"></i>${a.kind==='investment'?'לא מוקצה':'פנוי'} <b dir="ltr">${money(info.free)}</b></span></div>
     ${info.overAllocated?notice(safe(`ההקצאות (${amt(info.requested)}) גבוהות מהיתרה. כל יעד מקבל חלק יחסי, עד שתעדכן את החלוקה.`),'error'):''}</div>`;

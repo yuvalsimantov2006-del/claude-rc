@@ -1,9 +1,10 @@
-import {today,toILS,balances,portfolioValue,assetValue,assetProfit,monthlySummary,categorySpend,monthOffset,performance,validDate} from './finance.js';
+import {today,toILS,balances,portfolioValue,assetValue,assetProfit,monthlySummary,categorySpend,monthOffset,performance,validDate,TX_TYPES,TX_KINDS,amountILS,spendILS,accountsOf} from './finance.js';
+import {makeTransfer,transferProblem,planProgress} from './ledger.js';
 import {healthScore,detectRecurring,detectAnomalies,monthPace,monteCarlo,monthlySeries,averageMonth,shiftDate} from './smart.js';
 import {effectiveGoalSavings,freeMoney} from './savings.js';
 import {compareScenario} from './scenario.js';
 import {riskProfile,stressTest,historyRisk,STRESS_SCENARIOS,matchHoldings} from './invest.js';
-import {IL_TAX_2026,netSalary,grossForNet,loanSchedule,debtPayoff,feeImpact,purchaseCheck,cashflowForecast,safeToSpend,groupSummary,monthlyFixed,scheduledItems,wishlistSummary,BILL_STEPS} from './money.js';
+import {IL_TAX_2026,netSalary,grossForNet,loanSchedule,debtPayoff,feeImpact,purchaseCheck,cashflowForecast,safeToSpend,groupSummary,monthlyFixed,scheduledItems,wishlistSummary,BILL_STEPS,nextCardCharge} from './money.js';
 
 // Claude integration. The app is a single static file with no build-time dependencies,
 // so it talks to the Messages API with fetch + server-sent events instead of the SDK.
@@ -46,6 +47,7 @@ How to work:
 - Ofek also runs a bills calendar with a cash-flow forecast, shared-expense groups (trips, roommates) and a wishlist with a 30-day cooling-off period. Use get_cashflow_forecast for questions like "will I be overdrawn?" or "how much can I spend?", get_split_groups for who owes whom, and money_calculator for Israeli net salary (2026 brackets, credit points, National Insurance), mortgages and loans (incl. CPI-linked), debt payoff strategies, pension-fee impact and "should I buy it?" checks.
 - When the user shares a broker screenshot or holdings report, read every holding's price or value (and the USD/ILS rate if shown) and call propose_investment_update once; the user reviews it in the monthly update before saving.
 - When the user wants to split a shared receipt, call propose_split_expense; when you discover a fixed payment, offer propose_bill; when the user hesitates about a purchase, suggest propose_wishlist_item instead of buying now.
+- Transfers between the user's own accounts (an ATM withdrawal, a deposit to savings, a loan or card payment) are not income or spending: record them with propose_transfer. A refund (החזר / זיכוי) reduces spending in its category (type refund, with the expense category). Card purchases count on the purchase date; the monthly card charge is a transfer from the bank to the card, never an expense.
 - You are not a licensed investment advisor. For investment questions, explain principles, risks and the user's own numbers; avoid recommending a specific security, and mention this briefly only when relevant.
 - Formatting: short paragraphs, **bold** for key figures, "-" bullets, numbered steps, "###" small headings and simple Markdown tables. No HTML.`;
 
@@ -56,17 +58,18 @@ export function financialContext(d,month=today().slice(0,7),now=today()){
   const lines=[
     `today: ${now}${d.profile?` · name: ${d.profile}`:''}${d.demo?' · NOTE: this is demo data':''}`,
     `usd_ils_rate: ${d.fx} (manual, updated ${d.fxDate})`,
-    `net_worth: ${round(b.net)} ₪ = cash ${round(b.cash)} + savings ${round(b.savings)} + investments ${round(b.investments)} − debt ${round(b.debt)}`,
+    `net_worth: ${round(b.net)} ₪ = `+[['cash',b.cash],['savings',b.savings],['restricted_deposit',b.restricted],['investments',b.investments]].filter(([,v],i)=>i<2||round(v)!==0).map(([k,v],i)=>`${i?'+ ':''}${k} ${round(v)}`).join(' ')+[['loans',b.debt],['credit_cards',b.credit]].filter(([,v])=>round(v)!==0).map(([k,v])=>` − ${k} ${round(v)}`).join(''),
     `health_score: ${h.score}/100 (${h.factors.map(f=>`${f.key} ${Math.round(f.score)}`).join(', ')})`,
     `monthly_spending_target: ${round(d.overallBudget)} ₪`,
     'last_6_months (income / expenses / saved, ₪): '+monthlySeries(d,month,6).map(s=>`${s.month}: ${round(s.income)} / ${round(s.expenses)} / ${round(s.saved)}`).join(' | '),
     avg.months?`average_of_previous_${avg.months}_months: income ${round(avg.income)}, expenses ${round(avg.expenses)}`:'',
-    'accounts: '+d.accounts.map(a=>`${a.name} [id ${a.id}, ${a.kind}, ${a.currency}] ${round(a.kind==='investment'?portfolioValue(d):a.balance)}${a.kind==='debt'?` (payment ${a.payment}/mo, ${a.interest}% interest)`:''}`).join('; '),
+    'accounts: '+d.accounts.map(a=>aiAccountLine(d,a,now)).join('; '),
+    (d.installments||[]).some(p=>p.next<=p.count)?'installments: '+d.installments.filter(p=>p.next<=p.count).map(p=>{const x=planProgress(d,p,now);return `${p.description} ${x.recorded}/${x.of} left ${round(toILS(x.leftAmount,p.currency,p.fx))} ₪ on ${d.accounts.find(a=>a.id===p.accountId)?.name||'account'}`;}).join('; '):'',
     'budgets_this_month: '+(d.budgets.map(x=>`${x.category} ${round(categorySpend(d,x.category,month))}/${round(x.limit)}`).join('; ')||'none'),
     'goals: '+(d.goals.map(g=>`${g.name} saved ${round(effectiveGoalSavings(d,g))}${g.target?` of ${round(g.target)}`:''}, ${round(g.monthly)}/mo until ${g.date}${g.accountId?` (in ${d.accounts.find(a=>a.id===g.accountId)?.name||'account'}${g.allocation!=null?`, allocated ${round(g.allocation)}`:''})`:''}`).join('; ')||'none'),
-    `free_money: ${round(freeMoney(d).total)} ₪ unallocated in bank, cash and savings accounts`,
+    `free_money: ${round(freeMoney(d).total)} ₪ unallocated in bank, cash and savings, minus what credit cards owe`,
     'investments: '+(d.assets.map(a=>`${a.ticker||a.name} ${round(toILS(assetValue(a),a.currency,d.fx))} ₪`).join('; ')||'none'),
-    (d.bills||[]).length?`fixed_payments: ${round(monthlyFixed(d))} ₪/month · next 30 days: `+scheduledItems(d,shiftDate(now,1),shiftDate(now,30)).filter(x=>!x.paid).slice(0,8).map(x=>`${x.date} ${x.name} ${x.type==='income'?'+':'−'}${round(x.amount)}`).join('; '):'',
+    (d.bills||[]).length||(d.installments||[]).length||d.accounts.some(a=>a.kind==='credit')?`fixed_payments: ${round(monthlyFixed(d))} ₪/month · next 30 days: `+scheduledItems(d,shiftDate(now,1),shiftDate(now,30),now).filter(x=>!x.paid&&!x.onCard).slice(0,8).map(x=>`${x.date} ${x.source==='card'?'card charge ':''}${x.name}${x.source==='installment'?` (installment ${x.n}/${x.of})`:''} ${x.type==='income'?'+':'−'}${round(x.amount)}`).join('; '):'',
     (d.groups||[]).length?'split_groups: '+d.groups.map(g=>{const x=groupSummary(g);return `${g.name} (total ${round(x.total)}, user balance ${round(x.myBalance)})`;}).join('; '):'',
     (d.wishlist||[]).length?(w=>`wishlist: ${w.count} waiting (${round(w.waiting)} ₪), skipped so far ${round(w.skipped)} ₪`)(wishlistSummary(d)):'',
     `categories: ${d.categories.join(', ')}`,
@@ -79,10 +82,10 @@ export function financialContext(d,month=today().slice(0,7),now=today()){
 // ---------- Tools ----------
 const S=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 const str=description=>({type:'string',description}),num=description=>({type:'number',description});
-const txItem=S({type:{type:'string',enum:['expense','income']},amount:num('Positive amount'),currency:{type:'string',enum:['ILS','USD']},date:str('YYYY-MM-DD, not in the future'),category:str('One of the user categories when possible'),description:str('Merchant or short Hebrew description'),account:str('Account id or name; optional')},['type','amount','date','category','description']);
+const txItem=S({type:{type:'string',enum:['expense','income','refund'],description:'refund = money back for an expense (category = the expense category)'},amount:num('Positive amount'),currency:{type:'string',enum:['ILS','USD']},date:str('YYYY-MM-DD, not in the future'),category:str('One of the user categories when possible'),description:str('Merchant or short Hebrew description'),account:str('Account id or name; optional')},['type','amount','date','category','description']);
 export const AI_TOOLS=[
   {name:'get_financial_overview',description:'Current balances, health score with factor tips, this month vs. typical month, budgets status, recurring charges and unusual spending. Read-only.',input_schema:S({month:str('YYYY-MM; defaults to the month selected in the app')})},
-  {name:'query_transactions',description:'Search transactions with filters. Returns matching rows (newest first) and totals in ₪. Read-only.',input_schema:S({from:str('YYYY-MM-DD'),to:str('YYYY-MM-DD'),type:{type:'string',enum:['expense','income']},category:str('Exact category name'),search:str('Text to find in description, category or tags'),min_amount:num('Minimum amount'),max_amount:num('Maximum amount'),limit:{type:'integer',description:'Max rows to return, default 40, max 200'}})},
+  {name:'query_transactions',description:'Search transactions with filters. Returns matching rows (newest first) and totals in ₪ (expenses net of refunds; transfers between the user\'s accounts are only counted). Read-only.',input_schema:S({from:str('YYYY-MM-DD'),to:str('YYYY-MM-DD'),type:{type:'string',enum:TX_TYPES},category:str('Exact category name'),search:str('Text to find in description, category or tags'),min_amount:num('Minimum amount'),max_amount:num('Maximum amount'),limit:{type:'integer',description:'Max rows to return, default 40, max 200'}})},
   {name:'spending_breakdown',description:'Aggregate income or expenses between two dates, grouped by category, month or account. Read-only.',input_schema:S({from:str('YYYY-MM-DD'),to:str('YYYY-MM-DD'),group_by:{type:'string',enum:['category','month','account']},type:{type:'string',enum:['expense','income']}},['from','to','group_by'])},
   {name:'get_investments',description:'Investment holdings with value, lifetime profit and return, plus portfolio performance from monthly snapshots (Modified Dietz, XIRR). Read-only.',input_schema:S({})},
   {name:'simulate_future',description:'Monte Carlo simulation (1000 runs, in today\'s money) of investable wealth with monthly contributions. Returns P10/P50/P90 per year and probability of reaching a target.',input_schema:S({years:{type:'integer',description:'1-60'},start:num('Starting amount in ₪; default = savings + investments'),monthly_contribution:num('₪ per month; default = average monthly savings'),annual_return:num('Expected nominal annual return, e.g. 0.07'),volatility:num('Annual volatility, e.g. 0.15'),inflation:num('Annual inflation, e.g. 0.025'),target:num('Optional target in today\'s ₪')},['years'])},
@@ -97,27 +100,37 @@ export const AI_TOOLS=[
   {name:'propose_bill',description:'Propose adding a fixed payment or income to the bills calendar (rent, arnona, insurance, subscriptions, salary). The user approves.',input_schema:S({name:str('Hebrew name'),amount:num('₪ per occurrence'),frequency:{type:'string',enum:['monthly','bimonthly','quarterly','yearly']},day:{type:'integer',description:'Day of month 1-31'},type:{type:'string',enum:['expense','income']},category:str('Category'),autopay:{type:'boolean',description:'Charged automatically (standing order or card)'},start_month:str('YYYY-MM of a known occurrence, needed for non-monthly bills')},['name','amount','frequency','day'])},
   {name:'propose_investment_update',description:'Propose new prices or values for existing holdings (e.g. read from a broker screenshot or report). Approved values are filled into the monthly investment update for review; nothing is saved until the user saves the snapshot.',input_schema:S({holdings:{type:'array',items:S({asset:str('Ticker or name of an existing holding'),price:num('Price per unit in the holding currency (shekels for TASE, not agorot)'),value:num('Total value, for holdings tracked by value'),quantity:num('Units shown in the report, if any')},['asset']),description:'One entry per holding'},usd_ils_rate:num('USD/ILS rate shown in the report, if any'),date:str('Report date YYYY-MM-DD, if shown')},['holdings'])},
   {name:'simulate_scenario',description:'What-if simulator over the user\'s real plan, month by month: free money (not allocated to goals), goal achievement dates and net worth, comparing the current plan with events. Event types: deposit (change in monthly goal deposits, optionally for one goal), purchase (one-time purchase funded from free money, a goal or a loan, with an optional monthly running cost), grant (one-time money to free money, a goal or investments, e.g. an IDF discharge grant or a bonus), income (monthly income change), expense (new monthly expense, optional duration).',input_schema:S({events:{type:'array',items:S({type:{type:'string',enum:['deposit','purchase','grant','income','expense']},name:str('Short Hebrew label'),amount:num('₪; monthly for deposit/income/expense, one-time for purchase/grant; negative allowed for deposit/income'),month:{type:'integer',description:'When it starts: 1 = next month'},goal:str('Goal name, for deposit changes (omit = all goals)'),funding:str('Purchase funding: free, loan, or a goal name'),target:str('Grant destination: free, invest, or a goal name'),loan_rate:num('Annual loan interest %'),loan_years:num('Loan term in years'),monthly_cost:num('Monthly running cost after a purchase (e.g. car insurance and fuel)'),duration:{type:'integer',description:'Months a new expense lasts; 0 = ongoing'}},['type','amount','month'])},horizon_months:{type:'integer',description:'12-120, default 36'},annual_return_percent:num('Expected investment return, default 5')},['events'])},
+  {name:'propose_transfer',description:'Propose a transfer between two of the user\'s own accounts: an ATM withdrawal, a deposit to savings, a loan payment or a credit-card payment. Not income and not spending. The user approves.',input_schema:S({from:str('Account id or name the money leaves'),to:str('Account id or name the money reaches (a loan or card means paying it)'),amount:num('Amount in the FROM account currency'),date:str('YYYY-MM-DD; default today'),description:str('Short Hebrew description, optional')},['from','to','amount'])},
   {name:'propose_wishlist_item',description:'Propose adding an item to the wishlist with a 30-day cooling-off period instead of buying it now. The user approves.',input_schema:S({name:str('Item'),price:num('Price ₪'),note:str('Why it is wanted, a link, or alternatives')},['name','price'])}
 ].map(t=>({...t,eager_input_streaming:true}));
 
 const sumILS=(d,list)=>list.reduce((s,t)=>s+toILS(t.amount,t.currency||'ILS',t.fx||d.fx),0);
 const accountName=(d,id)=>d.accounts.find(a=>a.id===id)?.name||'—';
+// A short account line for the context block; cards show what they owe and the next charge (§C.2.9).
+function aiAccountLine(d,a,now){
+  const head=`${a.name} [id ${a.id}, ${a.kind}, ${a.currency}]`;
+  if(a.kind==='credit'){const next=nextCardCharge(d,a,now),bank=d.accounts.find(x=>x.id===a.payFrom)?.name;return `${head} owes ${round(a.balance)} (billing day ${a.billingDay}${bank?`, paid from ${bank}`:', no paying bank set'}${next?`, next charge ${round(next.amount)} on ${next.date}`:''})`;}
+  if(a.kind==='deposit')return `${head} ${round(a.balance)}${a.releaseDate?` (restricted until ${a.releaseDate})`:' (restricted)'}`;
+  return `${head} ${round(a.kind==='investment'?portfolioValue(d):a.balance)}${a.kind==='debt'?` (payment ${a.payment}/mo, ${a.interest}% interest)`:''}`;
+}
+const aiAnyAccount=(d,ref)=>{const r=String(ref||'').trim();if(!r)return null;return d.accounts.find(a=>a.id===r||a.name===r)||d.accounts.find(a=>a.name.includes(r)||r.includes(a.name))||null;};
 export function resolveAccount(d,ref){
-  const usable=d.accounts.filter(a=>!['investment','debt'].includes(a.kind));
-  if(ref){const r=String(ref).trim();const hit=usable.find(a=>a.id===r||a.name===r)||usable.find(a=>a.name.includes(r)||r.includes(a.name));if(hit)return hit;if(/מזומן|cash/i.test(r))return usable.find(a=>a.kind==='cash')||null;}
+  const usable=d.accounts.filter(a=>TX_KINDS.includes(a.kind));
+  if(ref){const r=String(ref).trim();const hit=usable.find(a=>a.id===r||a.name===r)||usable.find(a=>a.name.includes(r)||r.includes(a.name));if(hit)return hit;if(/אשראי|כרטיס|card/i.test(r)){const card=usable.find(a=>a.kind==='credit');if(card)return card;}if(/מזומן|cash/i.test(r))return usable.find(a=>a.kind==='cash')||null;}
   return usable.find(a=>a.kind==='bank')||usable[0]||null;
 }
 
 // Validates a proposed transaction and returns a normalized draft or an error string.
 export function normalizeProposedTransaction(d,raw,now=today()){
-  const amount=Number(raw?.amount),date=String(raw?.date||''),type=raw?.type==='income'?'income':raw?.type==='expense'?'expense':null;
-  if(!type)return {error:'type must be expense or income'};
+  const amount=Number(raw?.amount),date=String(raw?.date||''),type=['income','expense','refund'].includes(raw?.type)?raw.type:null;
+  if(!type)return {error:'type must be expense, income or refund'};
   if(!(amount>0)||!Number.isFinite(amount))return {error:'amount must be positive'};
   if(!validDate(date))return {error:`invalid date "${date}"`};
   if(date>now)return {error:`date ${date} is in the future`};
   const account=resolveAccount(d,raw.account);
   if(!account)return {error:'no bank, cash or savings account exists'};
-  const category=String(raw.category||'').trim()||'קניות';
+  let category=String(raw.category||'').trim()||'קניות';
+  if(type==='refund'&&/משכורת|הכנס|מענק|דיבידנד/.test(category))category='קניות';
   return {draft:{type,amount,currency:raw.currency==='USD'?'USD':account.currency,date,category,description:String(raw.description||'').trim().slice(0,120),accountId:account.id,subcategory:'',tags:['AI'],recurring:false}};
 }
 
@@ -130,15 +143,15 @@ export async function executeAiTool(name,input,ctx){
   if(name==='query_transactions'){
     const q=String(input.search||'').trim(),limit=Math.max(1,Math.min(200,Number(input.limit)||40));
     const list=d.transactions.filter(t=>(!input.from||t.date>=input.from)&&(!input.to||t.date<=input.to)&&(!input.type||t.type===input.type)&&(!input.category||t.category===input.category)&&(!q||[t.description,t.category,t.subcategory,...(t.tags||[])].join(' ').includes(q))&&(input.min_amount==null||t.amount>=input.min_amount)&&(input.max_amount==null||t.amount<=input.max_amount)).sort((a,b)=>b.date.localeCompare(a.date));
-    return {count:list.length,total_income:round(sumILS(d,list.filter(t=>t.type==='income'))),total_expense:round(sumILS(d,list.filter(t=>t.type==='expense'))),shown:Math.min(limit,list.length),transactions:list.slice(0,limit).map(t=>({date:t.date,type:t.type,amount:t.amount,currency:t.currency||'ILS',category:t.category,description:t.description,account:accountName(d,t.accountId)}))};
+    return {count:list.length,total_income:round(sumILS(d,list.filter(t=>t.type==='income'))),total_expense:round(list.reduce((s,t)=>s+spendILS(d,t),0)),total_refunds:round(sumILS(d,list.filter(t=>t.type==='refund'))),transfers_count:list.filter(t=>t.type==='transfer').length,shown:Math.min(limit,list.length),transactions:list.slice(0,limit).map(t=>({date:t.date,type:t.type,amount:t.amount,currency:t.currency||'ILS',category:t.category,description:t.description,account:accountName(d,t.accountId),...(t.type==='transfer'?{to_account:accountName(d,t.toAccountId)}:{}),...(t.installment?{installment:`${t.installment.n}/${t.installment.of}`}:{})}))};
   }
   if(name==='spending_breakdown'){
     if(!validDate(input.from)||!validDate(input.to))throw new Error('from and to must be YYYY-MM-DD');
-    const type=input.type||'expense',list=d.transactions.filter(t=>t.type===type&&t.date>=input.from&&t.date<=input.to),groups=new Map();
-    for(const t of list){const key=input.group_by==='month'?t.date.slice(0,7):input.group_by==='account'?accountName(d,t.accountId):t.category;groups.set(key,(groups.get(key)||0)+toILS(t.amount,t.currency||'ILS',t.fx||d.fx));}
+    const type=input.type||'expense',list=d.transactions.filter(t=>(t.type===type||(type==='expense'&&t.type==='refund'))&&t.date>=input.from&&t.date<=input.to),groups=new Map(),value=t=>type==='expense'?spendILS(d,t):amountILS(d,t);
+    for(const t of list){const key=input.group_by==='month'?t.date.slice(0,7):input.group_by==='account'?accountName(d,t.accountId):t.category;groups.set(key,(groups.get(key)||0)+value(t));}
     const rows=[...groups.entries()].map(([key,total])=>({key,total:round(total)}));
     rows.sort(input.group_by==='month'?(a,b)=>a.key.localeCompare(b.key):(a,b)=>b.total-a.total);
-    return {type,from:input.from,to:input.to,total:round(sumILS(d,list)),rows};
+    return {type,from:input.from,to:input.to,total:round(list.reduce((s,t)=>s+value(t),0)),rows};
   }
   if(name==='get_investments'){
     const snaps=[...d.snapshots].sort((a,b)=>a.date.localeCompare(b.date)),p=snaps.length>1?performance(d,snaps[0].date,snaps.at(-1).date):null;
@@ -177,12 +190,12 @@ export async function executeAiTool(name,input,ctx){
   }
   if(name==='get_cashflow_forecast'){
     const days=Math.max(7,Math.min(365,Number(input.days)||90)),f=cashflowForecast(d,{days,now}),s=safeToSpend(d,now);
-    return {today:now,safe_to_spend_per_day:round(s.perDay),left_in_monthly_target:round(s.available),fixed_payments_left_this_month:round(s.upcomingFixed),days_left_in_month:s.daysLeft,liquid_balance_now:round(f.start),projected_balance_at_end:round(f.end),lowest_point:{date:f.lowest.date,balance:round(f.lowest.balance)},overdraft_date:f.overdraft,variable_spending_per_day:round(f.variableDaily),fixed_monthly_costs:round(f.fixed),income_is_estimated_from_history:f.estimatedIncome,planned_goal_deposits:round(f.deposits),monthly_summary:f.months.map(m=>({month:m.month,start:round(m.start),income:round(m.income),fixed_payments:round(m.fixed),goal_deposits:round(m.deposits),variable_spending:round(m.variable),end:round(m.end),lowest:round(m.lowest.balance)})),upcoming:f.items.slice(0,30).map(x=>({date:x.date,name:x.name,amount:round(x.amount),type:x.type,autopay:x.autopay,source:x.source}))};
+    return {today:now,safe_to_spend_per_day:round(s.perDay),left_in_monthly_target:round(s.available),fixed_payments_left_this_month:round(s.upcomingFixed),days_left_in_month:s.daysLeft,liquid_balance_now:round(f.start),projected_balance_at_end:round(f.end),lowest_point:{date:f.lowest.date,balance:round(f.lowest.balance)},overdraft_date:f.overdraft,variable_spending_per_day:round(f.variableDaily),fixed_monthly_costs:round(f.fixed),income_is_estimated_from_history:f.estimatedIncome,planned_goal_deposits:round(f.deposits),card_charges_in_period:round(f.cardCharges),cash_side_of_safe_to_spend:round(s.cash),limited_by:s.limitedBy,monthly_summary:f.months.map(m=>({month:m.month,start:round(m.start),income:round(m.income),fixed_payments:round(m.fixed),goal_deposits:round(m.deposits),variable_spending:round(m.variable),end:round(m.end),lowest:round(m.lowest.balance)})),upcoming:f.items.slice(0,30).map(x=>({date:x.date,name:x.name,amount:round(x.amount),type:x.type,autopay:x.autopay,source:x.source}))};
   }
   if(name==='money_calculator'){
     const c=input.calculator,fin=(v,fallback)=>Number.isFinite(v)?v:fallback;
     if(c==='salary'){
-      const opts={creditPoints:fin(input.credit_points,2.25),pensionRate:fin(input.pension_rate,.06),studyFundRate:fin(input.study_fund_rate,0)};
+      const opts={creditPoints:fin(input.credit_points,d.benefits?.points?.total??2.25),pensionRate:fin(input.pension_rate,.06),studyFundRate:fin(input.study_fund_rate,0)};
       const gross=Number.isFinite(input.net_salary_target)?grossForNet(input.net_salary_target,opts):Number(input.gross_salary);
       const x=netSalary({...opts,gross});
       return {tax_year:IL_TAX_2026.year,gross:round(x.gross),net:round(x.net),income_tax:round(x.tax),national_insurance:round(x.ni),health_tax:round(x.health),pension_employee:round(x.pension),study_fund_employee:round(x.studyFund),credit_points_value:round(x.credits),pension_tax_credit:round(x.pensionCredit),mandatory_deductions_rate:x.effectiveRate,marginal_tax_rate:x.marginal,net_per_hour:round(x.hourly),note:'Estimate for a resident employee; excludes taxable benefits, reimbursements and personal credits beyond the points given.'};
@@ -230,6 +243,15 @@ export async function executeAiTool(name,input,ctx){
     const bill={name:String(input.name).slice(0,80),amount,currency:'ILS',frequency,day,type:input.type==='income'?'income':'expense',category:String(input.category||(input.type==='income'?'משכורת':'חשבונות')),autopay:!!input.autopay,accountId:resolveAccount(d)?.id||'',paid:[],...(/^\d{4}-(0[1-9]|1[0-2])$/.test(input.start_month||'')?{startMonth:input.start_month}:{})};
     const outcome=await ctx.approve({id:ctx.toolUseId,kind:'bill',bill});
     return outcome.approved?{approved:true}:{approved:false,message:'The user declined.'};
+  }
+  if(name==='propose_transfer'){
+    const from=aiAnyAccount(d,input.from),to=aiAnyAccount(d,input.to),amount=Math.round(Number(input.amount)*100)/100;
+    if(!from||!to)throw new Error(`Unknown account. Accounts: ${d.accounts.map(a=>`${a.name} (${a.kind})`).join(', ')}`);
+    const date=validDate(input.date||'')&&input.date<=now?input.date:now;
+    const transfer=makeTransfer(d,{fromId:from.id,toId:to.id,amount,date,description:String(input.description||'').slice(0,120)});
+    const problem=transferProblem(d,transfer,now);if(problem)throw new Error(problem);
+    const outcome=await ctx.approve({id:ctx.toolUseId,kind:'transfer',transfer});
+    return outcome.approved?{approved:true}:{approved:false,message:'The user declined. Nothing was saved.'};
   }
   if(name==='propose_investment_update'){
     const rows=(Array.isArray(input.holdings)?input.holdings:[]).map(h=>({symbol:String(h.asset||''),name:String(h.asset||''),price:Number.isFinite(h.price)?h.price:null,value:Number.isFinite(h.value)?h.value:null,quantity:Number.isFinite(h.quantity)?h.quantity:null}));

@@ -1,4 +1,4 @@
-import {uid,today,money,dateLabel,applyTransaction,validDate} from './finance.js';
+import {uid,today,money,dateLabel,applyTransaction,validDate,TX_KINDS} from './finance.js';
 import {parseStatementRows,prepareCapture} from './capture.js';
 import {readXlsx,isXlsx,textToRows} from './xlsx.js';
 import {aiReady,aiSettings,runAgent,AI_TOOLS,financialContext,attachmentBlock} from './ai.js';
@@ -9,7 +9,7 @@ import {aiReady,aiSettings,runAgent,AI_TOOLS,financialContext,attachmentBlock} f
 const captureStatus={duplicate:['כבר קיימת','neutral'],possible:['ייתכן כפילות','gold'],repeat:['חוזרת בקובץ','gold'],new:['חדשה','green']};
 const captureKinds={card:'פירוט כרטיס אשראי',bank:'דף חשבון בנק',receipt:'קבלה או מסמך'};
 function captureState(){
-  if(!ui.capture)ui.capture={items:[],source:'',kind:'',skipped:[],accountId:data.accounts.find(a=>a.kind==='bank')?.id||data.accounts.find(a=>!['investment','debt'].includes(a.kind))?.id||'',busy:false,error:null,hideDuplicates:false,abort:null};
+  if(!ui.capture)ui.capture={items:[],source:'',kind:'',skipped:[],accountId:data.accounts.find(a=>a.kind==='bank')?.id||data.accounts.find(a=>TX_KINDS.includes(a.kind))?.id||'',busy:false,error:null,hideDuplicates:false,abort:null};
   return ui.capture;
 }
 function loadCaptureItems(items,source,kind,skipped=[]){
@@ -56,11 +56,11 @@ function captureIntro(st){
 }
 function captureReview(st){
   const shown=st.items.map((x,i)=>({x,i})).filter(({x})=>!(st.hideDuplicates&&x.status==='duplicate')),chosen=st.items.filter(x=>x.include);
-  const expenses=chosen.filter(x=>x.type==='expense').reduce((s,x)=>s+x.amount,0),income=chosen.filter(x=>x.type==='income').reduce((s,x)=>s+x.amount,0),dups=st.items.filter(x=>x.status==='duplicate').length;
-  const accounts=data.accounts.filter(a=>!['investment','debt'].includes(a.kind));
+  const expenses=chosen.reduce((s,x)=>s+(x.type==='expense'?x.amount:x.type==='refund'?-x.amount:0),0),income=chosen.filter(x=>x.type==='income').reduce((s,x)=>s+x.amount,0),dups=st.items.filter(x=>x.status==='duplicate').length;
+  const accounts=data.accounts.filter(a=>TX_KINDS.includes(a.kind));
   return card(head(`${st.items.length} תנועות מ״${st.source}״`,`${captureKinds[st.kind]||''}${dups?` · ${dups} כבר קיימות באופק ולא נבחרו`:''}${st.skipped.length?` · ${st.skipped.length} שורות דולגו`:''}`,btn('קובץ אחר','capture-reset','RotateCcw'))+`
   <div class="capture-toolbar">${field('לאיזה חשבון',`<select data-cap-account>${options(accounts.map(a=>[a.id,a.name]),st.accountId)}</select>`)}<div class="capture-bulk">${btn('בחירת הכול','capture-all','Check')}${btn('ניקוי הבחירה','capture-none','X')}<label class="check-field"><input type="checkbox" data-cap-hide ${st.hideDuplicates?'checked':''}>הסתרת כפילויות</label></div><div class="capture-sum"><span>נבחרו <b>${chosen.length}</b></span><span>הוצאות <b dir="ltr">${money(expenses,'ILS',2)}</b></span>${income?`<span>הכנסות <b dir="ltr" class="positive">${money(income,'ILS',2)}</b></span>`:''}</div></div>
-  <div class="table-wrap"><table class="capture-table"><thead><tr><th aria-label="בחירה"></th><th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סוג</th><th>סכום (₪)</th><th>מצב</th></tr></thead><tbody>${shown.map(({x,i})=>{const [label,color]=captureStatus[x.status]||captureStatus.new;return `<tr class="${x.include?'':'off'}"><td class="cap-check"><label class="cap-check-hit"><input type="checkbox" data-cap="${i}.include" ${x.include?'checked':''} aria-label="לכלול את ${e(x.description)}"></label></td><td><input type="date" data-cap="${i}.date" value="${e(x.date)}" max="${today()}"></td><td><input type="text" data-cap="${i}.description" value="${e(x.description)}">${x.issuerCategory?`<small class="muted">${e(x.issuerCategory)}</small>`:''}</td><td><select data-cap="${i}.category">${options(data.categories.includes(x.category)?data.categories:[...data.categories,x.category],x.category)}</select></td><td><select data-cap="${i}.type">${options([['expense','הוצאה'],['income','הכנסה']],x.type)}</select></td><td><input type="number" data-cap="${i}.amount" value="${e(x.amount)}" min="0.01" step="any" dir="ltr"></td><td><span title="${e(x.matchedLabel||'')}">${badge(label,color)}</span></td></tr>`;}).join('')}</tbody></table></div>
+  <div class="table-wrap"><table class="capture-table"><thead><tr><th aria-label="בחירה"></th><th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סוג</th><th>סכום (₪)</th><th>מצב</th></tr></thead><tbody>${shown.map(({x,i})=>{const [label,color]=captureStatus[x.status]||captureStatus.new;return `<tr class="${x.include?'':'off'}"><td class="cap-check"><label class="cap-check-hit"><input type="checkbox" data-cap="${i}.include" ${x.include?'checked':''} aria-label="לכלול את ${e(x.description)}"></label></td><td><input type="date" data-cap="${i}.date" value="${e(x.date)}" max="${today()}"></td><td><input type="text" data-cap="${i}.description" value="${e(x.description)}">${x.issuerCategory?`<small class="muted">${e(x.issuerCategory)}</small>`:''}</td><td><select data-cap="${i}.category">${options(data.categories.includes(x.category)?data.categories:[...data.categories,x.category],x.category)}</select></td><td><select data-cap="${i}.type">${options([['expense','הוצאה'],['income','הכנסה'],['refund','החזר']],x.type)}</select></td><td><input type="number" data-cap="${i}.amount" value="${e(x.amount)}" min="0.01" step="any" dir="ltr"></td><td><span title="${e(x.matchedLabel||'')}">${badge(label,color)}</span></td></tr>`;}).join('')}</tbody></table></div>
   ${st.skipped.length?`<details class="import-notes"><summary>${st.skipped.length} שורות דולגו</summary><p class="muted small">${st.skipped.slice(0,30).map(x=>`${e(x.description||'ללא תיאור')} (${e(x.reason)})`).join(' · ')}</p></details>`:''}
   <div class="form-actions capture-save">${btn(`שמירת ${chosen.length} תנועות`,'capture-save','Check','primary')}${btn('ביטול','capture-reset')}</div>`,'capture-review');
 }
@@ -72,7 +72,7 @@ function captureView(){
 function saveCapture(){
   const st=captureState(),chosen=st.items.filter(x=>x.include);
   if(!chosen.length)throw Error('לא נבחרו תנועות לשמירה.');
-  if(!data.accounts.some(a=>a.id===st.accountId&&!['investment','debt'].includes(a.kind)))throw Error('יש לבחור חשבון בנק, מזומן או חיסכון.');
+  if(!data.accounts.some(a=>a.id===st.accountId&&TX_KINDS.includes(a.kind)))throw Error('יש לבחור חשבון בנק, מזומן, חיסכון או כרטיס אשראי.');
   for(const x of chosen){
     if(!(Number(x.amount)>0))throw Error(`הסכום של ״${x.description}״ אינו תקין.`);
     if(!validDate(x.date)||x.date>today())throw Error(`התאריך של ״${x.description}״ אינו תקין.`);
@@ -82,10 +82,10 @@ function saveCapture(){
     for(const x of chosen){
       const category=String(x.category||'').trim()||'קניות';
       if(!next.categories.includes(category))next.categories.push(category);
-      const t={id:uid(),type:x.type==='income'?'income':'expense',amount:Math.round(Number(x.amount)*100)/100,currency:'ILS',fx:next.fx,date:x.date,category,subcategory:'',accountId:st.accountId,description:String(x.description||'').trim().slice(0,120),tags:['ייבוא'],recurring:false};
+      const t={id:uid(),type:['income','refund'].includes(x.type)?x.type:'expense',amount:Math.round(Number(x.amount)*100)/100,currency:'ILS',fx:next.fx,date:x.date,category,subcategory:'',accountId:st.accountId,description:String(x.description||'').trim().slice(0,120),tags:['ייבוא'],recurring:false};
       applyTransaction(next,t);next.transactions.push(t);
     }
-  },`נקלטו ${chosen.length} תנועות`);
+  },`נקלטו ${chosen.length} תנועות`,{undo:true});
   ui.capture=null;
   Object.assign(ui.filters,{query:'',category:'',type:'',account:'',day:'',min:'',max:'',from:dates[0],to:dates.at(-1)});
   navigate('transactions');

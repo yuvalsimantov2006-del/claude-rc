@@ -24,7 +24,8 @@ function updatedLabel(date){
   return days<=0?'היתרה עודכנה היום':days===1?'היתרה עודכנה אתמול':days<8?`היתרה עודכנה לפני ${days} ימים`:`היתרה עודכנה ב־${dateLabel(date)}`;
 }
 function openBalanceEditor(accountId){
-  const accounts=data.accounts.filter(a=>['bank','cash','savings'].includes(a.kind));
+  // A card's owed amount is edited in the account form; a restricted deposit is updated like savings.
+  const accounts=data.accounts.filter(a=>['bank','cash','savings','deposit'].includes(a.kind));
   if(!accounts.length){openSetupAccount();return;}
   const account=accounts.find(a=>a.id===accountId)||checkingAccounts(data)[0]||accounts[0];
   showDialog('עדכון יתרה',`<form id="balance-form" class="balance-form" novalidate><div class="form-error"></div>${accounts.length>1?field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),account.id,'data-balance-account')):`<input type="hidden" name="accountId" value="${e(account.id)}">`}<div class="balance-current"><span>היתרה הרשומה עכשיו</span><b dir="ltr" data-balance-current>${money(account.balance,account.currency,wholeOrCents(account.balance))}</b></div><label class="balance-amount"><span class="balance-label">כמה יש בחשבון לפי הבנק?</span><span class="balance-input"><input name="balance" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="0" aria-label="היתרה בחשבון" value=""><span class="balance-currency" data-balance-currency>${account.currency==='USD'?'$':'₪'}</span></span></label><div class="balance-diff" data-balance-diff hidden></div><label class="check-field balance-record"><input type="checkbox" name="record"><span>לרשום את ההפרש כתנועת ״התאמת יתרה״<small>כך ההפרש יופיע בתנועות של החודש. בלי הסימון, רק היתרה מתעדכנת.</small></span></label><div class="form-actions">${submit('שמירת היתרה','Check')}${btn('ביטול','dialog-close')}</div></form>`);
@@ -57,7 +58,7 @@ function saveBalance(form){
       applyTransaction(next,t);next.transactions.push(t);
     }
     a.balance=value;a.balanceUpdated=today();
-  },`היתרה ב״${account.name}״ עודכנה: ${money(value,account.currency,Number.isInteger(value)?0:2)}`);
+  },`היתרה ב״${account.name}״ עודכנה: ${money(value,account.currency,Number.isInteger(value)?0:2)}`,{undo:true});
 }
 
 // ---------- First-run setup ----------
