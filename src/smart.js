@@ -1,4 +1,4 @@
-import {today,toILS,balances,portfolioValue,assetValue,monthlySummary,categorySpend,monthOffset,validDate} from './finance.js';
+import {today,toILS,balances,portfolioValue,assetValue,monthlySummary,categorySpend,monthOffset,validDate,spendILS,TX_KINDS} from './finance.js';
 
 // Local intelligence: everything here runs offline, on the device, with no AI calls.
 
@@ -24,7 +24,7 @@ export function healthScore(d,month){
   const b=balances(d),current=monthlySummary(d,month),avg=averageMonth(d,month,3);
   const income=avg.months?avg.income:current.income,expenses=avg.months?avg.expenses:current.expenses;
   const rate=income>0?(income-expenses)/income:null;
-  const liquid=b.cash+b.savings,cover=expenses>0?liquid/expenses:null;
+  const liquid=b.cash+b.savings-Math.max(0,b.credit),cover=expenses>0?liquid/expenses:null;
   const debtRatio=b.total>0?b.debt/b.total:b.debt>0?1:0;
   const budgets=d.budgets.map(x=>categorySpend(d,x.category,month)<=x.limit);
   const overall=current.expenses<=d.overallBudget;
@@ -54,7 +54,7 @@ const normalizeText=s=>String(s||'').toLowerCase().replace(/[0-9.,:/\\#*"'״׳()
 export function detectRecurring(d,month,lookback=6){
   const months=new Set([month,...recentMonths(month,lookback-1)]),groups=new Map();
   for(const t of d.transactions){
-    if(t.type!=='expense'||!months.has(t.date.slice(0,7)))continue;
+    if(t.type!=='expense'||t.installment||!months.has(t.date.slice(0,7)))continue;
     const key=(normalizeText(t.description)||'—')+'|'+t.category;
     if(!groups.has(key))groups.set(key,[]);
     groups.get(key).push(t);
@@ -81,8 +81,9 @@ export function nextMonthlyDate(date){
 // Unusual single expenses and categories that spike against their own history.
 export function detectAnomalies(d,month){
   const history=recentMonths(month,6),items=[];
-  for(const t of d.transactions.filter(t=>t.type==='expense'&&t.date.startsWith(month))){
-    const past=d.transactions.filter(x=>x.type==='expense'&&x.category===t.category&&history.includes(x.date.slice(0,7))).map(x=>txILS(d,x));
+  const single=t=>t.type==='expense'&&!t.installment&&t.auto?.source!=='bill';
+  for(const t of d.transactions.filter(t=>single(t)&&t.date.startsWith(month))){
+    const past=d.transactions.filter(x=>single(x)&&x.category===t.category&&history.includes(x.date.slice(0,7))).map(x=>txILS(d,x));
     if(past.length<4)continue;
     const mean=past.reduce((s,n)=>s+n,0)/past.length,sd=Math.sqrt(past.reduce((s,n)=>s+(n-mean)**2,0)/past.length),amount=txILS(d,t);
     if(amount>mean+2.5*sd&&amount>mean*1.5&&amount-mean>50)items.push({kind:'transaction',id:t.id,title:t.description||t.category,category:t.category,amount,typical:mean,ratio:amount/mean,date:t.date});
@@ -102,10 +103,10 @@ export function monthPace(d,month,now=today()){
   if(month!==currentMonth)return {spent,projected:spent,elapsed:month<currentMonth?days:0,days,complete:month<currentMonth,budget:d.overallBudget,method:'actual'};
   const elapsed=Number(now.slice(8,10)),rest=[];
   for(const m of recentMonths(month,3)){
-    const tx=d.transactions.filter(t=>t.type==='expense'&&t.date.startsWith(m));
+    const tx=d.transactions.filter(t=>(t.type==='expense'||t.type==='refund')&&t.date.startsWith(m));
     if(!tx.length)continue;
     const cutoff=Math.round(elapsed/days*daysInMonth(m));
-    rest.push(tx.filter(t=>Number(t.date.slice(8,10))>cutoff).reduce((s,t)=>s+txILS(d,t),0));
+    rest.push(tx.filter(t=>Number(t.date.slice(8,10))>cutoff).reduce((s,t)=>s+spendILS(d,t),0));
   }
   const projected=rest.length?spent+rest.reduce((s,n)=>s+n,0)/rest.length:elapsed?spent/elapsed*days:spent;
   return {spent,projected,elapsed,days,complete:false,budget:d.overallBudget,method:rest.length?'history':'linear'};
@@ -174,14 +175,17 @@ const KEYWORDS={
   'השקעות':['השקעה','מניות','קרן סל','ברוקר'],
   'חיסכון':['חיסכון','פיקדון','קופת גמל']
 };
+// Money back for an expense (a refund lowers spending). "החזר מס" stays income.
+const REFUND_WORDS=['זיכוי','ביטול עסקה','החזר כספי','קיבלתי החזר','החזירו לי'];
 const INCOME_WORDS=['משכורת','הכנסה','קיבלתי','החזר','בונוס','זיכוי','מענק','שכר','תלוש','החזר מס','פרילנס','מכרתי'];
 
 export function suggestCategory(d,text,type='expense'){
+  if(type==='transfer')return null;const want=type==='refund'?'expense':type;   // a refund learns from expense history
   const q=normalizeText(text);if(!q)return null;
   const words=q.split(' ').filter(w=>w.length>1),scores=new Map();
   const add=(cat,n)=>{if(d.categories.includes(cat))scores.set(cat,(scores.get(cat)||0)+n);};
   for(const t of d.transactions){
-    if(t.type!==type)continue;
+    if(t.type!==want)continue;
     const desc=normalizeText(t.description);if(!desc)continue;
     if(desc===q)add(t.category,6);
     else for(const w of words)if(desc.split(' ').includes(w))add(t.category,1.5);
@@ -220,14 +224,14 @@ export function parseQuickEntry(text,d,now=today()){
     date=shiftDate(now,-(((cur-target)+7)%7||7));dateFound=true;rest=rest.replace(dayMatch[0],' ');
   }
   let account=null;
-  const usable=d.accounts.filter(a=>!['investment','debt'].includes(a.kind));
+  const usable=d.accounts.filter(a=>TX_KINDS.includes(a.kind));
   for(const a of [...usable].sort((x,y)=>y.name.length-x.name.length)){
     if(a.name&&rest.includes(a.name)){account=a;rest=rest.replace(new RegExp('ב?'+a.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')),' ');break;}
   }
   if(!account&&/(^|\s)ב?מזומן(\s|$)/.test(rest)){account=usable.find(a=>a.kind==='cash')||null;rest=rest.replace(/(^|\s)ב?מזומן(\s|$)/,' ');}
-  if(!account&&/(^|\s)(ב?אשראי|בכרטיס)(\s|$)/.test(rest)){account=usable.find(a=>a.kind==='bank')||null;rest=rest.replace(/(^|\s)(ב?אשראי|בכרטיס)(\s|$)/,' ');}
+  if(!account&&/(^|\s)(ב?אשראי|בכרטיס)(\s|$)/.test(rest)){account=usable.find(a=>a.kind==='credit')||usable.find(a=>a.kind==='bank')||null;rest=rest.replace(/(^|\s)(ב?אשראי|בכרטיס)(\s|$)/,' ');}
   account ||=usable.find(a=>a.kind==='bank'&&a.currency===currency)||usable.find(a=>a.kind==='bank')||usable[0]||null;
-  const lower=raw.toLowerCase(),type=INCOME_WORDS.some(w=>lower.includes(w))?'income':'expense';
+  const lower=raw.toLowerCase(),refund=REFUND_WORDS.some(w=>lower.includes(w))||(lower.includes('החזר')&&!lower.includes('החזר מס')),type=refund?'refund':INCOME_WORDS.some(w=>lower.includes(w))?'income':'expense';
   const description=rest.replace(/(^|\s)(על|עבור|שילמתי|הוצאתי|קניתי|ב|ל)(?=\s)/g,' ').replace(/\s+/g,' ').trim();
   const category=suggestCategory(d,description||raw,type)||(type==='income'?(d.categories.includes('משכורת')?'משכורת':d.categories[0]):d.categories.includes('קניות')?'קניות':d.categories[0]);
   return {type,amount,currency,date,category,accountId:account?.id||'',description,valid:amount>0&&!!account,dateFound};

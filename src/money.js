@@ -1,4 +1,5 @@
-import {today,toILS,balances,monthlySummary,monthOffset} from './finance.js';
+import {today,toILS,balances,monthlySummary,monthOffset,spendILS,LIQUID_KINDS,accountsOf} from './finance.js';
+import {installmentAmount,installmentDate,billingDates,projectCardStatements} from './ledger.js';
 import {daysInMonth,shiftDate,averageMonth} from './smart.js';
 import {savingsDepositDate,effectiveGoalSavings} from './savings.js';
 
@@ -119,7 +120,7 @@ export function feeImpact({balance=0,monthly=0,years=30,annualReturn=5,accumulat
 export function maaserSummary(d,{year=today().slice(0,4),rate=.1,categories=['תרומות']}={}){
   const inYear=t=>t.date.startsWith(String(year));
   const income=sumBy(d.transactions.filter(t=>t.type==='income'&&inYear(t)),t=>txAmount(d,t));
-  const donated=sumBy(d.transactions.filter(t=>t.type==='expense'&&inYear(t)&&categories.includes(t.category)),t=>txAmount(d,t));
+  const donated=sumBy(d.transactions.filter(t=>inYear(t)&&categories.includes(t.category)),t=>spendILS(d,t));
   const due=income*rate;
   return {year:String(year),rate,income,due,donated,remaining:due-donated,progress:due>0?donated/due:0,taxCredit:donated*.35};
 }
@@ -176,12 +177,14 @@ export function billOccurrences(bill,from,to){
 }
 export const billMonthly=(d,b)=>toILS(b.amount,b.currency||'ILS',d.fx)/(BILL_STEPS[b.frequency]||1);
 
-// Bills and recurring transactions that fall between two dates (inclusive).
-export function scheduledItems(d,from,to){
-  const items=[];
+// Bills, recurring transactions, installment payments and card statements that fall between two dates
+// (inclusive). `onCard` items are paid by a credit card: they move the card, not the bank, and reach the bank
+// only through the card's statement (source 'card').
+export function scheduledItems(d,from,to,now=today()){
+  const items=[],kindOf=id=>d.accounts.find(a=>a.id===id)?.kind,onCard=id=>kindOf(id)==='credit';
   for(const b of d.bills||[]){
     if(b.active===false)continue;
-    for(const date of billOccurrences(b,from,to))items.push({key:`${b.id}@${date}`,date,name:b.name,amount:toILS(b.amount,b.currency||'ILS',d.fx),type:b.type||'expense',category:b.category||'',source:'bill',billId:b.id,autopay:!!b.autopay,paid:(b.paid||[]).includes(date),accountId:b.accountId||''});
+    for(const date of billOccurrences(b,from,to))items.push({key:`${b.id}@${date}`,date,name:b.name,amount:toILS(b.amount,b.currency||'ILS',d.fx),type:b.type||'expense',category:b.category||'',source:'bill',billId:b.id,autopay:!!b.autopay,paid:(b.paid||[]).includes(date),accountId:b.accountId||'',onCard:onCard(b.accountId)});
   }
   for(const t of d.transactions.filter(t=>t.recurring&&!t.recurringParent)){
     const day=Number(t.date.slice(8,10));
@@ -189,15 +192,41 @@ export function scheduledItems(d,from,to){
       const date=onDay(month,day);
       if(date<from||date>to||month<=t.date.slice(0,7))continue;
       if(d.transactions.some(x=>x.recurringParent===t.id&&x.date.slice(0,7)===month))continue;
-      items.push({key:`${t.id}@${date}`,date,name:t.description||t.category,amount:txAmount(d,t),type:t.type,category:t.category,source:'recurring',autopay:true,paid:false,accountId:t.accountId});
+      items.push({key:`${t.id}@${date}`,date,name:t.description||t.category,amount:txAmount(d,t),type:t.type,category:t.category,source:'recurring',autopay:true,paid:false,accountId:t.accountId,onCard:onCard(t.accountId)});
+    }
+  }
+  for(const plan of d.installments||[]){
+    if(!kindOf(plan.accountId))continue;
+    for(let n=Math.max(1,plan.next);n<=plan.count;n++){
+      const date=installmentDate(d,plan,n);if(date>to)break;if(date<from)continue;
+      items.push({key:`inst-${plan.id}-${n}@${date}`,date,name:`${plan.description} · ${n}/${plan.count}`,amount:toILS(installmentAmount(plan,n),plan.currency,plan.fx),type:'expense',category:plan.category,source:'installment',planId:plan.id,n,of:plan.count,autopay:true,paid:false,accountId:plan.accountId,onCard:onCard(plan.accountId)});
+    }
+  }
+  const cards=accountsOf(d,['credit']).filter(c=>d.accounts.some(a=>a.id===c.payFrom&&a.kind==='bank'));
+  if(cards.length){
+    const own=items.slice();
+    for(const card of cards){
+      const base={type:'transfer',category:'העברה',source:'card',name:`חיוב ${card.name}`,accountId:card.payFrom,toAccountId:card.id,cardId:card.id,autopay:true,onCard:false};
+      for(const B of billingDates(card,from,to<now?to:now)){
+        const t=d.transactions.find(x=>x.id===`card-${card.id}-${B}`)||d.transactions.find(x=>x.type==='transfer'&&x.toAccountId===card.id&&x.auto?.source==='card'&&x.auto.date===B);
+        if(t)items.push({...base,key:`card-${card.id}@${B}`,date:B,amount:txAmount(d,t),paid:true});
+      }
+      if(to>now)for(const x of projectCardStatements(d,card,own,now,to))if(x.date>=from)items.push({...base,key:`card-${card.id}@${x.date}`,date:x.date,amount:x.amount,paid:false});
     }
   }
   return items.sort((a,b)=>a.date.localeCompare(b.date)||b.amount-a.amount);
 }
 
-// Monthly cost of fixed expenses: bills (monthly equivalent) + recurring expense transactions.
+// The first future statement of a card (within about two months), in ILS, or null.
+export function nextCardCharge(d,card,now=today()){
+  const to=shiftDate(now,62);
+  return projectCardStatements(d,card,scheduledItems(d,now,to,now),now,to)[0]||null;
+}
+
+// Monthly cost of fixed expenses: bills (monthly equivalent) + recurring expense transactions + the next payment
+// of every unfinished installment plan.
 export function monthlyFixed(d){
-  return sumBy((d.bills||[]).filter(b=>b.active!==false&&(b.type||'expense')==='expense'),b=>billMonthly(d,b))+sumBy(d.transactions.filter(t=>t.recurring&&!t.recurringParent&&t.type==='expense'),t=>txAmount(d,t));
+  return sumBy((d.bills||[]).filter(b=>b.active!==false&&(b.type||'expense')==='expense'),b=>billMonthly(d,b))+sumBy(d.transactions.filter(t=>t.recurring&&!t.recurringParent&&t.type==='expense'),t=>txAmount(d,t))+sumBy((d.installments||[]).filter(p=>p.next<=p.count),p=>toILS(installmentAmount(p,p.next),p.currency,p.fx));
 }
 
 // Salary-like incomes seen in at least two of the last three months, projected forward.
@@ -225,7 +254,7 @@ export function goalDepositItems(d,from,to,now=today()){
   const items=[];
   for(const g of d.goals||[]){
     const account=d.accounts.find(a=>a.id===g.accountId);
-    if(!(g.monthly>0)||!(g.date>now)||(account&&['bank','cash'].includes(account.kind)))continue;
+    if(!(g.monthly>0)||!(g.date>now)||(account&&['bank','cash','deposit'].includes(account.kind)))continue;
     let saved=effectiveGoalSavings(d,g);
     for(let k=1;k<=600;k++){
       const date=savingsDepositDate(now,k);
@@ -242,9 +271,9 @@ export function goalDepositItems(d,from,to,now=today()){
 // planned goal deposits and average variable spending, with a summary for every month.
 export function cashflowForecast(d,{days=60,now=today(),includeGoals=true,includeVariable=true}={}){
   days=Math.max(7,Math.min(400,Math.round(days)));
-  const start=sumBy(d.accounts.filter(a=>['bank','cash'].includes(a.kind)),a=>toILS(a.balance,a.currency,d.fx));
+  const start=sumBy(d.accounts.filter(a=>LIQUID_KINDS.includes(a.kind)),a=>toILS(a.balance,a.currency,d.fx));
   const from=shiftDate(now,1),end=shiftDate(now,days);
-  let items=scheduledItems(d,from,end).filter(x=>!x.paid);
+  let items=scheduledItems(d,from,end,now).filter(x=>!x.paid);
   const hasIncome=items.some(x=>x.type==='income')||(d.bills||[]).some(b=>b.type==='income'&&b.active!==false)||d.transactions.some(t=>t.recurring&&!t.recurringParent&&t.type==='income');
   const estimated=hasIncome?[]:estimatedIncome(d,from,end,now);
   items=[...items,...estimated,...(includeGoals?goalDepositItems(d,from,end,now):[])].sort((a,b)=>a.date.localeCompare(b.date));
@@ -254,11 +283,13 @@ export function cashflowForecast(d,{days=60,now=today(),includeGoals=true,includ
   const points=[{date:now,balance,events:[]}],months=new Map();
   for(let i=1;i<=days;i++){
     const date=shiftDate(now,i),events=byDate.get(date)||[],month=date.slice(0,7);
-    if(!months.has(month))months.set(month,{month,start:balance,income:0,fixed:0,deposits:0,variable:0,end:balance,lowest:{date,balance},days:0});
+    if(!months.has(month))months.set(month,{month,start:balance,income:0,fixed:0,deposits:0,card:0,variable:0,end:balance,lowest:{date,balance},days:0});
     const m=months.get(month);
     balance-=variableDaily;m.variable+=variableDaily;m.days++;
     for(const x of events){
+      if(x.onCard)continue;                              // paid by card: reaches the bank in the card statement
       if(x.type==='income'){balance+=x.amount;m.income+=x.amount;}
+      else if(x.source==='card'){balance-=x.amount;m.card+=x.amount;}
       else if(x.type==='transfer'){balance-=x.amount;m.deposits+=x.amount;}
       else{balance-=x.amount;m.fixed+=x.amount;}
     }
@@ -267,15 +298,21 @@ export function cashflowForecast(d,{days=60,now=today(),includeGoals=true,includ
     if(balance<lowest.balance)lowest={date,balance};
     if(balance<0&&!overdraft)overdraft=date;
   }
-  return {start,end:balance,points,lowest,overdraft,items,variableDaily,fixed,estimatedIncome:estimated.length>0,days,months:[...months.values()],deposits:sumBy(items.filter(x=>x.type==='transfer'),x=>x.amount)};
+  return {start,end:balance,points,lowest,overdraft,items,variableDaily,fixed,estimatedIncome:estimated.length>0,days,months:[...months.values()],deposits:sumBy(items.filter(x=>x.type==='transfer'&&x.source!=='card'),x=>x.amount),cardCharges:sumBy(items.filter(x=>x.source==='card'),x=>x.amount)};
 }
 
-// How much can be spent per day for the rest of the month without breaking the monthly target.
+// How much can be spent per day for the rest of the month: the monthly target minus spending so far and the
+// fixed spending still to come (budget side), capped by bank + cash after this month's charges (cash side).
 export function safeToSpend(d,now=today()){
-  const month=now.slice(0,7),spent=monthlySummary(d,month).expenses,days=daysInMonth(month),daysLeft=days-Number(now.slice(8,10))+1;
-  const upcoming=scheduledItems(d,now,`${month}-${String(days).padStart(2,'0')}`).filter(x=>!x.paid&&x.type==='expense');
+  const month=now.slice(0,7),spent=monthlySummary(d,month).expenses,days=daysInMonth(month),daysLeft=days-Number(now.slice(8,10))+1,end=`${month}-${String(days).padStart(2,'0')}`;
+  const items=scheduledItems(d,now,end,now).filter(x=>!x.paid);
+  const upcoming=items.filter(x=>x.type==='expense');                       // this month's spending still to come (bank or card)
   const upcomingFixed=sumBy(upcoming,x=>x.amount),available=d.overallBudget-spent-upcomingFixed;
-  return {perDay:Math.max(0,available)/daysLeft,available,spent,upcomingFixed,daysLeft,budget:d.overallBudget,upcoming};
+  const liquid=sumBy(d.accounts.filter(a=>LIQUID_KINDS.includes(a.kind)),a=>toILS(a.balance,a.currency,d.fx));
+  const cardCharges=items.filter(x=>x.source==='card'),cardDue=sumBy(cardCharges,x=>x.amount);
+  const bankOut=sumBy(upcoming.filter(x=>!x.onCard),x=>x.amount),incomeDue=sumBy(items.filter(x=>x.type==='income'),x=>x.amount);
+  const cash=liquid-bankOut-cardDue+incomeDue,room=Math.min(available,cash);
+  return {perDay:Math.max(0,room)/daysLeft,available,spent,upcomingFixed,daysLeft,budget:d.overallBudget,upcoming,cash,cardDue,cardCharges,limitedBy:cash<available?'cash':'budget'};
 }
 
 // ---------- Purchase decisions & wishlist ----------
@@ -285,7 +322,7 @@ export function purchaseCheck(d,{price,installments=1,now=today()}){
   const month=now.slice(0,7),avg=averageMonth(d,month,3),cur=monthlySummary(d,month);
   const income=avg.months?avg.income:cur.income,expenses=avg.months?avg.expenses:cur.expenses;
   const hourly=income>0?income/IL_TAX_2026.hoursPerMonth:null,s=safeToSpend(d,now),monthlyCost=price/installments;
-  const b=balances(d),liquid=b.cash+b.savings,coverAfter=expenses>0?(liquid-price)/expenses:null;
+  const b=balances(d),liquid=b.cash+b.savings-Math.max(0,b.credit),coverAfter=expenses>0?(liquid-price)/expenses:null;
   const goal=[...(d.goals||[])].filter(g=>g.monthly>0&&g.date>now).sort((a,b)=>a.date.localeCompare(b.date))[0];
   const room=Math.max(0,s.available);
   const verdict=monthlyCost>room||(coverAfter!=null&&coverAfter<1)?'red':monthlyCost<=room*.35&&(coverAfter==null||coverAfter>=3)?'green':'yellow';

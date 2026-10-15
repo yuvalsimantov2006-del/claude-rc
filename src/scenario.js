@@ -1,6 +1,6 @@
 import {today,balances,monthOffset,monthlySummary,toILS} from './finance.js';
 import {averageMonth} from './smart.js';
-import {effectiveGoalSavings,freeMoney} from './savings.js';
+import {effectiveGoalSavings,freeMoney,accountAllocations} from './savings.js';
 
 // "What if" simulator: month by month, compares the current plan with a plan that includes events
 // such as a car purchase, a discharge grant or a change in the monthly deposit.
@@ -29,8 +29,10 @@ export function simulatePlan(d,events=[],{horizon=36,annualReturn=5,now=today()}
   const goals=d.goals.map(g=>({id:g.id,name:g.name,target:Number(g.target)>0?Number(g.target):null,saved:effectiveGoalSavings(d,g),monthly:Math.max(0,Number(g.monthly)||0),end:g.date.slice(0,7),achieved:null}));
   for(const g of goals)if(g.target&&g.saved>=g.target)g.achieved=0;
   const debts=d.accounts.filter(a=>a.kind==='debt'&&a.balance>0).map(a=>({balance:toILS(a.balance,a.currency,d.fx),rate:Number(a.interest)||0,payment:toILS(a.payment||0,a.currency,d.fx)}));
+  // The unallocated part of restricted deposits stays constant (the allocated part is inside goal savings).
+  const restricted=d.accounts.filter(a=>a.kind==='deposit').reduce((s,a)=>s+(accountAllocations(d,a.id)?.free||0),0);
   let free=freeMoney(d).total,investments=b.investments;
-  const loans=[],points=[{month:0,label:'היום',free,goals:goals.reduce((s,g)=>s+g.saved,0),investments,debt:debts.reduce((s,x)=>s+x.balance,0)}];
+  const loans=[],points=[{month:0,label:'היום',free,goals:goals.reduce((s,g)=>s+g.saved,0),investments,restricted,debt:debts.reduce((s,x)=>s+x.balance,0)}];
   let lowest={month:0,free},negative=null;
   const at=(e,m)=>Math.max(1,Math.round(Number(e.month)||1))===m;
   const active=(e,m)=>{const start=Math.max(1,Math.round(Number(e.month)||1)),duration=Math.round(Number(e.duration)||0);return m>=start&&(!duration||m<start+duration);};
@@ -74,11 +76,11 @@ export function simulatePlan(d,events=[],{horizon=36,annualReturn=5,now=today()}
     for(const g of goals)if(g.target&&g.achieved==null&&g.saved>=g.target-.005)g.achieved=m;
     free+=net;investments*=growth;
     const debt=debts.reduce((s,x)=>s+x.balance,0)+loans.reduce((s,x)=>s+x.balance,0),goalsTotal=goals.reduce((s,g)=>s+g.saved,0);
-    points.push({month:m,label:new Date(month+'-01T12:00:00').toLocaleDateString('he-IL',{month:'short',year:'2-digit'}),free,goals:goalsTotal,investments,debt,netWorth:free+goalsTotal+investments-debt});
+    points.push({month:m,label:new Date(month+'-01T12:00:00').toLocaleDateString('he-IL',{month:'short',year:'2-digit'}),free,goals:goalsTotal,investments,restricted,debt,netWorth:free+goalsTotal+investments+restricted-debt});
     if(free<lowest.free)lowest={month:m,free};
     if(free<0&&negative==null)negative=m;
   }
-  points[0].netWorth=points[0].free+points[0].goals+points[0].investments-points[0].debt;
+  points[0].netWorth=points[0].free+points[0].goals+points[0].investments+restricted-points[0].debt;
   return {surplus,points,final:points.at(-1),lowest,negative,goals:goals.map(g=>({id:g.id,name:g.name,target:g.target,saved:g.saved,achieved:g.achieved,achievedMonth:g.achieved!=null?monthOffset(nowMonth,g.achieved):null,end:g.end,missedDeadline:g.achieved==null&&g.end<=monthOffset(nowMonth,horizon)})),horizon,nowMonth};
 }
 

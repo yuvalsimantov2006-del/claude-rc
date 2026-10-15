@@ -1,4 +1,4 @@
-import {today,validDate,toILS,portfolioValue} from './finance.js';
+import {today,validDate,toILS,portfolioValue,FREE_KINDS} from './finance.js';
 
 // Future deposits retain the original calendar day, clamped in shorter months.
 export function savingsDepositDate(from,offset){
@@ -66,10 +66,11 @@ export function effectiveGoalSavings(data,goal){
   return accountAllocations({...data,goals},goal.accountId).shares.get(id)||0;
 }
 
-// Unallocated money in bank, cash and savings accounts — available for anything.
+// Unallocated money in bank, cash and savings accounts — available for anything — minus what credit cards owe
+// (that money is already spent). The total can be negative. A restricted deposit is never free money.
 export function freeMoney(data){
-  const accounts=data.accounts.filter(a=>['bank','cash','savings'].includes(a.kind)).map(a=>accountAllocations(data,a.id));
-  return {total:accounts.reduce((s,x)=>s+x.free,0),allocated:accounts.reduce((s,x)=>s+x.allocated,0),accounts};
+  const accounts=data.accounts.filter(a=>FREE_KINDS.includes(a.kind)).map(a=>accountAllocations(data,a.id)),free=accounts.reduce((s,x)=>s+x.free,0),committed=data.accounts.filter(a=>a.kind==='credit').reduce((s,a)=>s+Math.max(0,toILS(a.balance,a.currency,data.fx)),0);
+  return {total:free-committed,free,committed,allocated:accounts.reduce((s,x)=>s+x.allocated,0),accounts};
 }
 
 export function savingsProjectionSeries(goal,from=today()){
