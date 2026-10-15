@@ -65,7 +65,8 @@ async function backupSection(qa){
     assert.equal(rec.asked,'2026-10-14','the request is recorded on the device');
   }else console.log('modules: persist request button not shown (granted or unsupported in this browser)');
   // The usage row appears once the estimate arrives.
-  if(await page.evaluate(()=>!!navigator.storage?.estimate))await page.waitForFunction(()=>/נפח בשימוש/.test(document.querySelector('.bk-card')?.textContent||''),null,{timeout:6000});
+  // (only when the browser reports a usage above zero; a zero estimate says nothing useful)
+  if(await page.evaluate(async()=>((await navigator.storage?.estimate?.())?.usage||0)>0))await page.waitForFunction(()=>/נפח בשימוש/.test(document.querySelector('.bk-card')?.textContent||''),null,{timeout:6000});
   // 2. The bell lists the reminder; clicking it leaves the encrypted-backup form open.
   await page.locator('.alerts-button').first().click();
   const row=page.locator('dialog .alert-row',{hasText:'זמן לגיבוי מוצפן'});
@@ -178,6 +179,7 @@ async function lockSection(qa){
   await typePin(page,'5555');
   await page.waitForFunction(()=>/יותר מדי ניסיונות. אפשר לנסות שוב בעוד 30 שניות./.test(document.querySelector('#lock-screen .lk-msg')?.textContent||''));
   assert.equal(await page.locator('#lock-screen [data-lk-key="1"]').isDisabled(),true,'the keypad waits');
+  await page.waitForTimeout(600);
   await shot(qa,page,'v41-M7-lock-wait-desktop.png');
   await context.clock.setFixedTime(new Date(Date.parse('2026-10-14T12:00:00Z')+31000));
   await page.waitForFunction(()=>!document.querySelector('#lock-screen [data-lk-key="1"]')?.disabled);
@@ -232,7 +234,20 @@ async function lockSection(qa){
   await shot(qa,page,'v41-M7-lock-forgot-desktop.png');
   await page.fill('#lock-screen [name=confirmWipe]','מחיקה');
   assert.equal(await wipe.isDisabled(),false);
-  await Promise.all([page.waitForEvent('load'),wipe.click()]);
+  // The wipe ends in location.reload(); the same test-browser storage loss as in reloadKeep() would re-seed
+  // Fixture M and look like a failed wipe, so that case is detected (qa-reload has no ofek- prefix and
+  // survives a real wipe) and the wipe is repeated from the restored state.
+  for(let attempt=1;;attempt++){
+    const snap=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));
+    await Promise.all([page.waitForEvent('load'),page.locator('#lock-screen [data-action="lock-wipe"]').click()]);
+    if(await page.evaluate(want=>localStorage.getItem('qa-reload')===want,snap['qa-reload']))break;
+    assert.ok(attempt<4,'localStorage did not survive the wipe reload four times');
+    console.log('modules: the test browser lost localStorage on the wipe reload; restoring it and wiping again');
+    await page.evaluate(snap=>{localStorage.clear();for(const [k,v] of Object.entries(snap))localStorage.setItem(k,v);},snap);
+    await reloadKeep(page);
+    await page.locator('#lock-screen [data-action="lock-forgot"]').click();
+    await page.fill('#lock-screen [name=confirmWipe]','מחיקה');
+  }
   await page.locator('dialog .setup-welcome').waitFor({timeout:5000});
   // 4.0 saves its start-up data (the demo) on a fresh device, so the key may exist again — but only as the demo.
   const keys=await page.evaluate(()=>Object.keys(localStorage));
@@ -270,7 +285,7 @@ async function screens(qa){
     await page.locator('#lock-screen [data-action="lock-forgot"]').click();
     await page.waitForTimeout(200);
     await noOverflow(`forgot ${theme} ${size}`);
-    await shot(qa,page,`v41-M8-forgot-${theme}-${size}.png`,true);
+    await shot(qa,page,`v41-M8-forgot-${theme}-${size}.png`);
     await context.close();
   }
   console.log('modules: screenshots v41-M8-* (light/dark, phone/desktop), no horizontal scroll, keypad ≥ 44px');

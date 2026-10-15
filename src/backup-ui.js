@@ -4,6 +4,9 @@ import {today,dateLabel} from './finance.js';
 import {PERSIST_KEY,BACKUP_DAYS,backupDue,syncCovers,persistState,storageText} from './backup.js';
 // What this device said about persistent storage: 'granted' | 'denied' | 'unsupported' | null (not asked yet).
 const bkState={persist:null,usage:null,quota:null,asking:false};
+// When the status was last read (a monotonic clock, unaffected by changes to the date).
+let bkCheckedAt=-1e9;
+const bkClock=()=>typeof performance!=='undefined'&&performance.now?performance.now():Date.now();
 const bkStorage=()=>typeof navigator!=='undefined'?navigator.storage:undefined;
 function bkRecord(){try{return persistState(localStorage.getItem(PERSIST_KEY));}catch{return persistState(null);}}
 function bkSave(rec){try{localStorage.setItem(PERSIST_KEY,JSON.stringify(rec));}catch{}}
@@ -15,7 +18,7 @@ async function bkCheck(){
     if(!st?.persist||!st?.persisted)bkState.persist='unsupported';
     else{const v=await bkTimed(st.persisted());bkState.persist=v===true?'granted':v===false?'denied':'unsupported';}
   }catch{bkState.persist='unsupported';}
-  try{if(st?.estimate){const est=await bkTimed(st.estimate());if(est&&Number.isFinite(est.usage)&&est.quota>0){bkState.usage=est.usage;bkState.quota=est.quota;}}}catch{}
+  try{if(st?.estimate){const est=await bkTimed(st.estimate());if(est&&Number.isFinite(est.usage)&&est.usage>0&&est.quota>0){bkState.usage=est.usage;bkState.quota=est.quota;}}}catch{}
   bkRefresh();
 }
 // Ask the browser to keep Ofek's storage. Never throws and never blocks a save.
@@ -34,14 +37,17 @@ function bkAgo(iso){
   const day=String(iso).slice(0,10),n=Math.max(0,Math.round((Date.parse(today()+'T12:00:00Z')-Date.parse(day+'T12:00:00Z'))/864e5));
   return `${n===0?'היום':n===1?'אתמול':`לפני ${n} ימים`} · ${dateLabel(day)}`;
 }
-function bkRow(ic,color,title,text,action=''){return `<div class="bk-row"><span class="asset-icon ${color}">${icon(ic,17)}</span><div><b>${e(title)}</b><small>${e(text)}</small></div>${action}</div>`;}
+// `text` is escaped; `html` (already safe markup) is used instead when given.
+function bkRow(ic,color,title,text,action='',html=''){return `<div class="bk-row"><span class="asset-icon ${color}">${icon(ic,17)}</span><div><b>${e(title)}</b><small>${html||e(text)}</small></div>${action}</div>`;}
+// A size in MB as its own left-to-right run; a tiny non-zero usage reads "פחות מ־0.1 MB", never "0.0 MB".
+const bkMb=bytes=>bytes>0&&bytes<0.05*1048576?`פחות מ־<bdi dir="ltr">${storageText(0.1*1048576)}</bdi>`:`<bdi dir="ltr">${storageText(bytes)}</bdi>`;
 function bkCard(){
   const now=today(),due=backupDue(data,now),recent=due.days!=null&&due.days<=BACKUP_DAYS,p=bkState.persist;
   const persistRow=p==='granted'?bkRow('ShieldCheck','green','אחסון קבוע בדפדפן','הדפדפן לא ימחק את הנתונים של אופק כשחסר מקום.')
     :p==='unsupported'?bkRow('Database','neutral','אחסון קבוע בדפדפן','הדפדפן הזה לא מאפשר לבקש אחסון קבוע. גיבוי מוצפן הוא ההגנה שלך.')
     :p==='denied'||!p?bkRow('TriangleAlert','gold','אחסון קבוע בדפדפן','הדפדפן עלול למחוק נתונים של אתרים כשחסר מקום במכשיר. גיבוי מוצפן שומר עליך גם אז.',bkState.asking?'':textBtn('בקשת אחסון קבוע','persist-request')):'';
   const backupRow=bkRow('Download',recent?'green':'gold','גיבוי אחרון',data.lastBackup&&!Number.isNaN(Date.parse(data.lastBackup))?bkAgo(data.lastBackup):'עוד לא נשמר גיבוי',btn('גיבוי מוצפן עכשיו','alert-backup','ShieldCheck','primary small'));
-  const usageRow=bkState.quota?bkRow('Smartphone','blue','נפח בשימוש',`כ־${storageText(bkState.usage)} מתוך ${storageText(bkState.quota)} שהדפדפן מקצה`):'';
+  const usageRow=bkState.quota?bkRow('Smartphone','blue','נפח בשימוש','','',`${bkState.usage>0&&bkState.usage<0.05*1048576?'':'כ־'}${bkMb(bkState.usage)} מתוך ${bkMb(bkState.quota)} שהדפדפן מקצה`):'';
   return card(head('הגיבוי והאחסון שלך','הנתונים שמורים רק במכשיר הזה. ככה הם נשארים בטוחים.',p==='granted'&&recent?badge('מוגן','green'):badge('כדאי לגבות','gold'))+`<div class="bk-list">${persistRow}${backupRow}${usageRow}</div>`,'bk-card');
 }
 function bkAlerts(now){
@@ -54,7 +60,7 @@ function bkAlerts(now){
 onModuleHook('boot',()=>{
   const rec=bkRecord();
   if(rec.result===true)bkState.persist='granted';
-  if(typeof setTimeout==='function')bkCheck();
+  if(typeof setTimeout==='function'){bkCheckedAt=bkClock();bkCheck();}
 });
 // The first real save (not the demo, at least one account) asks once; later only the button asks.
 onModuleHook('afterCommit',(previous,next)=>{
@@ -62,7 +68,11 @@ onModuleHook('afterCommit',(previous,next)=>{
   bkSave({asked:today(),result:null});
   bkRequest().then(bkRefresh,()=>{});
 });
-onModuleHook('settings',()=>bkCard());
+// Each visit to settings re-reads the storage status (at most once a second), so the numbers are current.
+onModuleHook('settings',()=>{
+  if(typeof setTimeout==='function'&&bkClock()-bkCheckedAt>1000){bkCheckedAt=bkClock();setTimeout(bkCheck,0);}
+  return bkCard();
+});
 onModuleHook('alerts',now=>bkAlerts(now));
 onModuleHook('palette',()=>[{icon:'ShieldCheck',title:'גיבוי מוצפן',sub:'קובץ .ofek שנפתח רק עם הסיסמה שלך',run:()=>{closeDialog();openEncryptedBackup();}}]);
 // Loads after mobile-ui.js, whose handler closes the alerts dialog first, so the backup form stays open.
@@ -73,7 +83,7 @@ if(typeof document!=='undefined'&&document.addEventListener)document.addEventLis
   else if(action==='persist-request'){
     if(bkState.asking)return;bkState.asking=true;bkRefresh();
     bkRequest().then(result=>{
-      bkState.asking=false;bkRefresh();
+      bkState.asking=false;bkCheck();
       if(result===true)toast('האחסון הקבוע אושר');
       else toast('הדפדפן לא אישר אחסון קבוע. אפשר לנסות שוב אחרי התקנה למסך הבית.',true);
     });
