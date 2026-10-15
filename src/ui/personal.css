@@ -3,3 +3,128 @@
    credit points, annual check, app lock.
    Tokens only; logical properties only.
    ============================================================ */
+
+/* ============================================================
+   Settings: the personal cards row (backup & storage, app lock)
+   ============================================================ */
+.personal-cards > .card { display: flex; flex-direction: column; }
+.personal-cards > .card > .section-head { margin-block-end: var(--sp-3); }
+
+/* ---------- Backup & storage (backup-ui.js) ---------- */
+.bk-list { display: flex; flex-direction: column; }
+.bk-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: 56px; padding-block: var(--sp-3);
+  border-block-start: 1px solid var(--border);
+}
+.bk-row:first-child { border-block-start: 0; padding-block-start: 0; }
+.bk-row > div { flex: 1; min-width: 0; }
+.bk-row b { display: block; font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text); }
+.bk-row small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); line-height: 1.5; color: var(--text-muted); }
+.bk-row > .button, .bk-row > .text-button { flex: none; }
+
+/* ---------- App lock: settings card (lock-ui.js) ---------- */
+.lk-card > .notice { margin-block-end: var(--sp-3); }
+.lk-card > .notice + .notice { margin-block-start: 0; }
+.lk-minutes { margin-block-end: var(--sp-2); }
+.lk-minutes .field { max-width: 340px; }
+.lk-card > .notify-list { margin-block-end: var(--sp-3); }
+.lk-card > .notify-list > .notify-row:first-child { border-block-start: 1px solid var(--border); padding-block-start: var(--sp-3); }
+.lk-card > .actions { margin-block-start: auto; }
+.lk-card > .actions > .button.danger { margin-inline-start: auto; }
+.lk-ack { line-height: 1.6; }
+
+/* ---------- App lock: the lock screen ---------- */
+/* While locked, everything except the lock screen is hidden (the app, toasts, banners) and #root is inert. */
+html.locked body { overflow: hidden; }
+html.locked body > :not(#lock-screen) { visibility: hidden !important; }
+.lk-screen {
+  position: fixed; inset: 0; z-index: 1000;
+  display: grid; place-items: center; overflow-y: auto; overscroll-behavior: contain;
+  padding: max(var(--sp-6), env(safe-area-inset-top)) var(--gutter) max(var(--sp-6), env(safe-area-inset-bottom));
+  background-color: var(--bg); background-image: var(--bg-decor);
+  color: var(--text);
+}
+.lk-panel {
+  position: relative; width: min(100%, 340px);
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.lk-brand { display: grid; place-items: center; margin-block-end: var(--sp-4); }
+.lk-panel h1 { font-size: var(--fs-h1); font-weight: var(--fw-bold); letter-spacing: var(--tracking-tight); }
+.lk-panel h1:focus, .lk-panel h2:focus { outline: none; }
+.lk-sub { margin-block-start: var(--sp-1); color: var(--text-muted); font-size: var(--fs-body); }
+.lk-dots { direction: ltr; display: flex; justify-content: center; gap: var(--sp-4); margin-block-start: var(--sp-6); }
+.lk-dots span {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--border-strong); background: transparent;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.lk-dots span.on { background: var(--accent); border-color: var(--accent); }
+.lk-dots.wrong { animation: lk-shake var(--dur-slow) var(--ease-out); }
+.lk-dots.wrong span { border-color: var(--negative); }
+@keyframes lk-shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) { .lk-dots.wrong { animation: none; } }
+/* The hidden field that takes a hardware keyboard: focusable, never seen (beats the global input rule). */
+.lk-panel > input.lk-input:not(#\_) {
+  position: absolute !important; inset-block-start: 0; inset-inline-start: 0;
+  width: 1px !important; height: 1px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important;
+  opacity: 0; pointer-events: none; overflow: hidden;
+}
+.lk-msg {
+  min-height: calc(var(--fs-small) * 3.2); margin-block: var(--sp-3) var(--sp-2);
+  display: grid; place-items: center;
+  font-size: var(--fs-small); line-height: 1.6; color: var(--negative);
+}
+.lk-msg:empty { visibility: hidden; }
+.lk-keypad {
+  direction: ltr; display: grid; grid-template-columns: repeat(3, 64px);
+  justify-content: center; gap: var(--sp-4) var(--sp-6);
+}
+.lk-key, .lk-key-empty { width: 64px; height: 64px; }
+.lk-key {
+  display: grid; place-items: center; border-radius: 50%;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border);
+  font-family: var(--font-num); font-size: 26px; font-weight: var(--fw-regular); line-height: 1;
+  font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.lk-key:hover { background: var(--hover); }
+.lk-key:active { background: var(--pressed); transform: scale(.96); }
+.lk-key:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.lk-key.lk-del, .lk-key.lk-bio { background: transparent; border-color: transparent; color: var(--text-muted); }
+.lk-key.lk-bio { color: var(--accent-text); }
+.lk-key.lk-del:hover, .lk-key.lk-bio:hover { background: var(--hover); }
+.lk-keypad.checking { opacity: .6; pointer-events: none; }
+.lk-forgot { margin-block-start: var(--sp-6); }
+
+/* The "forgot the code" view */
+.lk-panel.lk-wipe { width: min(100%, 440px); align-items: stretch; text-align: start; gap: var(--sp-3); }
+.lk-wipe-icon { width: 48px; height: 48px; border-radius: 14px; }
+.lk-wipe-icon svg { width: 22px; height: 22px; }
+.lk-wipe h2 { font-size: var(--fs-h1); font-weight: var(--fw-bold); letter-spacing: var(--tracking-tight); }
+.lk-wipe > p { color: var(--text-muted); line-height: 1.7; }
+.lk-list {
+  margin: 0; padding: var(--sp-3) var(--sp-4); padding-inline-start: calc(var(--sp-4) + 18px);
+  border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  font-size: var(--fs-small); line-height: 1.6; color: var(--text);
+}
+.lk-list li:last-child { color: var(--negative); font-weight: var(--fw-bold); }
+.lk-actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-block-start: var(--sp-2); }
+.lk-actions > .button { width: 100%; justify-content: center; }
+.lk-actions > .button.danger:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .bk-row { flex-wrap: wrap; }
+  .bk-row > .button, .bk-row > .text-button { flex-basis: 100%; margin-inline-start: calc(38px + var(--sp-3)); }
+  .bk-row > .button { justify-content: center; max-width: calc(100% - 38px - var(--sp-3)); }
+  .lk-minutes .field { max-width: none; }
+  .lk-card > .actions > .button.danger { margin-inline-start: 0; }
+  .lk-screen { place-items: start center; padding-block-start: max(var(--sp-10), env(safe-area-inset-top)); }
+  .lk-keypad { gap: var(--sp-3) var(--sp-6); }
+}
+@media (max-width: 360px) {
+  .lk-keypad { gap: var(--sp-3) var(--sp-4); }
+}
