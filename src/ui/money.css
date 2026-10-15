@@ -892,3 +892,51 @@ select.quick-more {
 
 /* Capture review: the whole cell around the row checkbox is the tap target (44px). */
 .capture-table .cap-check-hit { display: grid; place-items: center; min-inline-size: var(--touch, 44px); min-block-size: var(--touch, 44px); margin: calc(var(--sp-2) * -1); cursor: pointer; }
+
+/* ======================= 4.1 ledger (LEDGER) =======================
+   Transfers are neutral (never income or spending), refunds come back in green, a restricted deposit is purple.
+   Note: plan.css styles a bare `.transfer` (split-group settle-up rows) and loads after this file, so every
+   4.1 element that carries the `transfer` class is reset here with a compound selector. */
+.transaction-icon.transfer {
+  display: grid; place-items: center; flex: none; gap: 0; padding: 0; border: 0; border-radius: 11px;
+  background: var(--surface-2); color: var(--text-muted); font-size: inherit;
+}
+.tx-table:not(.compact) .transaction-icon.transfer { color: var(--text-muted); }
+.transfer-amount { color: var(--text-muted); font-weight: var(--fw-bold); }
+.lg-refund-note { display: block; margin-block: calc(-1 * var(--sp-1)) var(--sp-2); font-size: var(--fs-micro); color: var(--positive); font-weight: var(--fw-semibold); }
+.lg-hidden { display: none !important; }
+
+/* Quick add: transfer mode */
+.segmented.quick-type > button.active[data-quick-type="transfer"] { color: var(--accent-text); }
+.quick-amount.transfer {
+  display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5); border: 1.5px solid var(--border-strong); border-radius: var(--r-lg);
+  background: var(--surface); font-size: inherit;
+}
+.quick-amount.transfer:focus-within { border-color: var(--accent); }
+.quick-amount.transfer .quick-sign { color: var(--text-muted); }
+.lg-quick-transfer { display: flex; flex-direction: column; gap: var(--sp-3); }
+.lg-presets { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.lg-presets > .quick-cat { min-height: var(--touch); }
+.lg-transfer-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: var(--sp-2); }
+.lg-transfer-pair > .field { min-width: 0; }
+.lg-transfer-arrow { display: grid; place-items: center; width: 32px; height: var(--touch); color: var(--text-subtle); }
+.lg-effect-lines { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lg-effect-lines > span { overflow-wrap: anywhere; }
+
+/* Cash-flow calendar: the card statement dot */
+.k-card { background: var(--chart-4); }
+
+/* Accounts: restricted deposit */
+.account-card.lg-deposit .large-number { color: var(--text); }
+.lg-release { font-size: var(--fs-small); }
+html.privacy .lg-effect-lines b, html.privacy .transfer-amount { filter: blur(6px); }
+html.privacy .lg-effect-lines b:hover, html.privacy .transfer-amount:hover { filter: none; }
+
+@media (max-width: 760px) {
+  .lg-transfer-pair { grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: var(--sp-1); }
+  .lg-transfer-arrow { display: none; }
+  .lg-presets > .quick-cat { flex: 1 1 auto; justify-content: center; }
+  .account-actions > .button.small { min-height: var(--touch); }
+  .transaction-icon.transfer { width: 38px; height: 38px; border-radius: 12px; }
+}

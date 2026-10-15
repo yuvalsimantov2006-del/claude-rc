@@ -117,9 +117,10 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 .lk-actions > .button.danger:disabled { opacity: .5; cursor: not-allowed; }
 
 @media (max-width: 760px) {
-  .bk-row { flex-wrap: wrap; }
-  .bk-row > .button, .bk-row > .text-button { flex-basis: 100%; margin-inline-start: calc(38px + var(--sp-3)); }
-  .bk-row > .button { justify-content: center; max-width: calc(100% - 38px - var(--sp-3)); }
+  /* Phone: the action moves under the text, aligned with it (icon column stays empty). */
+  .bk-row { display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: var(--sp-3); row-gap: var(--sp-2); align-items: center; }
+  .bk-row > .button, .bk-row > .text-button { grid-column: 2; justify-self: start; min-height: var(--touch); }
+  .bk-row > .button { justify-self: stretch; justify-content: center; }
   .lk-minutes .field { max-width: none; }
   .lk-card > .actions > .button.danger { margin-inline-start: 0; }
   .lk-screen { place-items: start center; padding-block-start: max(var(--sp-10), env(safe-area-inset-top)); }

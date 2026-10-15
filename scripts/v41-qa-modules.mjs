@@ -11,11 +11,16 @@ function fixtureM(){
   return d;
 }
 // Opens Fixture M and waits out the start-up dialog timer (what's new), closing whatever it opened.
+// The start-up dialog (what's new) opens 900 ms after the scripts run; wait for that moment, then close it.
+async function settle(page){
+  await page.waitForTimeout(900);
+  await page.waitForFunction(()=>performance.now()>1600);
+  if(await page.locator('dialog[open]').count())await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+}
 async function openM(qa,opts={}){
   const s=await qa.open({data:fixtureM(),...opts});
-  await s.page.waitForTimeout(1100);
-  if(await s.page.locator('dialog[open]').count())await s.page.keyboard.press('Escape');
-  await s.page.waitForTimeout(150);
+  await settle(s.page);
   return s;
 }
 const go=async(page,id)=>{await page.evaluate(id=>{location.hash=id;},id);await page.waitForFunction(id=>document.querySelector('.page-heading')&&location.hash==='#'+id,id);await page.waitForTimeout(250);};
@@ -81,19 +86,21 @@ async function backupSection(qa){
   await page.keyboard.press('Escape');
   await context.close();
 
-  // The first real save asks for persistent storage once (a fresh device with no record).
+  // The first real save asks for persistent storage once (a fresh device with no record). A start-up save
+  // (the dollar rate, a recorded schedule) may already count; otherwise the settings save does.
   const second=await openM(qa);
-  assert.equal(await second.page.evaluate(()=>localStorage.getItem('ofek-persist-v1')),null,'nothing asked before a save');
-  await go(second.page,'settings');
-  await second.page.locator('#settings-form [type=submit]').click();
+  if(!(await second.page.evaluate(()=>localStorage.getItem('ofek-persist-v1')))){
+    await go(second.page,'settings');
+    await second.page.locator('#settings-form [type=submit]').click();
+  }
   await second.page.waitForFunction(()=>!!localStorage.getItem('ofek-persist-v1'),null,{timeout:7000});
   assert.equal(JSON.parse(await second.page.evaluate(()=>localStorage.getItem('ofek-persist-v1'))).asked,'2026-10-14');
   await second.context.close();
 
   // A demo never gets the reminder.
   const demo=await qa.open({data:{...demoData(),lastBackup:null}});
-  await demo.page.waitForTimeout(1100);
-  if(await demo.page.locator('dialog[open]').count())await demo.page.keyboard.press('Escape');
+  await settle(demo.page);
+  assert.equal(await demo.page.evaluate(()=>localStorage.getItem('ofek-persist-v1')),null,'the demo never asks for persistent storage');
   await demo.page.locator('.alerts-button').first().click();
   await demo.page.locator('dialog[open]').waitFor();
   assert.equal(await demo.page.locator('dialog .alert-row',{hasText:'זמן לגיבוי מוצפן'}).count(),0,'no reminder for the demo');
@@ -180,7 +187,7 @@ async function lockSection(qa){
   await page.keyboard.press('Escape');
   // 7e. A reload is locked before any amount is painted.
   await page.reload({waitUntil:'domcontentloaded'});
-  assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('locked')&&!!document.querySelector('#lock-screen')),true,'locked at load');
+  assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('locked')&&!!document.querySelector('#lock-screen')),true,`locked at load (${await page.evaluate(()=>[location.href,document.readyState,localStorage.getItem('ofek-lock-v1')?.slice(0,40),document.documentElement.className].join(' · '))})`);
   assert.equal(await amountsVisible(page),0,'no amount painted at load');
   // 7f. Turning the lock off needs the current PIN.
   await typePin(page,'1234');
@@ -213,8 +220,11 @@ async function lockSection(qa){
   assert.equal(await wipe.isDisabled(),false);
   await Promise.all([page.waitForEvent('load'),wipe.click()]);
   await page.locator('dialog .setup-welcome').waitFor({timeout:5000});
+  // 4.0 saves its start-up data (the demo) on a fresh device, so the key may exist again — but only as the demo.
   const keys=await page.evaluate(()=>Object.keys(localStorage));
-  assert.ok(!keys.includes('ofek-finance-v1')&&!keys.includes('ofek-lock-v1'),`no data and no lock after the wipe (${keys})`);
+  assert.ok(!keys.includes('ofek-lock-v1')&&!keys.includes('ofek-persist-v1')&&!keys.includes('ofek-finance-v1-recovery'),`no lock and no old records after the wipe (${keys})`);
+  const fresh=await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')||'null'));
+  assert.ok(!fresh||(fresh.demo===true&&fresh.profile!=='דנה'),'the old data is gone (only the fresh start-up demo, if any)');
   assert.equal(await page.locator('#lock-screen').count(),0);
   await context.close();
   console.log('modules: app lock OK (setup errors, lock now, amounts hidden, Ctrl+K, back-off and wait, auto-lock, reload, turn off, wipe)');
@@ -236,8 +246,11 @@ async function screens(qa){
     await shot(qa,page,`v41-M8-alerts-${theme}-${size}.png`);
     await page.keyboard.press('Escape');
     await page.evaluate(()=>localStorage.setItem('ofek-lock-v1',JSON.stringify({v:1,pin:{salt:'AAAAAAAAAAAAAAAAAAAAAA==',iterations:1000,hash:btoa(String.fromCharCode(...new Uint8Array(32))),length:4},minutes:1,bio:{id:'AAEC',created:'2026-10-14'},failures:2,retryAt:0,created:'2026-10-14'})));
+    const before=await page.evaluate(()=>localStorage.getItem('ofek-lock-v1')?.slice(0,20));
+    await context.addInitScript(()=>{window.__toasts=[];new MutationObserver(()=>{const t=document.querySelector('.toast');if(t)window.__toasts.push(t.textContent);}).observe(document,{childList:true,subtree:true});window.__k0=JSON.stringify(Object.keys(localStorage))+location.href.slice(-30);});
     await page.reload();
-    await page.locator('#lock-screen').waitFor();
+    await page.locator('#lock-screen').waitFor({timeout:5000}).catch(async err=>{throw Error(`DEBUG0 before=${before} `+await page.evaluate(()=>window.__k0+' toasts='+JSON.stringify([...new Set(window.__toasts)])));});
+    await page.locator('#lock-screen').waitFor({timeout:5000}).catch(async err=>{throw Error(`DEBUG ${theme} ${size}: `+await page.evaluate(()=>[document.documentElement.className,!!document.querySelector('#lock-screen'),document.querySelector('#lock-screen')?.outerHTML.slice(0,200),localStorage.getItem('ofek-lock-v1')?.slice(0,30),document.querySelector('.toast')?.textContent,document.querySelector('dialog[open]')?.outerHTML.slice(0,100)].join(' | ')));});
     await page.locator('#lock-screen [data-lk-key="1"]').click();
     await noOverflow(`lock ${theme} ${size}`);
     const sizes=await page.evaluate(()=>[...document.querySelectorAll('#lock-screen .lk-key')].map(b=>{const r=b.getBoundingClientRect();return Math.min(r.width,r.height);}));

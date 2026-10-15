@@ -883,3 +883,11 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .section-head > .actions select[name="chartMetric"] { width: 100%; min-height: var(--touch); }
   .section-head > .actions:has(select[name="chartMetric"]) > .button { flex: 1 1 100%; }
 }
+
+/* ======================= 4.1 "הפקדתי עכשיו" (LEDGER) ======================= */
+.lg-goal-deposit { display: flex; margin-block-start: var(--sp-2); }
+.lg-goal-deposit > .button { flex: 1 1 auto; }
+.lg-goal-note { margin-block-start: var(--sp-3); line-height: 1.6; }
+@media (max-width: 760px) {
+  .lg-goal-deposit > .button { min-height: var(--touch); }
+}
