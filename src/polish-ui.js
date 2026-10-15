@@ -93,7 +93,7 @@ if(typeof ResizeObserver==='function'&&typeof MutationObserver==='function'&&typ
 if(typeof setTimeout==='function'&&typeof document!=='undefined'&&document.head){
   setTimeout(()=>{
     let seen=null;try{seen=localStorage.getItem(WHATS_NEW_KEY);}catch{}
-    if(seen===WHATS_NEW_VERSION||document.querySelector('dialog'))return;
+    if(seen===WHATS_NEW_VERSION||document.querySelector('dialog')||moduleHook('locked',false))return;
     if(firstVisit)openSetup(0);else openWhatsNew();
   },900);
 }

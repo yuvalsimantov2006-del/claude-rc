@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const files=['finance.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','fx.js','money.js','scenario.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','shell-ui.js','setup-ui.js','fx-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','app.js'];
+// Must match the `files` list in scripts/build.mjs (same order).
+const files=['finance.js','hooks.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','fx.js','ledger.js','money.js','scenario.js','benefits.js','annual.js','backup.js','lock.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','shell-ui.js','setup-ui.js','fx-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','ledger-ui.js','benefits-ui.js','annual-ui.js','backup-ui.js','lock-ui.js','app.js'];
 const source=files.map(f=>fs.readFileSync('src/'+f,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport\s+(?=(const|function|class|let|async))/g,'')).join('\n');
 const storage=new Map(),events={},elements=[],dom=new Map();const root={innerHTML:''};
 function element(tag){return {tag,innerHTML:'',className:'',classList:{add(){},remove(){}},setAttribute(){},addEventListener(){},showModal(){},close(){},remove(){const i=elements.indexOf(this);if(i>=0)elements.splice(i,1);},click(){}};}
@@ -9,7 +10,7 @@ const context=vm.createContext({console,Date,Intl,Math,JSON,Number,String,Array,
 vm.runInContext(source,context);
 const run=script=>vm.runInContext(script,context);
 assert.ok(root.innerHTML.includes('בעו״ש עכשיו'));assert.equal(run('data.snapshots.length'),10);
-for(const route of ['dashboard','transactions','investments','monthly','performance','budgets','goals','accounts','insights','settings','copilot','lab','bills','split','wishlist','tools']){run(`navigate('${route}')`);assert.ok(root.innerHTML.includes('<h1>'));assert.ok(root.innerHTML.length>5000);}
+for(const route of ['dashboard','transactions','investments','monthly','performance','budgets','goals','accounts','insights','settings','copilot','lab','bills','split','wishlist','tools','benefits']){run(`navigate('${route}')`);assert.ok(root.innerHTML.includes('<h1>'));assert.ok(root.innerHTML.length>5000);}
 run("openEntity('transaction');dialogState.v.amount=125;dialogState.v.description='בדיקה';dialogState.v.date='2026-10-01';saveEntity();");assert.equal(run("data.accounts.find(a=>a.id==='bank').balance"),26325);assert.equal(run('data.transactions.length'),127);
 run("ui.filters.query='בדיקה';ui.filters.from='2026-01-01';ui.filters.to='2026-12-31'");assert.equal(run('filteredTransactions().length'),1);
 run("navigate('monthly');ui.monthly.date='2026-10-01';ui.monthly.values.voo=538;ui.monthly.flows=[{id:uid(),type:'deposit',date:'2026-10-01',amount:1000,currency:'ILS',fx:3.65,accountId:'bank',quantity:0}];saveMonthly()");assert.equal(run('data.snapshots.length'),11);assert.equal(run('data.snapshots.at(-1).value'),260990);assert.equal(run("data.accounts.find(a=>a.id==='bank').balance"),25325);assert.equal(run('ui.monthlyDone.profit'),2190);assert.ok(root.innerHTML.includes('עוד חודש בדרך שלך.'));

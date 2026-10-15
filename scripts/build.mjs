@@ -3,10 +3,19 @@ import path from 'node:path';
 const root=path.resolve(import.meta.dirname,'..');
 const font=name=>fs.readFileSync(path.join(root,'vendor',name)).toString('base64');
 // The 4.0 design system: tokens first, then shared layers, then one file per area of the app.
-const cssFiles=['tokens.css','base.css','components.css','charts.css','home.css','money.css','wealth.css','plan.css','ai.css'];
+const cssFiles=['tokens.css','base.css','components.css','charts.css','home.css','money.css','wealth.css','plan.css','ai.css','personal.css'];
 const css=`@font-face{font-family:Ofek;src:url(data:font/ttf;base64,${font('hebrew-regular.ttf')}) format('truetype');font-weight:400 600;font-display:swap}@font-face{font-family:Ofek;src:url(data:font/ttf;base64,${font('hebrew-bold.ttf')}) format('truetype');font-weight:700 900;font-display:swap}\n`+cssFiles.map(f=>fs.readFileSync(path.join(root,'src/ui',f),'utf8')).join('\n');
-const files=['finance.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','fx.js','money.js','scenario.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','shell-ui.js','setup-ui.js','fx-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','app.js'];
+// 4.1: hooks.js right after finance.js (the module-hook registry exists before any module registers); module UI
+// files load before app.js. scripts/runtime-qa.mjs keeps an identical list.
+const files=['finance.js','hooks.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','fx.js','ledger.js','money.js','scenario.js','benefits.js','annual.js','backup.js','lock.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','shell-ui.js','setup-ui.js','fx-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','ledger-ui.js','benefits-ui.js','annual-ui.js','backup-ui.js','lock-ui.js','app.js'];
 const js=files.map(file=>fs.readFileSync(path.join(root,'src',file),'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport\s+(?=(const|function|class|let|async))/g,'')).join('\n');
+// 4.1: every top-level name must be unique across files (P7). new Function() already rejects duplicate
+// const/let/class, but a duplicated `function` would silently replace the earlier one.
+const owners=new Map(),clashes=[];
+for(const file of files){const src=fs.readFileSync(path.join(root,'src',file),'utf8');
+  for(const m of src.matchAll(/^(?:export\s+)?(?:async\s+)?(?:function\*?\s+([A-Za-z_$][\w$]*)|(?:const|let|class)\s+([A-Za-z_$][\w$]*))/gm)){
+    const name=m[1]||m[2];if(owners.has(name))clashes.push(`${name}: ${owners.get(name)} and ${file}`);else owners.set(name,file);}}
+if(clashes.length)throw new Error('Duplicate top-level names (P7):\n'+clashes.join('\n'));
 new Function(js);
 const favicon=fs.readFileSync(path.join(root,'public/favicon.svg'),'utf8');
 const html=`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#070B1A"><meta name="color-scheme" content="light dark"><script>try{var p=localStorage.getItem('ofek-theme')||'system',t=p==='light'||p==='dark'?p:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);document.querySelector('meta[name=theme-color]').setAttribute('content',t==='dark'?'#070B1A':'#EDF0F6')}catch(e){}</script><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="אופק"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><meta name="description" content="אופק — ניהול פיננסי אישי בעברית. תנועות, השקעות, תשואות, תקציבים ויעדי חיסכון."><title>אופק — המרחב הפיננסי שלך</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(favicon)}"><style>${css}</style></head><body><div id="root"></div><script>(()=>{${js.replace(/<\/script/gi,'<\\/script')}\n})();</script></body></html>`;

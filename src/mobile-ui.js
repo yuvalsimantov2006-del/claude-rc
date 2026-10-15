@@ -2,6 +2,7 @@ import {uid,today,money,plainText,dateLabel,validDate,applyTransaction,categoryS
 import {detectAnomalies,suggestCategory,shiftDate} from './smart.js';
 import {scheduledItems} from './money.js';
 import {parseNumber} from './xlsx.js';
+import {moduleHook} from './hooks.js';
 
 // The phone experience: a bottom tab bar for one-handed use, a quick-add sheet, installing to the
 // home screen (manifest + service worker when served over https), an alerts center behind the bell,
@@ -94,14 +95,15 @@ function undoToast(message,id){
 
 // ---------- Alerts (bell) and notifications ----------
 const NOTIFY_KEY='ofek-notify-v1',SEEN_KEY='ofek-alerts-seen',SENT_KEY='ofek-alerts-sent';
-const NOTIFY_TYPES=[['monthly','תזכורת לעדכון החודשי','כשעבר חודש מאז העדכון האחרון של התיק'],['bills','חיובים קרובים','יום לפני תשלום קבוע או הוראת קבע'],['anomalies','הוצאות חריגות','כשהוצאה או קטגוריה גבוהות בהרבה מהרגיל'],['budgets','חריגה מתקציב','כשקטגוריה עוברת את התקציב החודשי']];
-const notifySettings=()=>({monthly:false,bills:false,anomalies:false,budgets:false,...readJSON(NOTIFY_KEY,{})});
+const NOTIFY_TYPES=[['monthly','תזכורת לעדכון החודשי','כשעבר חודש מאז העדכון האחרון של התיק'],['bills','חיובים קרובים','יום לפני תשלום קבוע או הוראת קבע'],['anomalies','הוצאות חריגות','כשהוצאה או קטגוריה גבוהות בהרבה מהרגיל'],['budgets','חריגה מתקציב','כשקטגוריה עוברת את התקציב החודשי'],['reminders','תזכורות אישיות','גיבוי, מענקים, החזר מס ובדיקה שנתית']];
+const notifySettings=()=>({monthly:false,bills:false,anomalies:false,budgets:false,reminders:false,...readJSON(NOTIFY_KEY,{})});
 function currentAlerts(){
   const now=today(),month=now.slice(0,7),list=[],last=sortedSnapshots().at(-1);
   if(data.assets.length&&(!last||(new Date(now)-new Date(last.date))/864e5>=30))list.push({id:`monthly-${month}`,type:'monthly',icon:'CalendarDays',color:'gold',title:'זמן לעדכון החודשי',body:last?`העדכון האחרון של התיק היה ב־${dateLabel(last.date)}.`:'עוד לא נשמר עדכון ראשון לתיק.',action:'navigate:monthly'});
   for(const x of scheduledItems(data,now,shiftDate(now,2)).filter(x=>!x.paid&&x.type!=='income'))list.push({id:`bill-${x.key}`,type:'bills',icon:'Receipt',color:'purple',title:`${x.date===now?'היום':x.date===shiftDate(now,1)?'מחר':'בעוד יומיים'}: ${x.name}`,body:`${money(x.amount)} ${x.autopay?'יירדו אוטומטית':'לתשלום'}`,action:'navigate:bills'});
   for(const a of detectAnomalies(data,month).slice(0,3))list.push({id:`anomaly-${a.kind}-${a.id||a.title}-${month}`,type:'anomalies',icon:'TriangleAlert',color:'red',title:a.kind==='category'?`ההוצאות על ${a.title} גבוהות מהרגיל`:`הוצאה חריגה: ${a.title}`,body:`${money(a.amount)} לעומת כ־${money(a.typical)} בדרך כלל`,action:'navigate:insights'});
   for(const b of data.budgets){const spent=categorySpend(data,b.category,month);if(b.limit>0&&spent>b.limit)list.push({id:`budget-${b.category}-${month}`,type:'budgets',icon:'SlidersHorizontal',color:'red',title:`חריגה מתקציב ${b.category}`,body:`${money(spent)} מתוך ${money(b.limit)} החודש`,action:'navigate:budgets'});}
+  list.push(...moduleHook('alerts',[],now));
   return list;
 }
 function unseenAlerts(){const seen=new Set(readJSON(SEEN_KEY,[]));return currentAlerts().filter(a=>!seen.has(a.id));}
@@ -122,6 +124,7 @@ function refreshBell(){
 }
 async function showSystemNotification(title,body,tag,url){
   const options={body:plainText(body),tag,dir:'rtl',lang:'he',icon:'icons/icon-192.png',badge:'icons/badge-96.png',data:{url}};
+  if(moduleHook('privateNotifications',false))options.body='';
   try{const reg=await navigator.serviceWorker?.getRegistration?.();title=plainText(title);if(reg){await reg.showNotification(title,options);return true;}}catch{}
   try{new Notification(title,options);return true;}catch{return false;}
 }
@@ -157,7 +160,7 @@ async function sendDigest(st,sent){
   if(st.monthly&&data.assets.length&&last){const due=shiftDate(last.date,30);items.push({id:`monthly-${due.slice(0,7)}`,at:`${due}T10:00`,title:'זמן לעדכון החודשי',body:'כמה דקות, ותראה איך התיק התקדם.',url:'./#monthly'});}
   try{
     const reg=await navigator.serviceWorker.ready;
-    reg.active?.postMessage({type:'ofek-digest',items:items.filter(x=>!sent[x.id]).map(x=>({...x,title:plainText(x.title),body:plainText(x.body)}))});
+    reg.active?.postMessage({type:'ofek-digest',items:items.filter(x=>!sent[x.id]).map(x=>({...x,title:plainText(x.title),body:moduleHook('privateNotifications',false)?'':plainText(x.body)}))});
     if(reg.periodicSync&&items.length){const status=await navigator.permissions.query({name:'periodic-background-sync'});if(status.state==='granted')await reg.periodicSync.register('ofek-reminders',{minInterval:6*3600e3});}
   }catch{}
 }

@@ -3,6 +3,7 @@ import {palette,graph,donut,barChart,fanChart,scoreRing,shortAmount} from './cha
 import {markDuplicates} from './capture.js';
 import {healthScore,detectRecurring,detectAnomalies,monthPace,monteCarlo,fireNumber,yearsToTarget,whatIfCut,parseQuickEntry,suggestCategory,averageMonth} from './smart.js';
 import {AI_MODELS,AI_MODEL_HINT,AI_TOOLS,AI_CHAT_KEY,AI_LETTERS_KEY,ATTACHMENT_LIMIT,aiSettings,saveAiSettings,aiReady,financialContext,runAgent,attachmentBlock,storableConversation,markdownLite} from './ai.js';
+import {moduleHook} from './hooks.js';
 
 // New experiences: the Claude copilot, the future lab, the command palette and smart widgets.
 // Rendered inside the shell from app.js and built on its shared helpers (e, icon, btn, card…).
@@ -343,7 +344,7 @@ async function writeLetter(){
   }catch(err){letterState.error=err?.name==='AbortError'?'הכתיבה נעצרה.':err.message;}
   finally{letterState.busy=false;letterState.abort=null;render();}
 }
-function smartInsights(){return `${healthCard()}${letterCard()}<div class="two-columns">${anomaliesCard()}${paceCard()}</div>${recurringCard()}`;}
+function smartInsights(){return `${healthCard()}${letterCard()}<div class="two-columns">${anomaliesCard()}${paceCard()}</div>${recurringCard()}${moduleHook('insights','')}`;}
 
 // ---------- Future lab ----------
 function labState(){
@@ -429,6 +430,7 @@ function paletteItems(q){
     {icon:'Repeat',title:'סנכרון בין מכשירים',sub:'טלפון ומחשב, מוצפן',run:()=>{closeDialog();navigate('settings');setTimeout(()=>document.querySelector('#sync-card')?.scrollIntoView({block:'start'}),60);}},
     {icon:'Sparkles',title:'מה חדש באופק 4.0',run:()=>{closeDialog();openWhatsNew();}}
   ];
+  actions.push(...moduleHook('palette',[]));
   // Screens: the sidebar names plus the short sub-tab names (PAGE_LABELS), so "תזרים" or "יעדים" finds them too.
   const nav=[...routes,['settings','הגדרות וגיבוי','Settings']].map(([id,label,ic])=>({icon:PAGE_ICONS[id]||ic,title:label,sub:'מעבר למסך',alias:PAGE_LABELS[id]||'',run:()=>{closeDialog();navigate(id);}}));
   for(const [id,label] of Object.entries(PAGE_LABELS))if(!nav.some(n=>n.title===label||n.alias===label)&&!routes.some(r=>r[0]===id)&&id!=='settings')nav.push({icon:PAGE_ICONS[id]||'LayoutGrid',title:label,sub:'מעבר למסך',run:()=>{closeDialog();navigate(id);}});
