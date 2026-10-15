@@ -61,10 +61,12 @@ function sortedSnapshots(){return [...data.snapshots].sort((a,b)=>a.date.localeC
 function toast(message,error=false,opts={}){clearTimeout(toastTimer);document.querySelector('.toast')?.remove();const el=document.createElement('div');el.className='toast'+(error?' error':'');el.setAttribute('role',error?'alert':'status');el.innerHTML=icon(error?'Info':'Check',19)+`<span>${e(message)}</span>`+(opts.undo?'<button type="button" class="toast-undo" data-action="undo">ביטול</button>':'')+ib('X','סגירת הודעה','toast-close');document.body.append(el);toastTimer=setTimeout(()=>el.remove(),opts.undo?UNDO_MS:6000);}
 function commit(next,message='הנתונים נשמרו בהצלחה',allowReplacement=false,opts={}){if(loadError&&!allowReplacement)throw Error('לא ניתן לשמור מעל נתונים שלא נקראו. יש לשחזר גיבוי, לשחזר שמירה קודמת או לאפס במפורש במסך ההגדרות.');validateData(next);try{repository.save(next);}catch{throw Error('השמירה נכשלה. האחסון בדפדפן עשוי להיות מלא או חסום. הנתונים שהזנת נשארו בטופס — נסה שוב או הורד גיבוי.');}const previous=data;data=next;loadError=null;undoState=opts.undo&&!allowReplacement?{before:previous,after:next,at:Date.now()}:null;afterCommit(previous,next,allowReplacement,opts);moduleHook('afterCommit',null,previous,next,opts);if(opts.undo&&!allowReplacement)toast(message||'השינויים נשמרו',false,{undo:true});else if(message)toast(message);render();if(allowReplacement&&typeof setTimeout==='function')setTimeout(rematerialize,0);}
 // Undo (§C.9): the previous data object itself comes back, so storage is byte-identical. It is refused when
-// anything else was committed or loaded since (another commit, a sync pull, another tab).
+// anything else was committed or loaded since (another commit, a sync pull, another tab). Another tab's save is
+// caught even before its storage event arrives: the stored string must still be the one this commit wrote.
 const UNDO_MS=8000;let undoState=null;
+const storedIsStill=value=>{try{return localStorage.getItem(STORAGE_KEY)===JSON.stringify(value);}catch{return false;}};
 function undoLast(){const u=undoState;undoState=null;document.querySelector('.toast')?.remove();
-  if(!u||data!==u.after||Date.now()-u.at>UNDO_MS+2000){toast('אי אפשר לבטל: היו שינויים נוספים מאז.',true);return;}
+  if(!u||data!==u.after||Date.now()-u.at>UNDO_MS+2000||!storedIsStill(u.after)){toast('אי אפשר לבטל: היו שינויים נוספים מאז.',true);return;}
   commit(u.before,'השינוי בוטל');}
 // Rows that came due while the app is open (card statements, installment payments, recurring templates).
 // Never while a form is open (it would save a stale value over the new rows) or while the data is unreadable.

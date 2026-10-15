@@ -939,4 +939,6 @@ html.privacy .lg-effect-lines b:hover, html.privacy .transfer-amount:hover { fil
   .lg-presets > .quick-cat { flex: 1 1 auto; justify-content: center; }
   .account-actions > .button.small { min-height: var(--touch); }
   .transaction-icon.transfer { width: 38px; height: 38px; border-radius: 12px; }
+  /* The four-way type control of the transaction form (הוצאה · הכנסה · החזר · העברה) */
+  #entity-form .segmented.full > button { min-height: var(--touch); }
 }

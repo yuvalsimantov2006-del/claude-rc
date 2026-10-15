@@ -131,26 +131,26 @@ export async function run(qa){
   await page.locator(`[data-action="remove:transaction:${victim.id}"]`).click();
   await page.locator('dialog [data-action="confirm"]').click();
   await page.waitForFunction(()=>/התנועה נמחקה/.test(document.querySelector('.toast')?.textContent||''));
-  const other=await s.context.newPage();
-  other.on('pageerror',err=>qa.errors.push(err.message));
-  await other.goto(qa.app);await settle(other);
-  await go(other,'settings');
-  await other.locator('#settings-form [name=profile]').fill('נועם מהלשונית השנייה');
-  await other.locator('#settings-form [type=submit]').click();
-  await other.waitForFunction(()=>/נועם מהלשונית השנייה/.test(localStorage.getItem('ofek-finance-v1')));
-  const saved=await other.evaluate(()=>localStorage.getItem('ofek-finance-v1'));
-  await page.waitForTimeout(300);
+  // Every toast tab A shows from here on (the storage event's own toast may replace the refusal one).
+  await page.evaluate(()=>{window.__toasts=[];new MutationObserver(()=>{const t=document.querySelector('.toast')?.textContent;if(t&&window.__toasts.at(-1)!==t)window.__toasts.push(t);}).observe(document.body,{childList:true});});
+  // Another tab saves (here: a profile name), written straight to storage as that tab would. Playwright pages on
+  // file:// do not reliably share one localStorage, so the second tab is simulated in tab A. The storage event
+  // has not arrived yet, the strictest case: undo must still be refused, from the stored string alone.
+  const saved=await page.evaluate(()=>{const v=JSON.parse(localStorage.getItem('ofek-finance-v1'));v.profile='נועם מהלשונית השנייה';const text=JSON.stringify(v);localStorage.setItem('ofek-finance-v1',text);return text;});
   await act(page,'undo');
-  await page.waitForFunction(()=>/אי אפשר לבטל/.test(document.querySelector('.toast')?.textContent||''));
+  await page.waitForFunction(()=>window.__toasts.some(t=>/אי אפשר לבטל/.test(t)),null,{polling:100});
+  assert.ok(!(await page.evaluate(()=>window.__toasts)).some(t=>/השינוי בוטל/.test(t)),'nothing was undone');
   assert.equal(await page.evaluate(()=>localStorage.getItem('ofek-finance-v1')),saved,'the refused undo changes nothing');
-  await other.close();await s.context.close();
+  await page.evaluate(saved=>window.dispatchEvent(new StorageEvent('storage',{key:'ofek-finance-v1',newValue:saved})),saved);
+  await page.waitForFunction(()=>window.__toasts.some(t=>/מלשונית אחרת/.test(t)),null,{polling:100});   // and then the tab follows the other one
+  await s.context.close();
 
   // ---------- 10. 4.0 data loads unchanged ----------
   const f40=fixture40();
   s=await qa.open({data:f40});
   await settle(s.page);
-  const stored40=await s.stored(),norm=x=>JSON.stringify({...x,fx:0,fxDate:''});   // the daily dollar rate may update fx/fxDate, as in 4.0
-  for(const key of new Set([...Object.keys(stored40),...Object.keys(f40)]))if(!['fx','fxDate'].includes(key))assert.equal(JSON.stringify(stored40[key]),JSON.stringify(f40[key]),`4.0 data unchanged: ${key}`);
+  const stored40=await s.stored(),norm=x=>JSON.stringify({...x,fx:0,fxDate:'',fxSource:''});   // the daily dollar rate may update fx, fxDate and fxSource, as in 4.0
+  for(const key of new Set([...Object.keys(stored40),...Object.keys(f40)]))if(!['fx','fxDate','fxSource'].includes(key))assert.equal(JSON.stringify(stored40[key]),JSON.stringify(f40[key]),`4.0 data unchanged: ${key}`);
   assert.equal(norm(stored40),norm(f40),'4.0 data is stored byte-identical (apart from the dollar rate)');
   for(const route of ['dashboard','transactions','accounts','budgets','bills','goals'])await go(s.page,route);
   await s.context.close();
@@ -174,7 +174,8 @@ export async function run(qa){
     await p.keyboard.press('Escape');
     await act(p,'transfer-new:bank:loan');
     await s.noOverflow(`transfer form ${theme}`);
-    assert.deepEqual(await tallEnough(p,'#entity-form select, #entity-form input:not([type=hidden]), #entity-form .segmented button'),[],'transfer form controls ≥ 44px');
+    const small=await tallEnough(p,'#entity-form select, #entity-form input:not([type=hidden]), #entity-form .segmented button');
+    assert.deepEqual(small,[],`transfer form controls ≥ 44px: ${JSON.stringify(small)}`);
     await shot(qa,p,`v41-L4-${theme}-transfer-form.png`);
     await p.keyboard.press('Escape');
     await go(p,'goals');await s.noOverflow(`goals ${theme}`);
