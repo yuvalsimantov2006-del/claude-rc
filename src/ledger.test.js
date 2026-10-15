@@ -376,3 +376,38 @@ test('messages and the sync guard helpers',()=>{
     const c=structuredClone(d);change(c);assert.equal(hasV41Content(c),true);
   }
 });
+
+test('capture: card refunds become refund rows and match legacy refunds',async()=>{
+  const {parseStatementRows,prepareCapture,markDuplicates}=await import('./capture.js');
+  const d=fixture([acc('bank','bank',5000,{name:'עו״ש'})],[tx('old','income',30,'2026-10-05','bank',{description:'זיכוי שופרסל',category:'קניות בסופר'})]);
+  const card=parseStatementRows([['תאריך','בית עסק','סכום'],['01-10-2026','שופרסל דיל','245.90'],['03-10-2026','ארומה','38'],['05-10-2026','זיכוי - שופרסל','-30']],NOW);
+  assert.equal(card.kind,'card');
+  const items=prepareCapture(d,card.items);
+  assert.deepEqual(items.map(x=>x.type),['expense','expense','refund']);
+  assert.equal(items[2].category,'קניות בסופר','a refund takes the expense category');
+  assert.equal(items[2].status,'duplicate','a 4.0 refund recorded as income is the same row');
+  const bank=parseStatementRows([['תאריך','תיאור','חובה','זכות'],['02-10-2026','משכורת','','9000'],['03-10-2026','החזר מס הכנסה','','1200'],['04-10-2026','זיכוי ביטול עסקה','','80'],['05-10-2026','סופר','120','']],NOW);
+  assert.equal(bank.kind,'bank');
+  assert.deepEqual(prepareCapture(d,bank.items).map(x=>x.type),['income','income','refund','expense']);
+  assert.equal(markDuplicates(d,[{type:'refund',date:'2026-10-05',amount:30,description:'זיכוי שופרסל'}])[0].status,'duplicate');
+});
+
+test('Claude tools: refunds, totals and propose_transfer',async()=>{
+  const {executeAiTool,normalizeProposedTransaction,financialContext,AI_TOOLS}=await import('./ai.js');
+  const d=fixture([acc('bank','bank',5000,{name:'עו״ש'}),acc('cash','cash',300,{name:'מזומן'}),acc('loan','debt',25500,{name:'הלוואת רכב',original:45000,payment:1250}),acc('dep','deposit',25000,{name:'פיקדון אישי',releaseDate:'2031-03-01'})],
+    [tx('a','expense',800,'2026-10-02','bank'),tx('b','refund',200,'2026-10-03','bank'),tx('c','income',9000,'2026-10-01','bank',{category:'משכורת'})]);
+  book(d,makeTransfer(d,{fromId:'bank',toId:'cash',amount:100,date:'2026-10-04'}));
+  assert.equal(normalizeProposedTransaction(d,{type:'refund',amount:50,date:'2026-10-01',category:'משכורת'},NOW).draft.category,'קניות');
+  assert.ok(AI_TOOLS.some(t=>t.name==='propose_transfer'));
+  const q=await executeAiTool('query_transactions',{},{data:d,now:NOW});
+  assert.deepEqual([q.total_income,q.total_expense,q.total_refunds,q.transfers_count],[9000,600,200,1]);
+  assert.equal(q.transactions.find(t=>t.type==='transfer').to_account,'מזומן');
+  const s=await executeAiTool('spending_breakdown',{from:'2026-10-01',to:'2026-10-31',group_by:'category'},{data:d,now:NOW});
+  assert.equal(s.total,600);
+  let asked=null;
+  const r=await executeAiTool('propose_transfer',{from:'עו״ש',to:'הלוואת רכב',amount:1250},{data:d,now:NOW,toolUseId:'t1',approve:async req=>{asked=req;return {approved:true};}});
+  assert.equal(r.approved,true);assert.equal(asked.kind,'transfer');assert.deepEqual([asked.transfer.accountId,asked.transfer.toAccountId,asked.transfer.toAmount],['bank','loan',1250]);
+  await assert.rejects(executeAiTool('propose_transfer',{from:'עו״ש',to:'הלוואת רכב',amount:30000},{data:d,now:NOW,approve:async()=>({approved:true})}),/הסכום גבוה מיתרת החוב/);
+  const c=financialContext(d,'2026-10',NOW);
+  assert.match(c,/restricted_deposit 25000/);assert.match(c,/− loans 25500/);assert.match(c,/\[id dep, deposit, ILS\] 25000 \(restricted until 2031-03-01\)/);
+});

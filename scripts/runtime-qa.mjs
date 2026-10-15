@@ -51,4 +51,33 @@ run("ui.period='custom';ui.from='2026-01-01';ui.to='2026-10-01';ui.chartMetric='
 fs.writeFileSync('qa-rendered.html',root.innerHTML);
 console.log('PASS: 10 routes render, transaction account balance/search, monthly price update + linked deposit produce ₪2,190 profit, immutable snapshots/duplicate rejection, budgets/duplicate category guard, goals, custom categories, zero holding + buy, persisted state. DOM interactions require browser QA.');
 
+// 4.1 forms in the bundle: a transfer, a loan payment over the debt (refused), a refund and a deposit account.
+{
+  const bal=id=>run(`data.accounts.find(a=>a.id==='${id}').balance`),bank=bal('bank'),cash=bal('cash'),loan=bal('loan');
+  run("openTransfer('bank','cash');dialogState.v.amount=200;dialogState.v.date=today()");assert.ok(elements.find(x=>x.tag==='dialog').innerHTML.includes('לחשבון'));run('saveEntity()');
+  assert.equal(bal('bank'),bank-200);assert.equal(bal('cash'),cash+200);assert.equal(run("data.transactions.at(-1).type"),'transfer');
+  assert.throws(()=>run("openTransfer('bank','loan');dialogState.v.amount=999999;saveEntity()"),/הסכום גבוה מיתרת החוב/);run('closeDialog()');assert.equal(bal('loan'),loan);
+  run("openEntity('transaction',null,{type:'refund'});dialogState.v.amount=50;dialogState.v.category='קניות בסופר';dialogState.v.date=today();saveEntity()");assert.equal(bal('bank'),bank-150);assert.equal(run("data.transactions.at(-1).type"),'refund');
+  run("openEntity('account');dialogState.v.kind='deposit';entityDialog();dialogState.v.name='פיקדון אישי';dialogState.v.balance=25000;dialogState.v.releaseDate='2031-03-01';saveEntity()");
+  assert.equal(run("data.accounts.at(-1).kind"),'deposit');assert.equal(run('balances(data).restricted'),25000);run("navigate('accounts')");assert.ok(root.innerHTML.includes('ישתחרר ב־'));
+  for(const route of ['transactions','budgets','goals','bills','dashboard'])run(`navigate('${route}')`);
+  console.log('PASS: 4.1 transfer, debt cap, refund and restricted deposit through the real forms.');
+}
+
+// E13 (§B.8, §C.9): undo puts back the exact previous data, byte for byte, and refuses after any other change.
+{
+  const lastToast=()=>elements.filter(x=>x.tag==='div'&&String(x.className).startsWith('toast')).at(-1)?.innerHTML||'';
+  const before=storage.get('ofek-finance-v1'),id=run('data.transactions.find(t=>!t.recurring&&t.type===\'expense\').id');
+  run(`removeEntity('transaction','${id}')`);run('confirmAction();closeDialog()');
+  assert.notEqual(storage.get('ofek-finance-v1'),before);assert.ok(lastToast().includes('התנועה נמחקה')&&lastToast().includes('data-action="undo"'));
+  run('undoLast()');assert.equal(storage.get('ofek-finance-v1'),before);assert.ok(lastToast().includes('השינוי בוטל'));
+  run(`removeEntity('transaction','${id}')`);run('confirmAction();closeDialog()');run("commit({...data,profile:'x'})");
+  const changed=storage.get('ofek-finance-v1');
+  run('undoLast()');assert.equal(storage.get('ofek-finance-v1'),changed);assert.ok(lastToast().includes('אי אפשר לבטל'));
+  run(`removeEntity('transaction','${run('data.transactions.find(t=>!t.recurring&&t.type===\'expense\').id')}')`);run('confirmAction();closeDialog()');
+  run(`data=validateData(JSON.parse(${JSON.stringify(changed)}))`);                     // what the storage listener does
+  const other=storage.get('ofek-finance-v1');run('undoLast()');assert.equal(storage.get('ofek-finance-v1'),other);assert.ok(lastToast().includes('אי אפשר לבטל'));
+  run(`commit(validateData(JSON.parse(${JSON.stringify(changed)})))`);
+  console.log('PASS: E13 undo restores the stored data byte for byte and is refused after another save or another tab.');
+}
 run("loadError='bad-data'");assert.throws(()=>run('commit(emptyData())'));assert.equal(JSON.parse(storage.get('ofek-finance-v1')).snapshots.length,11);run("commit(emptyData(),'explicit restore',true)");assert.equal(run('data.snapshots.length'),0);console.log('PASS: snapshots cannot precede recorded activities; unreadable stored data cannot be overwritten by ordinary saves.');
