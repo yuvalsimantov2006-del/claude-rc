@@ -23,6 +23,20 @@ async function openM(qa,opts={}){
   await settle(s.page);
   return s;
 }
+// Headless Chromium sometimes starts a reloaded file:// page in a new renderer whose localStorage is empty
+// (the harness then re-seeds Fixture M; seen as the lock record "disappearing"). That is the test browser,
+// not the app: when the page's own storage did not survive, put it back and reload again.
+async function reloadKeep(page,opts={}){
+  const snap=await page.evaluate(()=>{localStorage.setItem('qa-reload',String(Math.random()));return Object.fromEntries(Object.entries(localStorage));});
+  for(let i=0;i<4;i++){
+    await page.reload(opts);
+    if(await page.evaluate(want=>localStorage.getItem('qa-reload')===want,snap['qa-reload']))return;
+    console.log('modules: the test browser lost localStorage on reload; restoring it and reloading again');
+    await page.evaluate(snap=>{localStorage.clear();for(const [k,v] of Object.entries(snap))localStorage.setItem(k,v);},snap);
+    await page.waitForTimeout(300);
+  }
+  throw Error('localStorage did not survive a reload four times');
+}
 const go=async(page,id)=>{await page.evaluate(id=>{location.hash=id;},id);await page.waitForFunction(id=>document.querySelector('.page-heading')&&location.hash==='#'+id,id);await page.waitForTimeout(250);};
 const shot=(qa,page,name,full=false)=>page.screenshot({path:qa.path.join(qa.shots,name),fullPage:full});
 // No visible element on the page shows an amount (₪) while the lock screen is up.
@@ -186,8 +200,8 @@ async function lockSection(qa){
   assert.equal(await page.inputValue('dialog[open] #backup-form [name=passphrase]'),'טיוטה','the draft is back after unlocking');
   await page.keyboard.press('Escape');
   // 7e. A reload is locked before any amount is painted.
-  await page.reload({waitUntil:'domcontentloaded'});
-  assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('locked')&&!!document.querySelector('#lock-screen')),true,`locked at load (${await page.evaluate(()=>[location.href,document.readyState,localStorage.getItem('ofek-lock-v1')?.slice(0,40),document.documentElement.className].join(' · '))})`);
+  await reloadKeep(page,{waitUntil:'domcontentloaded'});
+  assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('locked')&&!!document.querySelector('#lock-screen')),true,'locked at load');
   assert.equal(await amountsVisible(page),0,'no amount painted at load');
   // 7f. Turning the lock off needs the current PIN.
   await typePin(page,'1234');
@@ -208,7 +222,7 @@ async function lockSection(qa){
   await page.locator('#lock-form [name=ack]').check();
   await page.locator('#lock-form [type=submit]').click();
   await page.waitForFunction(()=>!!localStorage.getItem('ofek-lock-v1'),null,{timeout:10000});
-  await page.reload();
+  await reloadKeep(page);
   await page.locator('#lock-screen').waitFor();
   await page.locator('#lock-screen [data-action="lock-forgot"]').click();
   const wipe=page.locator('#lock-screen [data-action="lock-wipe"]');
@@ -246,11 +260,8 @@ async function screens(qa){
     await shot(qa,page,`v41-M8-alerts-${theme}-${size}.png`);
     await page.keyboard.press('Escape');
     await page.evaluate(()=>localStorage.setItem('ofek-lock-v1',JSON.stringify({v:1,pin:{salt:'AAAAAAAAAAAAAAAAAAAAAA==',iterations:1000,hash:btoa(String.fromCharCode(...new Uint8Array(32))),length:4},minutes:1,bio:{id:'AAEC',created:'2026-10-14'},failures:2,retryAt:0,created:'2026-10-14'})));
-    const before=await page.evaluate(()=>localStorage.getItem('ofek-lock-v1')?.slice(0,20));
-    await context.addInitScript(()=>{window.__toasts=[];new MutationObserver(()=>{const t=document.querySelector('.toast');if(t)window.__toasts.push(t.textContent);}).observe(document,{childList:true,subtree:true});window.__k0=JSON.stringify(Object.keys(localStorage))+location.href.slice(-30);});
-    await page.reload();
-    await page.locator('#lock-screen').waitFor({timeout:5000}).catch(async err=>{throw Error(`DEBUG0 before=${before} `+await page.evaluate(()=>window.__k0+' toasts='+JSON.stringify([...new Set(window.__toasts)])));});
-    await page.locator('#lock-screen').waitFor({timeout:5000}).catch(async err=>{throw Error(`DEBUG ${theme} ${size}: `+await page.evaluate(()=>[document.documentElement.className,!!document.querySelector('#lock-screen'),document.querySelector('#lock-screen')?.outerHTML.slice(0,200),localStorage.getItem('ofek-lock-v1')?.slice(0,30),document.querySelector('.toast')?.textContent,document.querySelector('dialog[open]')?.outerHTML.slice(0,100)].join(' | ')));});
+    await reloadKeep(page);
+    await page.locator('#lock-screen').waitFor();
     await page.locator('#lock-screen [data-lk-key="1"]').click();
     await noOverflow(`lock ${theme} ${size}`);
     const sizes=await page.evaluate(()=>[...document.querySelectorAll('#lock-screen .lk-key')].map(b=>{const r=b.getBoundingClientRect();return Math.min(r.width,r.height);}));
