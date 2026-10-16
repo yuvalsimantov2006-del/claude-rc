@@ -82,7 +82,7 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 }
 .lk-key, .lk-key-empty { width: 64px; height: 64px; }
 .lk-key {
-  display: grid; place-items: center; border-radius: 50%;
+  display: grid; place-items: center; border-radius: var(--r-md);
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border);
   font-family: var(--font-num); font-size: 26px; font-weight: var(--fw-regular); line-height: 1;
@@ -196,10 +196,10 @@ html.privacy main .bn-amount:hover { filter: none; }
 .bn-work-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-5); margin-block-start: var(--sp-3); }
 .bn-stepper {
   display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px;
-  border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border);
 }
 .bn-stepper > .icon-button {
-  width: var(--touch); height: var(--touch); border-radius: 50%;
+  width: var(--touch); height: var(--touch); border-radius: var(--r-xs);
   font-family: var(--font-num); font-size: 22px; line-height: 1; color: var(--text);
   background: var(--surface); border: 1px solid var(--border);
 }
@@ -232,6 +232,9 @@ html.privacy main .bn-amount:hover { filter: none; }
 .bn-form[data-month-only] .bn-date-exact,
 .bn-form:not([data-month-only]) .bn-date-month { display: none; }
 #benefits-form .bn-month-only { align-self: end; min-height: var(--touch); }
+/* The choices always fit: long labels ("שירות לאומי־אזרחי") wrap instead of scrolling the third one out of view. */
+.bn-seg { overflow: visible; }
+.bn-seg > button { min-width: 0; white-space: normal; line-height: 1.25; text-align: center; padding-inline: var(--sp-2); padding-block: var(--sp-1); }
 .bn-result { margin-block-start: var(--sp-4); }
 .bn-lines { display: flex; flex-direction: column; margin-block-end: var(--sp-3); }
 .bn-line {
