@@ -930,6 +930,55 @@ select.quick-more {
 /* Accounts: restricted deposit */
 .account-card.lg-deposit .large-number { color: var(--text); }
 .lg-release { font-size: var(--fs-small); }
+/* Accounts: credit card (§D.3). Its detail values are sentences (amount + date + badge), so the 4.0 rule that
+   isolates the loan amounts left-to-right must not apply here. */
+.account-card .lg-card-details > div > b:not(#\_) { width: auto; direction: inherit; unicode-bidi: normal; }
+.lg-card-details > div > b { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-2); }
+.lg-card-details .badge { font-size: var(--fs-micro); }
+.lg-next-charge { color: var(--text); font-variant-numeric: tabular-nums; }
+.account-card .lg-card-details > .lg-limit { grid-column: 1 / -1; }
+.account-card .lg-card-details > .lg-limit > .progress { margin-block: var(--sp-2) 2px; }
+.lg-card-missing { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); margin-block-start: var(--sp-2); }
+.lg-card-missing > .notice { width: 100%; }
+
+/* "עסקאות בתשלומים" (§D.3): one row per plan — category icon, name and progress, actions */
+.lg-plan-list { display: flex; flex-direction: column; }
+.lg-plan-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3) var(--sp-4);
+  padding-block: var(--sp-4); border-block-start: 1px solid var(--border);
+}
+.lg-plan-row:first-child { border-block-start: 0; padding-block-start: var(--sp-1); }
+.lg-plan-row:last-child { padding-block-end: 0; }
+.lg-plan-row > .category-icon { width: 40px; height: 40px; border-radius: 12px; }
+.lg-plan-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-4); min-width: 0; }
+.lg-plan-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lg-plan-title > b { font-size: var(--fs-body); font-weight: var(--fw-bold); overflow-wrap: anywhere; }
+.lg-plan-title > small { font-size: var(--fs-micro); color: var(--text-muted); }
+.lg-plan-left { grid-column: 2; grid-row: 1; font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lg-plan-main > .progress { grid-column: 1 / -1; margin: 0; }
+.lg-plan-actions { display: flex; align-items: center; gap: var(--sp-1); }
+.lg-plan-actions > .text-button { padding-inline: var(--sp-2); font-size: var(--fs-small); }
+.lg-plan-row.done .lg-plan-title > b, .lg-plan-row.done .lg-plan-left { color: var(--text-muted); }
+
+/* Installments in the transaction form: the toggle gets its own row, the preview is a soft box */
+#entity-form .lg-plan-toggle { grid-column: 1 / -1; }
+.lg-plan-preview {
+  display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md); background: var(--accent-soft); color: var(--text); font-size: var(--fs-small); line-height: 1.6;
+}
+.lg-plan-preview > small { color: var(--text-muted); font-size: var(--fs-micro); }
+.lg-plan-preview > .muted { color: var(--text-muted); }
+
+/* Capture: a bank line that pays a card (§D.3) */
+.capture-table select:not(#\_) { min-width: 116px; }
+.capture-table input[type="text"]:not(#\_) { min-width: 170px; }
+.lg-cap-status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.capture-table td small.lg-cap-note { width: 0; min-width: 100%; white-space: normal; color: var(--text-muted); font-size: var(--fs-micro); line-height: 1.5; }
+.capture-table td .lg-cap-note + .text-button { min-height: 32px; padding: 0; font-size: var(--fs-small); }
+.capture-table tr.lg-cap-card > td { background: color-mix(in srgb, var(--info-soft) 55%, transparent); }
+
+html.privacy .lg-plan-left, html.privacy .lg-next-charge, html.privacy .lg-plan-preview > span { filter: blur(6px); }
+html.privacy .lg-plan-left:hover, html.privacy .lg-next-charge:hover, html.privacy .lg-plan-preview > span:hover { filter: none; }
 html.privacy .lg-effect-lines b, html.privacy .transfer-amount { filter: blur(6px); }
 html.privacy .lg-effect-lines b:hover, html.privacy .transfer-amount:hover { filter: none; }
 
@@ -938,6 +987,18 @@ html.privacy .lg-effect-lines b:hover, html.privacy .transfer-amount:hover { fil
   .lg-transfer-arrow { display: none; }
   .lg-presets > .quick-cat { flex: 1 1 auto; justify-content: center; }
   .account-actions > .button.small { min-height: var(--touch); }
+  .lg-plan-row { grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2) var(--sp-3); }
+  .lg-plan-row > .category-icon { align-self: start; width: 38px; height: 38px; }
+  .lg-plan-main { grid-template-columns: minmax(0, 1fr); }
+  .lg-plan-left { grid-column: 1; grid-row: auto; white-space: normal; }
+  .lg-plan-actions { grid-column: 2; justify-content: flex-start; margin-inline-start: calc(-1 * var(--sp-2)); }
+  .lg-plan-actions > .icon-button { width: var(--touch); height: var(--touch); }
+  .lg-plan-actions > .text-button { min-height: var(--touch); }
+  .capture-table select:not(#\_) { min-width: 0; }
+  .lg-cap-status { flex-direction: row; flex-wrap: wrap; }
+  .capture-table td .lg-cap-note + .text-button { min-height: var(--touch); }
+  .capture-table tr.lg-cap-card { margin-inline: calc(-1 * var(--sp-2)); padding-inline: var(--sp-2); border-radius: var(--r-md); background: color-mix(in srgb, var(--info-soft) 55%, transparent); }
+  .capture-table tr.lg-cap-card > td { background: none; }
   .transaction-icon.transfer { width: 38px; height: 38px; border-radius: 12px; }
   /* The four-way type control of the transaction form (הוצאה · הכנסה · החזר · העברה) */
   #entity-form .segmented.full > button { min-height: var(--touch); }

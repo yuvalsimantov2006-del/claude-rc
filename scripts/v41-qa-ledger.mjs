@@ -1,6 +1,6 @@
 // 4.1 browser checks for WS-LEDGER (§E.2): transfers, the ATM shortcut, paying a loan, refunds, "הפקדתי עכשיו",
-// undo (and its refusal across tabs), the 4.0 upgrade and the phone layout. Part 2 adds the card body,
-// installments (step 5) and the bank-statement card line (step 8).
+// undo (and its refusal across tabs), the 4.0 upgrade and the phone layout; the card body, installments (step 5)
+// and the bank-statement card line (step 8).
 import {demoData,emptyData} from '../src/data.js';
 import {applyTransaction} from '../src/finance.js';
 
@@ -45,6 +45,8 @@ export async function run(qa){
   assert.equal(await balance(s,'bank'),5450);assert.equal(await balance(s,'card'),30);
   await go(page,'accounts');
   assert.match(await page.locator('.metric',{hasText:'סך התחייבויות'}).textContent(),/הלוואות.*כרטיסים/s);
+  const cardBody=await page.locator('.account-card.lg-credit').textContent();
+  assert.match(cardBody,/החיוב הבא/);assert.match(cardBody,/הערכה/);assert.match(cardBody,/יורד מחשבון\s*עו״ש/);assert.match(cardBody,/ב־10 לחודש/);
   await shot(qa,page,'v41-L01-accounts.png',true);
 
   // ---------- 2. Full-form transfer bank → cash 200, then undo restores the exact stored string ----------
@@ -95,6 +97,32 @@ export async function run(qa){
   await page.waitForFunction(()=>!document.querySelector('#entity-form'));
   assert.equal(await balance(s,'loan'),24250);
 
+  // ---------- 5. Installments on the card: 12 × 3,600 bought 2026-09-20 ----------
+  await page.locator('[data-action="card-plan:card"]').click();
+  assert.ok(await page.locator('#entity-form [name=planOn]').isChecked(),'the card opens the form with installments on');
+  assert.match(await page.locator('#entity-form').textContent(),/מחיר מלא/);
+  await page.locator('#entity-form [name=amount]').fill('3600');
+  await page.locator('#entity-form [name=installments]').fill('12');
+  await page.locator('#entity-form [name=date]').fill('2026-09-20');
+  await page.locator('#entity-form [name=description]').fill('אייפון');
+  await page.locator('#entity-form [name=category]').selectOption('קניות');
+  await page.waitForFunction(()=>/12 תשלומים של/.test(document.querySelector('#plan-preview')?.textContent||''));
+  const preview=await page.locator('#plan-preview').textContent();
+  assert.match(preview,/הראשון ב־/);assert.match(preview,/כל תשלום נספר בחודש שבו הוא יורד מהכרטיס/);
+  assert.equal(await page.locator('#entity-form [name=alreadyCharged]').inputValue(),'0');
+  await shot(qa,page,'v41-L06-plan-form.png');
+  await page.locator('#entity-form [type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#entity-form'));
+  assert.match(await toastText(page),/נוספה עסקה בתשלומים: אייפון · 12 ×/);
+  d=await s.stored();
+  assert.equal(d.installments.length,1);assert.equal(d.installments[0].next,2);
+  assert.equal(d.transactions.find(t=>t.id===`inst-${d.installments[0].id}-1`)?.amount,300,'payment 1 (10/10) is recorded');
+  assert.equal(await balance(s,'card'),330);
+  const plans=page.locator('.lg-plans-card');
+  assert.match(await plans.textContent(),/נשארו 11 מתוך 12/);
+  assert.match(await page.locator('.account-card.lg-credit').textContent(),/בתשלומים\s*1 עסקה/);
+  await shot(qa,page,'v41-L07-plans.png',true);
+
   // ---------- 6. Refund: 50 in קניות בסופר shows on the budget card ----------
   await go(page,'transactions');
   await page.locator('[data-action="open:transaction"]').first().click();
@@ -124,6 +152,31 @@ export async function run(qa){
   d=await s.stored();
   assert.equal(d.goals[0].allocation,1500);assert.equal(d.accounts.find(a=>a.id==='sav').balance,2500);assert.equal(await balance(s,'bank'),bankBefore-500);
   assert.equal(d.transactions.at(-1).goalId,'g1');
+
+  // ---------- 8. Capture: a bank line that pays the card becomes a transfer to it ----------
+  {
+    const fx=fixtureL();fx.accounts.find(a=>a.id==='card').institution='ישראכרט';
+    const c=await qa.open({data:fx});await settle(c.page);
+    await go(c.page,'capture');
+    await c.page.locator('[data-action="capture-paste"]').click();
+    await c.page.locator('#capture-text').fill('תאריך\tתיאור\tחובה\tזכות\n12/10/2026\tישראכרט\t850\t\n13/10/2026\tמקסים מסעדה\t120\t');
+    await c.page.locator('[data-action="capture-parse-text"]').click();
+    const line=c.page.locator('.capture-table tbody tr',{hasText:'חיוב כרטיס'});
+    await line.waitFor();
+    assert.equal(await line.count(),1,'only the card company line is a card payment');
+    assert.equal(await line.locator('select[data-cap$=".type"]').inputValue(),'transfer');
+    assert.match(await line.locator('select[data-cap$=".type"]').textContent(),/העברה ל־מקס/);
+    assert.match(await line.textContent(),/לעדכון/);assert.match(await line.textContent(),/החיוב הרשום הוא הערכה/);
+    assert.match(await c.page.locator('.capture-sum').textContent(),/העברות\s*1/);
+    await shot(qa,c.page,'v41-L08-capture.png',true);
+    await c.page.locator('[data-action="capture-save"]').click();
+    await c.page.waitForFunction(()=>/נקלטו 2 תנועות/.test(document.querySelector('.toast')?.textContent||''));
+    const cd=await c.stored(),st=cd.transactions.find(t=>t.id==='card-card-2026-10-10');
+    assert.equal(st.amount,850,'the estimated statement is updated to the bank amount');assert.equal(st.toAmount,850);assert.equal(st.auto.confirm,false);
+    assert.equal(cd.transactions.filter(t=>t.type==='transfer').length,1,'no second card charge');
+    assert.equal(cd.accounts.find(a=>a.id==='bank').balance,6000-850-120);assert.equal(cd.accounts.find(a=>a.id==='card').balance,580-850);
+    await c.context.close();
+  }
 
   // ---------- 9. Undo is refused after another tab saved ----------
   await go(page,'transactions');
@@ -178,10 +231,37 @@ export async function run(qa){
     assert.deepEqual(small,[],`transfer form controls ≥ 44px: ${JSON.stringify(small)}`);
     await shot(qa,p,`v41-L4-${theme}-transfer-form.png`);
     await p.keyboard.press('Escape');
+    await act(p,'open:account');
+    await p.locator('#entity-form [name=kind]').selectOption('credit');
+    await p.locator('#entity-form [name=billingDay]').waitFor();
+    await s.noOverflow(`card form ${theme}`);
+    assert.deepEqual(await tallEnough(p,'#entity-form select, #entity-form input:not([type=hidden])'),[],'card form controls ≥ 44px');
+    await shot(qa,p,`v41-L6-${theme}-card-form.png`,true);
+    await p.keyboard.press('Escape');
+    await act(p,'card-plan:card');
+    await p.locator('#entity-form [name=amount]').fill('3600');
+    await p.locator('#entity-form [name=installments]').fill('12');
+    await p.locator('#entity-form [name=date]').fill('2026-09-20');
+    await p.waitForFunction(()=>/12 תשלומים של/.test(document.querySelector('#plan-preview')?.textContent||''));
+    await s.noOverflow(`plan form ${theme}`);
+    await shot(qa,p,`v41-L7-${theme}-plan-form.png`);
+    await p.locator('#entity-form [type=submit]').click();
+    await p.waitForFunction(()=>!document.querySelector('#entity-form'));
+    await go(p,'accounts');await s.noOverflow(`accounts with plans ${theme}`);
+    assert.deepEqual(await tallEnough(p,'.lg-plan-actions .icon-button, .lg-plan-actions .text-button, .account-actions .button'),[],'plan and card actions ≥ 44px');
+    await p.locator('.lg-plans-card').scrollIntoViewIfNeeded();
+    await shot(qa,p,`v41-L8-${theme}-plans.png`);
+    await go(p,'capture');
+    await p.locator('[data-action="capture-paste"]').click();
+    await p.locator('#capture-text').fill('תאריך\tתיאור\tחובה\tזכות\n12/10/2026\tמקס איט\t850\t\n13/10/2026\tויזה כאל\t120\t');
+    await p.locator('[data-action="capture-parse-text"]').click();
+    await p.locator('.capture-table').waitFor();
+    await s.noOverflow(`capture ${theme}`);
+    await shot(qa,p,`v41-L9-${theme}-capture.png`,true);
     await go(p,'goals');await s.noOverflow(`goals ${theme}`);
     assert.deepEqual(await tallEnough(p,'.lg-goal-deposit .button'),[],'"הפקדתי עכשיו" ≥ 44px');
     await shot(qa,p,`v41-L5-${theme}-goals.png`,true);
     await s.context.close();
   }
-  console.log('ledger: transfers, ATM, loan payment, refund, goal deposit, undo and its refusal, 4.0 upgrade, phone layout — OK');
+  console.log('ledger: card body, transfers, ATM, loan payment, installments, refund, goal deposit, capture card lines, undo and its refusal, 4.0 upgrade, phone layout — OK');
 }

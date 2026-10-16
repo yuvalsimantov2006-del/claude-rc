@@ -69,14 +69,19 @@ export function parseStatementRows(rows,now=today()){
   return {items,skipped,columns:map,kind};
 }
 
-export const CARD_PAYMENT_RE=/ישראכרט|isracard|מקס|max it|לאומי קארד|כאל|cal\b|ויזה|visa|מסטרקארד|mastercard|אמריקן אקספרס|amex|דיינרס|diners|כרטיס(?:י)? אשראי/i;
-const CARD_ISSUER_WORDS={'מקס':/מקס|max/i,'ישראכרט':/ישראכרט|isracard/i,'כאל':/כאל|\bcal\b/i,'אמריקן אקספרס':/אמריקן|amex|american express/i,'דיינרס':/דיינרס|diners/i,'לאומי קארד':/לאומי קארד|leumi card/i};
+// Issuer and card names must stand as words (one Hebrew prefix letter allowed, as in "למקס"), so "מקסים" or
+// "maximum" never turn a real expense into a card payment.
+const capWord=word=>new RegExp(`(?<!\\p{L}\\p{L})(?:${word})(?!\\p{L})`,'iu');
+const capEscape=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+// A bank line that pays a credit card (§C.3): the spec's word list, matched as whole words.
+export const CARD_PAYMENT_RE=capWord('ישראכרט|isracard|מקס|max it|לאומי קארד|כאל|cal|ויזה|visa|מסטרקארד|mastercard|אמריקן אקספרס|amex|דיינרס|diners|כרטיס(?:י)? אשראי');
+const CARD_ISSUER_WORDS={'מקס':capWord('מקס|max'),'ישראכרט':capWord('ישראכרט|isracard'),'כאל':capWord('כאל|cal'),'אמריקן אקספרס':capWord('אמריקן|amex|american express'),'דיינרס':capWord('דיינרס|diners'),'לאומי קארד':capWord('לאומי קארד|leumi card')};
 // The credit account a bank line pays: by the last 4 digits, then by the issuer or the card's name in the text.
 export function matchCard(d,item){
-  const cards=d.accounts.filter(a=>a.kind==='credit'),text=`${item.description||''} ${item.notes||''}`,lower=text.toLowerCase();
+  const cards=d.accounts.filter(a=>a.kind==='credit'),text=`${item.description||''} ${item.notes||''}`;
   const byDigits=item.last4&&cards.find(a=>a.last4&&a.last4===item.last4);if(byDigits)return byDigits.id;
-  const byIssuer=cards.find(a=>CARD_ISSUER_WORDS[a.institution]?.test(text)||(a.institution&&a.institution!=='אחר'&&lower.includes(a.institution.toLowerCase())));if(byIssuer)return byIssuer.id;
-  const byName=cards.find(a=>a.name&&a.name.trim().length>1&&lower.includes(a.name.trim().toLowerCase()));
+  const byIssuer=cards.find(a=>a.institution&&a.institution!=='אחר'&&(CARD_ISSUER_WORDS[a.institution]||capWord(capEscape(a.institution.trim()))).test(text));if(byIssuer)return byIssuer.id;
+  const byName=cards.find(a=>a.name&&a.name.trim().length>1&&capWord(capEscape(a.name.trim())).test(text));
   return byName?.id||'';
 }
 const CAPTURE_REFUND_RE=/זיכוי|החזר(?! מס)|ביטול עסקה|refund/i;

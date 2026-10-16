@@ -43,7 +43,7 @@ function plansCard(){
   const rows=plans.map(({p,g})=>{
     const account=data.accounts.find(a=>a.id===p.accountId)?.name||'חשבון שנמחק',desc=p.description||p.category;
     const sub=g.done?`הסתיימה ב־${dateLabel(g.lastDate)}`:`${account} · התשלום הבא ${dateLabel(g.nextDate)}`;
-    return `<div class="lg-plan-row${g.done?' done':''}">${categoryBadge(p.category)}<div class="lg-plan-main"><div class="lg-plan-title"><b>${e(desc)}</b><small>${e(sub)}</small></div>${progress(g.recorded/g.of*100,'purple')}<span class="lg-plan-left">נשארו ${g.left} מתוך ${g.of} · ${amt(g.leftAmount,p.currency)}</span></div><div class="lg-plan-actions">${ib('Edit3','עריכת '+desc,'plan-edit:'+p.id)}${g.done?'':textBtn('פירעון מוקדם','plan-payoff:'+p.id)}${ib('Trash2','מחיקת '+desc,'plan-remove:'+p.id)}</div></div>`;
+    return `<div class="lg-plan-row${g.done?' done':''}">${categoryBadge(p.category)}<div class="lg-plan-main"><div class="lg-plan-title"><b>${e(desc)}</b><small>${e(sub)}</small></div>${progress(g.recorded/g.of*100,g.done?'green':'purple')}<span class="lg-plan-left">${g.done?`שולמו כל ${g.of} התשלומים`:`נשארו ${g.left} מתוך ${g.of} · ${amt(g.leftAmount,p.currency)}`}</span></div><div class="lg-plan-actions">${ib('Edit3','עריכת '+desc,'plan-edit:'+p.id)}${g.done?'':textBtn('פירעון מוקדם','plan-payoff:'+p.id)}${ib('Trash2','מחיקת '+desc,'plan-remove:'+p.id)}</div></div>`;
   }).join('');
   return card(head('עסקאות בתשלומים',safe(`${active.length} ${active.length===1?'פעילה':'פעילות'} · ${amt(leftTotal)} נותרו לתשלום`))+`<div class="lg-plan-list">${rows}</div>`,'lg-plans-card');
 }

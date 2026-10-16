@@ -392,6 +392,34 @@ test('capture: card refunds become refund rows and match legacy refunds',async()
   assert.equal(markDuplicates(d,[{type:'refund',date:'2026-10-05',amount:30,description:'זיכוי שופרסל'}])[0].status,'duplicate');
 });
 
+test('capture: card-payment lines, duplicates and updates of the automatic statement',async()=>{
+  const {parseStatementRows,prepareCapture,matchCard}=await import('./capture.js');
+  const {textToRows}=await import('./xlsx.js');
+  const d=fixture([acc('bank','bank',6000,{name:'עו״ש'}),acc('isra','credit',0,{name:'הכרטיס',institution:'ישראכרט',billingDay:10,payFrom:'bank',statementsThrough:'2026-09-25'})]);
+  const bank=parseStatementRows([['תאריך','תיאור','חובה','זכות'],['02-10-2026','משכורת','','9000'],['10-10-2026','ישראכרט','850',''],['11-10-2026','מקסים מסעדה','120','']],NOW);
+  assert.equal(bank.kind,'bank');
+  assert.equal(bank.items[1].cardPayment,true);assert.ok(!bank.items[2].cardPayment,'"מקסים" is not the card company מקס');
+  const rows=prepareCapture(d,bank.items,{accountId:'bank'});
+  assert.equal(rows[1].type,'transfer');assert.equal(rows[1].toAccountId,'isra');assert.equal(rows[1].category,'העברה');assert.equal(rows[1].status,'new');
+  assert.equal(rows[2].type,'expense');
+  // Imported into the card itself, a line stays a purchase.
+  assert.equal(prepareCapture(d,bank.items,{accountId:'isra'})[1].type,'expense');
+  // No matching card: an expense with the hint to add the card.
+  const noCard=fixture([acc('bank','bank',6000)]);
+  const hint=prepareCapture(noCard,bank.items,{accountId:'bank'})[1];assert.equal(hint.type,'expense');assert.equal(hint.cardHint,true);
+  // The automatic statement of the same amount within 7 days is the same charge; another amount is an update.
+  book(d,{id:'card-isra-2026-10-10',type:'transfer',amount:850,currency:'ILS',fx:3.7,date:'2026-10-10',category:'העברה',subcategory:'',accountId:'bank',toAccountId:'isra',toAmount:850,description:'חיוב הכרטיס',tags:['חיוב אשראי'],recurring:false,auto:{source:'card',ref:'isra',date:'2026-10-10',confirm:true}});
+  assert.equal(prepareCapture(d,bank.items,{accountId:'bank'})[1].status,'duplicate');
+  const other=parseStatementRows([['תאריך','תיאור','חובה','זכות'],['12-10-2026','ישראכרט','830','']],NOW);
+  const upd=prepareCapture(d,other.items,{accountId:'bank'})[0];
+  assert.equal(upd.status,'possible');assert.equal(upd.update,'card-isra-2026-10-10');assert.equal(upd.updateFrom,850);
+  // Pasted text works the same way; last 4 digits pick the card first.
+  const two=fixture([acc('bank','bank',6000),acc('a','credit',0,{institution:'מקס',billingDay:2,payFrom:'bank',last4:'1234'}),acc('b','credit',0,{institution:'מקס',billingDay:2,payFrom:'bank',last4:'9876'})]);
+  assert.equal(matchCard(two,{description:'מקס איט 9876',last4:'9876'}),'b');
+  const pasted=parseStatementRows(textToRows('תאריך\tתיאור\tחובה\tזכות\n10/10/2026\tישראכרט\t850\t'),NOW);
+  assert.equal(prepareCapture(fixture([acc('bank','bank',6000),acc('isra','credit',0,{institution:'ישראכרט',billingDay:10,payFrom:'bank'})]),pasted.items,{accountId:'bank'})[0].type,'transfer');
+});
+
 test('Claude tools: refunds, totals and propose_transfer',async()=>{
   const {executeAiTool,normalizeProposedTransaction,financialContext,AI_TOOLS}=await import('./ai.js');
   const d=fixture([acc('bank','bank',5000,{name:'עו״ש'}),acc('cash','cash',300,{name:'מזומן'}),acc('loan','debt',25500,{name:'הלוואת רכב',original:45000,payment:1250}),acc('dep','deposit',25000,{name:'פיקדון אישי',releaseDate:'2031-03-01'})],
