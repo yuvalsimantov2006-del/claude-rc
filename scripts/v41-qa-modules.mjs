@@ -1,5 +1,5 @@
-// 4.1 browser checks for WS-MODULES (§E.3): backup safety (steps 1–2), app lock (step 7) and the phone
-// screenshots (step 8). The benefits, salary, deposit and annual-check steps (3–6) are added by part 2.
+// 4.1 browser checks for WS-MODULES (§E.3): backup safety (steps 1–2), after discharge and the points wizard
+// (steps 3–5), the annual check (step 6), app lock (step 7) and the phone/desktop screenshots (step 8).
 import {demoData} from '../src/data.js';
 
 // Fixture M: non-demo 4.0-shaped data, 30 transactions, never backed up.
@@ -121,6 +121,220 @@ async function backupSection(qa){
   assert.equal(await demo.page.locator('dialog .alert-row',{hasText:'זמן לגיבוי מוצפן'}).count(),0,'no reminder for the demo');
   await demo.context.close();
   console.log('modules: backup safety OK (settings card, persist request, bell → encrypted backup, palette, first-save request, demo)');
+}
+
+
+// The §E.3 profile: a man, army, combat, discharged 2026-08-31 after 32 months, 45 combat reserve days in 2025.
+const PROFILE={gender:'m',serviceKind:'army',track:'combat',dischargeDate:'2026-08-31',monthsServed:32,reserveDays:{'2025':45}};
+const toastText=page=>page.evaluate(()=>document.querySelector('.toast')?.textContent||'');
+async function waitToast(page,re){await page.waitForFunction(src=>new RegExp(src).test(document.querySelector('.toast')?.textContent||''),re.source,{timeout:7000});}
+async function fillProfile(page){
+  const form=page.locator('dialog #benefits-form');
+  await form.waitFor();
+  await form.locator('[data-bn-seg="gender"][data-value="m"]').click();
+  await form.locator('[name=serviceKind]').selectOption('army');
+  await form.locator('[name=track]').selectOption('combat');
+  await form.locator('[name=dischargeDate]').fill('2026-08-31');
+  await form.locator('[name=monthsServed]').fill('32');
+  await form.locator('[name=reservePrev]').fill('45');
+  return form;
+}
+
+// 3–5. The benefits page, the profile, the grant, the work tracker, the points wizard and the deposit account.
+async function benefitsSection(qa){
+  const {assert}=qa;
+  const {context,page}=await openM(qa);
+  await go(page,'benefits');
+  // 3a. No profile: the empty state and the "לא שירתת?" card.
+  await page.locator('.bn-start .empty').waitFor();
+  assert.match(await page.locator('.bn-start').textContent(),/מה מגיע לך אחרי השחרור\?/);
+  assert.match(await page.locator('.bn-nonserved').textContent(),/נקודות זיכוי ובדיקה שנתית רלוונטיות לכולם/);
+  assert.match(await page.locator('.page-content > .notice').first().textContent(),/נכון ל־14.10.2026/);
+  // 3b. The profile dialog: errors first, then the §E.3 profile.
+  await page.locator('.bn-start [data-action="bn-profile"]').click();
+  const form=await fillProfile(page);
+  assert.equal(await form.locator('[name=track]').isVisible(),true,'army shows the track');
+  await form.locator('[name=monthsServed]').fill('');
+  await form.locator('[type=submit]').click();
+  await form.locator('.form-error',{hasText:'חודשי השירות צריכים להיות מספר שלם בין 1 ל־60.'}).waitFor();
+  await form.locator('[name=serviceKind]').selectOption('national');
+  assert.equal(await form.locator('[name=track]').isVisible(),false,'national hides the track');
+  await form.locator('[name=serviceKind]').selectOption('army');
+  await form.locator('[name=monthOnly]').check();
+  assert.equal(await form.locator('[name=dischargeMonth]').inputValue(),'2026-08','month-only keeps the month');
+  assert.equal(await form.locator('[name=dischargeDate]').isVisible(),false);
+  await form.locator('[name=monthOnly]').uncheck();
+  await form.locator('[name=monthsServed]').fill('32');
+  await form.locator('[type=submit]').click();
+  await waitToast(page,/הפרטים נשמרו/);
+  const b=(await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')))).benefits;
+  assert.deepEqual([b.gender,b.serviceKind,b.track,b.dischargeDate,b.monthsServed,b.reserveDays['2025']],['m','army','combat','2026-08-31',32,45]);
+  // 3c. The summary: rounded estimates, each labelled; the cards carry "נכון ל־"; the points metric.
+  const metrics=page.locator('.bn-summary .metric');
+  assert.match(await metrics.nth(0).textContent(),/21,983/);assert.match(await metrics.nth(0).textContent(),/הערכה/);
+  assert.match(await metrics.nth(1).textContent(),/32,003/);assert.match(await metrics.nth(1).textContent(),/הערכה/);
+  assert.match(await metrics.nth(2).textContent(),/3\.67/);
+  for(const [cls,amount] of [['.bn-grant','21,983'],['.bn-deposit','32,003']]){
+    const est=page.locator(`${cls} .bn-estimate`).first();
+    assert.match(await est.textContent(),new RegExp(amount));assert.match(await est.textContent(),/הערכה/);assert.match(await est.textContent(),/נכון ל־/);
+  }
+  assert.match(await page.locator('.bn-grant').textContent(),/עד 30\.10\.2026/);
+  assert.match(await page.locator('.bn-deposit').textContent(),/14\.9\.2026/);
+  assert.match(await page.locator('.bn-deposit').textContent(),/31\.8\.2031/);
+  assert.match(await page.locator('.bn-work').textContent(),/31\.8\.2028/);
+  assert.match(await page.locator('.bn-work').textContent(),/28\.2\.2030/);
+  assert.match(await page.locator('.bn-work .bn-estimate').textContent(),/11,461/);
+  const hrefs=await page.locator('.bn-sources a').evaluateAll(list=>list.map(a=>a.href));
+  assert.ok(hrefs.some(h=>h.includes('hachvana.mod.gov.il')),'sources list hachvana');
+  assert.ok(hrefs.some(h=>h.includes('btl.gov.il')),'sources list btl');
+  const links=await page.locator('main a[target=_blank]').evaluateAll(list=>list.map(a=>[a.rel,a.querySelector('bdi[dir=ltr]')?1:0]));
+  assert.ok(links.length&&links.every(([rel,bdi])=>rel==='noopener noreferrer'&&bdi),'external links: rel and the domain in a bdi');
+  // 3d. "המענק נכנס": records the income and marks the grant received.
+  await page.locator('.bn-grant [data-action="bn-grant"]').click();
+  const grant=page.locator('dialog #grant-form');
+  await grant.waitFor();
+  assert.equal(await grant.locator('[name=amount]').inputValue(),'21982.72','prefilled with the estimate');
+  await grant.locator('[name=amount]').fill('21500');
+  await grant.locator('[type=submit]').click();
+  await waitToast(page,/המענק נרשם/);
+  let stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
+  const row=stored.transactions.find(t=>t.description==='מענק שחרור');
+  assert.ok(row&&row.type==='income'&&row.amount===21500&&row.category==='מענקים'&&row.tags.includes('שחרור'),'the grant is an income row');
+  assert.ok(stored.categories.includes('מענקים'));
+  assert.deepEqual([stored.benefits.grantReceived,stored.benefits.grantAmount],['2026-10-14',21500]);
+  await page.locator('.bn-grant .badge',{hasText:'התקבל'}).waitFor();
+  // 3e. The work tracker: + twice, agriculture, start month.
+  await page.locator('.bn-work [data-action="bn-work:1"]').click();
+  await page.locator('.bn-work [data-action="bn-work:1"]').click();
+  await page.locator('.bn-work [data-bn-agri]').check();
+  await page.locator('.bn-work [data-bn-start]').fill('2026-09');
+  await page.locator('.bn-work [data-bn-start]').dispatchEvent('change');
+  stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
+  assert.deepEqual(stored.benefits.work,{months:2,agriculture:true,startMonth:'2026-09',claimed:null});
+  assert.match(await page.locator('.bn-work').textContent(),/4 חודשים בחקלאות/);
+  assert.match(await page.locator('.bn-work .bn-estimate').textContent(),/7,641/);
+  await page.locator('.bn-work [data-action="bn-work:-1"]').click();
+  await page.locator('.bn-work [data-bn-agri]').uncheck();
+  // 4. Tools → salary → "חישוב הנקודות שלי" → "שימוש במחשבון השכר".
+  await go(page,'tools');
+  await page.locator('.bn-points-hint [data-action="points-wizard"]').click();
+  const wizard=page.locator('dialog #points-form');
+  await wizard.waitFor();
+  assert.match(await wizard.locator('.bn-result').textContent(),/סך הכול 3\.67 נקודות/);
+  assert.match(await wizard.locator('.bn-result').textContent(),/נכון ל־/);
+  await wizard.locator('[name=reserveDays]').fill('110');
+  await page.waitForFunction(()=>/סך הכול 6\.92 נקודות/.test(document.querySelector('#points-form .bn-result')?.textContent||''));
+  await wizard.locator('[name=reserveDays]').fill('45');
+  await wizard.locator('[type=submit]').click();
+  await waitToast(page,/נקודות הזיכוי עודכנו: 3\.67 \(הערכה\)/);
+  await page.waitForFunction(()=>location.hash==='#tools');
+  assert.equal(await page.locator('[data-tool="salary.points"]').inputValue(),'3.67');
+  stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
+  assert.ok(Math.abs(stored.benefits.points.total-3.6667)<.001,`benefits.points.total ≈ 3.6667 (${stored.benefits.points.total})`);
+  assert.match(await page.locator('.bn-points-hint').textContent(),/לפי האשף: 3\.67 נקודות/);
+  assert.equal(stored.benefits.dischargeDate,'2026-08-31','the wizard keeps the exact discharge date');
+  // 5. The deposit as a restricted account (only when LEDGER's deposit kind is built).
+  await go(page,'benefits');
+  const add=page.locator('.bn-deposit [data-action="bn-deposit-account"]');
+  if(await add.count()){
+    await add.click();
+    const entity=page.locator('dialog #entity-form');
+    await entity.waitFor();
+    assert.equal(await entity.locator('[name=kind]').inputValue(),'deposit');
+    assert.equal(await entity.locator('[name=releaseDate]').inputValue(),'2031-08-31');
+    assert.equal(await entity.locator('[name=name]').inputValue(),'פיקדון אישי');
+    await entity.locator('[type=submit]').click();
+    await page.locator('dialog #entity-form').waitFor({state:'detached'});
+    await go(page,'accounts');
+    const accountCard=page.locator('.account-card',{hasText:'פיקדון אישי'});
+    assert.match(await accountCard.textContent(),/פיקדון מוגבל/);
+    assert.match(await accountCard.locator('.bn-account-link').textContent(),/מה מותר לעשות בפיקדון\?/);
+    stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
+    const dep=stored.accounts.find(a=>a.kind==='deposit');
+    assert.deepEqual([dep.releaseDate,dep.balance,dep.institution],['2031-08-31',32003,'משרד הביטחון']);
+    await go(page,'benefits');
+    await page.locator('.bn-deposit [data-action="navigate:accounts"]').waitFor();
+  }else console.log('modules: skipped: deposit kind not built yet');
+  // Palette entries.
+  await page.keyboard.press('Control+K');
+  await page.locator('#palette-input').fill('אשף נקודות');
+  await page.locator('.palette-item',{hasText:'אשף נקודות הזיכוי'}).first().click();
+  await page.locator('dialog #points-form').waitFor();
+  await page.keyboard.press('Escape');
+  await context.close();
+
+  // The bell: the grant is late 60 days after discharge; the tax refund reminder; the action opens the page.
+  const late=fixtureM();late.benefits={gender:'f',serviceKind:'army',track:'support',dischargeDate:'2021-08-01',monthsServed:24};
+  const second=await qa.open({data:{...late,benefits:{...late.benefits,dischargeDate:'2026-08-01'}}});
+  await settle(second.page);
+  await second.page.locator('.alerts-button').first().click();
+  const lateRow=second.page.locator('dialog .alert-row',{hasText:'מענק השחרור עוד לא נכנס?'});
+  await lateRow.waitFor();
+  await lateRow.click();
+  await second.page.waitForFunction(()=>location.hash==='#benefits');
+  await second.page.locator('.bn-grant .notice.warning',{hasText:'עברו 60 יום והמענק לא נכנס?'}).waitFor();
+  await second.context.close();
+  const third=await qa.open({data:late});
+  await settle(third.page);
+  await third.page.locator('.alerts-button').first().click();
+  await third.page.locator('dialog .alert-row',{hasText:'ייתכן שמגיע לך החזר מס'}).waitFor();
+  await third.page.keyboard.press('Escape');
+  await go(third.page,'benefits');
+  assert.match(await third.page.locator('.bn-points').textContent(),/2021, 2022, 2023, 2024/);
+  await third.context.close();
+  console.log('modules: after discharge OK (empty state, profile errors and save, estimates with הערכה/נכון ל־, grant row, work tracker, wizard → salary 3.67, deposit account, bell, palette)');
+}
+
+// 6. The annual check on the insights page, its bell reminder and the palette entry.
+async function annualSection(qa){
+  const {assert}=qa;
+  const {context,page}=await openM(qa);
+  await go(page,'insights');
+  const card=page.locator('.an-card');
+  await card.waitFor();
+  assert.match(await card.locator('h2').textContent(),/הבדיקה השנתית שלך/);
+  assert.match(await card.locator('.notice.warning').textContent(),/זהירות מאתרים מתחזים/);
+  assert.equal(await card.locator('.an-row').count(),6);
+  assert.match(await card.locator('.section-head .badge').textContent(),/6 לבדיקה/);
+  const hrefs=await card.locator('.an-row a[target=_blank]').evaluateAll(list=>list.map(a=>a.getAttribute('href')));
+  assert.deepEqual(hrefs,['https://www.creditdata.org.il/publications/report/','https://harb.cma.gov.il','https://itur.mof.gov.il','https://www.swiftness.co.il','https://www.gov.il/he/service/itc135','https://www.btl.gov.il/benefits/children/HisahoLayeled/Pages/default.aspx']);
+  await card.locator('[data-action="annual-done:credit-report"]').click();
+  await page.locator('.an-row[data-annual="credit-report"] .badge',{hasText:'נבדק ב־'}).waitFor();
+  let stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
+  assert.equal(stored.annualChecks['credit-report'].done,'2026-10-14');
+  assert.match(await page.locator('.an-card .section-head .badge').textContent(),/5 לבדיקה/);
+  await page.locator('[data-action="annual-skip:pension"]').click();
+  await page.locator('.an-row[data-annual="pension"] .badge',{hasText:'לא רלוונטי'}).waitFor();
+  assert.deepEqual((await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')))).annualChecks.pension,{skip:true});
+  await page.locator('[data-action="annual-skip:pension"]').click();
+  await page.locator('.an-row[data-annual="pension"] .badge',{hasText:'לא נבדק השנה'}).waitFor();
+  await page.locator('[data-action="annual-undo:credit-report"]').click();
+  await page.locator('.an-row[data-annual="credit-report"] .badge',{hasText:'לא נבדק השנה'}).waitFor();
+  stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('ofek-finance-v1')));
+  assert.deepEqual(stored.annualChecks,{},'undo and un-skip leave no record');
+  await card.locator('[data-action="annual-done:credit-report"]').click();
+  await page.locator('.an-row[data-annual="credit-report"] .badge',{hasText:'נבדק ב־'}).waitFor();
+  // The bell lists the yearly reminder (no createdAt → the 30-day grace does not apply); it opens insights.
+  await go(page,'dashboard');
+  await page.locator('.alerts-button').first().click();
+  const row=page.locator('dialog .alert-row',{hasText:'הבדיקה השנתית מחכה לך'});
+  await row.waitFor();
+  assert.match(await row.textContent(),/5 בדיקות קצרות/);
+  await row.click();
+  await page.waitForFunction(()=>location.hash==='#insights');
+  await page.keyboard.press('Control+K');
+  await page.locator('#palette-input').fill('הבדיקה השנתית');
+  await page.locator('.palette-item',{hasText:'הבדיקה השנתית'}).first().click();
+  await page.locator('.an-card').waitFor();
+  await context.close();
+  // A new user (createdAt 10 days ago) gets no yearly reminder yet.
+  const fresh=await qa.open({data:{...fixtureM(),createdAt:'2026-10-04'}});
+  await settle(fresh.page);
+  await fresh.page.locator('.alerts-button').first().click();
+  await fresh.page.locator('dialog[open]').waitFor();
+  assert.equal(await fresh.page.locator('dialog .alert-row',{hasText:'הבדיקה השנתית מחכה לך'}).count(),0,'no reminder in the first 30 days');
+  await fresh.context.close();
+  console.log('modules: annual check OK (six rows and official URLs, scam warning, בדקתי/לא רלוונטי/ביטול, bell after 30 days, palette)');
 }
 
 async function lockSection(qa){
@@ -264,6 +478,41 @@ async function screens(qa){
   const {assert}=qa;
   for(const theme of ['light','dark'])for(const [size,width,height] of [['phone',390,844],['desktop',1280,900]]){
     const {context,page,noOverflow}=await openM(qa,{theme,width,height});
+    // After discharge: the empty state, the profile dialog, the filled page and the wizard.
+    await go(page,'benefits');
+    await page.locator('.bn-start').waitFor();
+    await noOverflow(`benefits empty ${theme} ${size}`);
+    await shot(qa,page,`v41-M8-benefits-empty-${theme}-${size}.png`);
+    await page.locator('.bn-start [data-action="bn-profile"]').click();
+    await fillProfile(page);
+    await page.waitForTimeout(350);
+    await shot(qa,page,`v41-M8-benefits-profile-${theme}-${size}.png`);
+    await page.locator('dialog #benefits-form [type=submit]').click();
+    await page.locator('.bn-summary').waitFor();
+    await page.locator('.bn-work [data-action="bn-work:1"]').click();
+    await page.locator('.bn-work [data-action="bn-work:1"]').click();
+    await page.waitForTimeout(300);
+    await noOverflow(`benefits ${theme} ${size}`);
+    await shot(qa,page,`v41-M8-benefits-${theme}-${size}.png`,true);
+    await page.locator('.bn-points [data-action="points-wizard"]').click();
+    await page.locator('dialog #points-form').waitFor();
+    await page.waitForTimeout(350);
+    await noOverflow(`wizard ${theme} ${size}`);
+    await shot(qa,page,`v41-M8-wizard-${theme}-${size}.png`);
+    await page.locator('dialog #points-form .bn-result').screenshot({path:qa.path.join(qa.shots,`v41-M8-wizard-result-${theme}-${size}.png`)});
+    await page.keyboard.press('Escape');
+    await go(page,'tools');
+    await page.locator('.bn-points-hint').screenshot({path:qa.path.join(qa.shots,`v41-M8-salary-hint-${theme}-${size}.png`)});
+    // The annual check card.
+    await go(page,'insights');
+    await page.locator('[data-action="annual-done:insurance"]').click();
+    await page.locator('[data-action="annual-skip:pension"]').click();
+    await page.locator('.an-card').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+    await noOverflow(`insights ${theme} ${size}`);
+    const tapTargets=await page.evaluate(()=>[...document.querySelectorAll('.an-card .an-actions > *,.bn-stepper > button')].map(b=>Math.round(b.getBoundingClientRect().height)));
+    if(size==='phone')assert.ok(tapTargets.every(h=>h>=40),`annual and stepper targets on phone (${tapTargets})`);
+    await page.locator('.an-card').screenshot({path:qa.path.join(qa.shots,`v41-M8-annual-${theme}-${size}.png`)});
     await go(page,'settings');
     await page.locator('.bk-card').scrollIntoViewIfNeeded();
     await page.waitForTimeout(400);
@@ -288,11 +537,13 @@ async function screens(qa){
     await shot(qa,page,`v41-M8-forgot-${theme}-${size}.png`);
     await context.close();
   }
-  console.log('modules: screenshots v41-M8-* (light/dark, phone/desktop), no horizontal scroll, keypad ≥ 44px');
+  console.log('modules: screenshots v41-M8-* (light/dark, phone/desktop): benefits, wizard, annual, settings, lock; no horizontal scroll, keypad ≥ 44px');
 }
 
 export async function run(qa){
   await backupSection(qa);
+  await benefitsSection(qa);
+  await annualSection(qa);
   await lockSection(qa);
   await screens(qa);
 }

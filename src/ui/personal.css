@@ -116,6 +116,157 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 .lk-actions > .button { width: 100%; justify-content: center; }
 .lk-actions > .button.danger:disabled { opacity: .5; cursor: not-allowed; }
 
+
+/* ============================================================
+   After discharge (benefits-ui.js): page, estimates, wizard
+   ============================================================ */
+/* The profile strip at the top of the page */
+.bn-profile {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4); border-radius: var(--r-lg);
+  background: var(--card-bg); border: 1px solid var(--border); box-shadow: var(--shadow-1);
+}
+.bn-profile > div { flex: 1; min-width: 0; }
+.bn-profile b { display: block; font-size: var(--fs-small); font-weight: var(--fw-bold); }
+.bn-profile small { display: block; margin-block-start: 2px; font-size: var(--fs-small); color: var(--text-muted); line-height: 1.5; }
+.bn-profile > .text-button { flex: none; }
+
+/* Cards: text rhythm, actions and official links */
+.bn-columns > .card { display: flex; flex-direction: column; }
+.bn-columns > .card > .section-head { margin-block-end: var(--sp-3); }
+.bn-text { margin-block-start: var(--sp-3); font-size: var(--fs-small); line-height: 1.7; color: var(--text); }
+.bn-text.muted { color: var(--text-muted); }
+.bn-note { display: block; margin-block-start: var(--sp-2); font-size: var(--fs-micro); line-height: 1.5; color: var(--text-muted); }
+.card .bn-text + .notice, .card .bn-estimate + .notice, .card .bn-dates + .notice, .card .notice + .bn-estimate,
+.card .bn-work-controls + .notice, .card .notice + .notice { margin-block-start: var(--sp-3); }
+.bn-actions { margin-block-start: var(--sp-4); }
+.bn-columns .bn-actions { margin-block-start: auto; padding-block-start: var(--sp-4); }
+.bn-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-4); margin-block-start: var(--sp-2); }
+.bn-link, .an-link { gap: var(--sp-1); }
+.bn-domain, .an-domain {
+  font-size: var(--fs-micro); font-weight: var(--fw-regular); color: var(--text-subtle);
+  margin-inline-start: var(--sp-1);
+}
+.bn-received { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); color: var(--positive); font-weight: var(--fw-bold); }
+.bn-received > svg { flex: none; }
+.bn-received > .text-button { margin-inline-start: auto; font-weight: var(--fw-regular); }
+.bn-none .bn-text { margin-block-start: 0; }
+
+/* The estimate box: badge + value, the "as of" line and the sources */
+.bn-estimate {
+  margin-block-start: var(--sp-1); padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border);
+}
+.bn-est-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.bn-est-value { font-size: var(--fs-body); font-weight: var(--fw-bold); line-height: 1.5; color: var(--text); }
+.bn-amount {
+  display: inline-block; font-family: var(--font-num); font-size: var(--fs-num-lg); font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight); font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.bn-est-meta { display: block; margin-block-start: var(--sp-1); font-size: var(--fs-micro); line-height: 1.5; color: var(--text-muted); }
+.bn-est-src { margin-block-start: var(--sp-1); font-size: var(--fs-micro); }
+.bn-est-src > summary, .bn-older > summary {
+  display: inline-flex; align-items: center; min-height: 28px; cursor: pointer;
+  color: var(--accent-text); font-weight: var(--fw-bold); list-style: none;
+}
+.bn-est-src > summary::-webkit-details-marker, .bn-older > summary::-webkit-details-marker { display: none; }
+.bn-est-src > summary::after, .bn-older > summary::after {
+  content: ""; inline-size: 6px; block-size: 6px; margin-inline-start: var(--sp-2);
+  border-inline-end: 1.6px solid currentColor; border-block-end: 1.6px solid currentColor;
+  transform: translateY(-2px) rotate(45deg); transition: transform var(--dur-fast) var(--ease-out);
+}
+.bn-est-src[open] > summary::after, .bn-older[open] > summary::after { transform: translateY(1px) rotate(225deg); }
+.bn-est-src ul { margin: var(--sp-1) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.bn-est-src li .text-button { min-height: 32px; font-size: var(--fs-micro); text-align: start; }
+html.privacy main .bn-amount { filter: blur(7px); }
+html.privacy main .bn-amount:hover { filter: none; }
+
+/* "Older information you may see online" */
+.bn-older {
+  margin-block-start: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm); border: 1px dashed var(--border-strong);
+  font-size: var(--fs-small);
+}
+.bn-older > p { margin-block: var(--sp-1) var(--sp-1); color: var(--text-muted); line-height: 1.6; }
+
+/* Required-work tracker */
+.bn-progress { display: flex; flex-direction: column; gap: var(--sp-2); }
+.bn-progress > span { font-size: var(--fs-small); color: var(--text-muted); }
+.bn-progress > span b { color: var(--text); font-family: var(--font-num); }
+.bn-work-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-5); margin-block-start: var(--sp-3); }
+.bn-stepper {
+  display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px;
+  border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border);
+}
+.bn-stepper > .icon-button {
+  width: var(--touch); height: var(--touch); border-radius: 50%;
+  font-family: var(--font-num); font-size: 22px; line-height: 1; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border);
+}
+.bn-stepper > .icon-button:hover:not(:disabled) { background: var(--hover); }
+.bn-stepper > .icon-button:disabled { opacity: .4; cursor: not-allowed; }
+.bn-stepper-value { min-width: 2.2ch; text-align: center; font-family: var(--font-num); font-size: var(--fs-num-md); font-weight: var(--fw-bold); }
+.bn-work-controls .check-field { min-height: var(--touch); }
+.bn-start-field { flex: 1 1 180px; max-width: 240px; }
+.bn-dates { margin-block-start: var(--sp-3); }
+
+/* Sources */
+.bn-sources { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--sp-6); }
+.bn-sources li {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding-block: var(--sp-2); border-block-start: 1px solid var(--border);
+}
+.bn-sources li > div { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.bn-sources .text-button { min-height: 32px; text-align: start; flex-wrap: wrap; }
+.bn-sources small { font-size: var(--fs-micro); color: var(--text-muted); }
+.bn-sources .badge { flex: none; }
+
+/* Salary tool hint, deposit account link */
+.bn-points-hint { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-block-start: calc(var(--sp-2) * -1); }
+.bn-points-hint small { font-size: var(--fs-micro); color: var(--text-muted); }
+.bn-account-link { margin-block-start: var(--sp-2); }
+
+/* Profile dialog and wizard: fields that depend on the service kind */
+.bn-form:not([data-kind="army"]) .bn-for-army,
+.bn-form:not([data-kind="army"]):not([data-kind="national"]) .bn-for-served,
+.bn-form[data-month-only] .bn-date-exact,
+.bn-form:not([data-month-only]) .bn-date-month { display: none; }
+#benefits-form .bn-month-only { align-self: end; min-height: var(--touch); }
+.bn-result { margin-block-start: var(--sp-4); }
+.bn-lines { display: flex; flex-direction: column; margin-block-end: var(--sp-3); }
+.bn-line {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3);
+  padding-block: var(--sp-2); border-block-start: 1px solid var(--border);
+}
+.bn-line:first-child { border-block-start: 0; }
+.bn-line > div { min-width: 0; display: flex; flex-direction: column; }
+.bn-line span { font-size: var(--fs-small); }
+.bn-line small { font-size: var(--fs-micro); line-height: 1.5; color: var(--text-muted); }
+.bn-line > b { flex: none; font-family: var(--font-num); font-size: var(--fs-num-sm); font-variant-numeric: tabular-nums; }
+.bn-howto { margin-block-start: var(--sp-3); display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+
+/* ============================================================
+   Annual check (annual-ui.js): the insights card
+   ============================================================ */
+.an-card > .notice { margin-block-end: var(--sp-2); }
+.an-list { display: flex; flex-direction: column; }
+.an-row {
+  display: grid; grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-areas: "icon text status" "icon actions actions";
+  column-gap: var(--sp-3); row-gap: var(--sp-1);
+  padding-block: var(--sp-3); border-block-start: 1px solid var(--border);
+}
+.an-row:first-child { border-block-start: 0; }
+.an-row > .asset-icon { grid-area: icon; align-self: start; }
+.an-text { grid-area: text; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.an-text b { font-size: var(--fs-body); font-weight: var(--fw-bold); }
+.an-text small { font-size: var(--fs-small); line-height: 1.6; color: var(--text-muted); }
+.an-text .an-cost { font-size: var(--fs-micro); color: var(--text-subtle); }
+.an-status { grid-area: status; align-self: start; }
+.an-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-4); }
+.an-row.an-skip .an-text { opacity: .65; }
+.an-row.an-skip .an-text small { display: none; }
+
 @media (max-width: 760px) {
   /* Phone: the action moves under the text, aligned with it (icon column stays empty). */
   .bk-row { display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: var(--sp-3); row-gap: var(--sp-2); align-items: center; }
@@ -125,6 +276,14 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
   .lk-card > .actions > .button.danger { margin-inline-start: 0; }
   .lk-screen { place-items: start center; padding-block-start: max(var(--sp-10), env(safe-area-inset-top)); }
   .lk-keypad { gap: var(--sp-3) var(--sp-6); }
+  .bn-profile { padding: var(--sp-3); }
+  .bn-sources { grid-template-columns: minmax(0, 1fr); }
+  .bn-start-field { max-width: none; flex-basis: 100%; }
+  .bn-columns .bn-actions { margin-block-start: var(--sp-4); }
+  .an-row { grid-template-columns: 38px minmax(0, 1fr); grid-template-areas: "icon text" ". status" ". actions"; }
+  .an-status { margin-block-start: var(--sp-1); }
+  .an-actions { gap: 0 var(--sp-4); }
+  .an-actions > .button.small { min-height: 40px; }
 }
 @media (max-width: 360px) {
   .lk-keypad { gap: var(--sp-3) var(--sp-4); }

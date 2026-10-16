@@ -208,3 +208,17 @@ export function payOffPlan(d,planId,now=today()){
 }
 // Deletes the plan; payments already recorded stay in the transactions.
 export function removePlan(d,planId){d.installments=(d.installments||[]).filter(p=>p.id!==planId);}
+// What a new plan would look like (the transaction form's live preview): amounts and the first and last dates.
+export function previewPlan(d,{accountId,total,count,purchaseDate}){
+  const value=lgRound(Number(total)),n=Number(count);
+  if(!lgAccount(d,accountId)||!(value>0)||!Number.isInteger(n)||n<2||n>60||!validDate(purchaseDate))return null;
+  const plan={accountId,purchaseDate,total:value,count:n,firstMonth:firstPlanMonth(d,accountId,purchaseDate)};
+  return {each:installmentAmount(plan,1),last:installmentAmount(plan,n),first:installmentDate(d,plan,1),lastDate:installmentDate(d,plan,n),onCard:lgAccount(d,accountId).kind==='credit'};
+}
+// The card's account-page numbers: unfinished plans on it, what they still owe, and the credit line in use
+// (what is owed now plus the payments still to come, as card companies count it).
+export function cardSummary(d,card,now=today()){
+  const plans=(d.installments||[]).filter(p=>p.accountId===card.id&&p.next<=p.count);
+  const left=lgRound(plans.reduce((s,p)=>s+planProgress(d,p,now).leftAmount,0));
+  return {plans:plans.length,left,used:lgRound(Math.max(0,Number(card.balance))+left),limit:Number(card.creditLimit)>0?Number(card.creditLimit):null};
+}

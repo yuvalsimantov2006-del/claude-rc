@@ -62,10 +62,23 @@ export function parseStatementRows(rows,now=today()){
   const kind=debitColumns?'bank':mostlyPositive?'card':'bank';
   // Money back on a card statement, or a bank credit that says זיכוי/החזר (not החזר מס), is a refund (§C.5). The parsed
   // rows keep the 4.0 shape (type 'income' + refund:true); prepareCapture turns them into type 'refund'.
-  for(const item of items){item.type=debitColumns?(item.sign<0?'expense':'income'):(mostlyPositive?(item.sign>0?'expense':'income'):(item.sign<0?'expense':'income'));if(item.type==='income'&&(kind==='card'||CAPTURE_REFUND_RE.test(`${item.description} ${item.notes||''}`)))item.refund=true;delete item.sign;}
+  for(const item of items){item.type=debitColumns?(item.sign<0?'expense':'income'):(mostlyPositive?(item.sign>0?'expense':'income'):(item.sign<0?'expense':'income'));if(item.type==='income'&&(kind==='card'||CAPTURE_REFUND_RE.test(`${item.description} ${item.notes||''}`)))item.refund=true;delete item.sign;
+    // A bank line that pays a credit card (§C.3): money out whose text names a card company. prepareCapture turns it
+    // into a transfer to the matching card account, so the card's purchases are never counted twice.
+    if(kind==='bank'&&item.type==='expense'&&CARD_PAYMENT_RE.test(`${item.description} ${item.notes||''}`)){item.cardPayment=true;const digits=String(item.description).match(/\b(\d{4})\b/);if(digits)item.last4=digits[1];}}
   return {items,skipped,columns:map,kind};
 }
 
+export const CARD_PAYMENT_RE=/ישראכרט|isracard|מקס|max it|לאומי קארד|כאל|cal\b|ויזה|visa|מסטרקארד|mastercard|אמריקן אקספרס|amex|דיינרס|diners|כרטיס(?:י)? אשראי/i;
+const CARD_ISSUER_WORDS={'מקס':/מקס|max/i,'ישראכרט':/ישראכרט|isracard/i,'כאל':/כאל|\bcal\b/i,'אמריקן אקספרס':/אמריקן|amex|american express/i,'דיינרס':/דיינרס|diners/i,'לאומי קארד':/לאומי קארד|leumi card/i};
+// The credit account a bank line pays: by the last 4 digits, then by the issuer or the card's name in the text.
+export function matchCard(d,item){
+  const cards=d.accounts.filter(a=>a.kind==='credit'),text=`${item.description||''} ${item.notes||''}`,lower=text.toLowerCase();
+  const byDigits=item.last4&&cards.find(a=>a.last4&&a.last4===item.last4);if(byDigits)return byDigits.id;
+  const byIssuer=cards.find(a=>CARD_ISSUER_WORDS[a.institution]?.test(text)||(a.institution&&a.institution!=='אחר'&&lower.includes(a.institution.toLowerCase())));if(byIssuer)return byIssuer.id;
+  const byName=cards.find(a=>a.name&&a.name.trim().length>1&&lower.includes(a.name.trim().toLowerCase()));
+  return byName?.id||'';
+}
 const CAPTURE_REFUND_RE=/זיכוי|החזר(?! מס)|ביטול עסקה|refund/i;
 const ISSUER_CATEGORIES=[[/מסעד|קפה|ברים|מזון מהיר|food|restaurant|cafe/i,'מסעדות'],[/סופר|מזון ומשקאות|מכולת|grocer|supermarket/i,'קניות בסופר'],[/דלק|תחנות|fuel|gas station/i,'דלק'],[/רכב|תחבורה|חניה|מוסך|car|parking|transport/i,'רכב'],[/תקשורת|סלולר|אינטרנט|חשמל|מים|גז|עירי|ארנונה|ביטוח|utilities|insurance|telecom/i,'חשבונות'],[/רפוא|בריאות|מרקחת|פארם|health|pharm|medical/i,'בריאות'],[/ספורט|כושר|gym|fitness/i,'כושר'],[/פנאי|בידור|תרבות|קולנוע|entertainment|leisure/i,'בילויים'],[/אופנה|הלבשה|ביגוד|הנעלה|קניות|fashion|clothing|shopping|אלקטרוניקה|מחשבים|עיצוב הבית|ריהוט|home/i,'קניות'],[/תיירות|טיסות|מלונות|travel|airline|hotel/i,'נסיעות'],[/חינוך|לימוד|ספרים|education/i,'לימודים'],[/תרומ|donat|charity/i,'תרומות'],[/מתנ|gift/i,'מתנות']];
 const normalize=s=>String(s||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').replace(/\b\d+\b/g,' ').replace(/\s+/g,' ').trim();
@@ -87,8 +100,17 @@ const daysApart=(a,b)=>Math.abs(new Date(a+'T12:00:00Z')-new Date(b+'T12:00:00Z'
 const similar=(a,b)=>{const x=normalize(a),y=normalize(b);if(!x||!y)return false;if(x.includes(y)||y.includes(x))return true;const words=x.split(' ').filter(w=>w.length>2);return words.some(w=>y.split(' ').includes(w));};
 // Flags each item: 'duplicate' (already recorded), 'possible' (same amount around the same date) or 'new'.
 export function markDuplicates(d,items){
-  const seen=[];
+  const seen=[],updating=new Set();
   return items.map(item=>{
+    // A card payment: the transfer into that card within 7 days. The same amount is the same charge; a different one is
+    // the estimated automatic statement, which saving updates to the bank's amount (§C.3, Errata 8).
+    if(item.type==='transfer'&&item.toAccountId){
+      const near=d.transactions.filter(t=>t.type==='transfer'&&t.toAccountId===item.toAccountId&&daysApart(t.date,item.date)<=7).map(t=>({t,gap:Math.abs(toILS(t.amount,t.currency||'ILS',t.fx||d.fx)-item.amount)})).sort((a,b)=>a.gap-b.gap||daysApart(a.t.date,item.date)-daysApart(b.t.date,item.date));
+      const same=near.find(x=>x.gap<.01),estimate=!same&&near.find(x=>x.t.auto?.source==='card'&&!updating.has(x.t.id)),matched=same?.t||estimate?.t||near[0]?.t||null;
+      if(estimate)updating.add(estimate.t.id);
+      const {update:_old,...rest}=item;
+      return {...rest,status:same?'duplicate':near.length?'possible':'new',matchedId:matched?.id||null,matchedLabel:matched?`${matched.description||'חיוב כרטיס'} · ${matched.date}`:'',...(estimate?{update:estimate.t.id,updateFrom:toILS(estimate.t.amount,estimate.t.currency||'ILS',estimate.t.fx||d.fx)}:{})};
+    }
     const candidates=d.transactions.filter(t=>(t.type===item.type||(item.type==='refund'&&t.type==='income'))&&Math.abs(toILS(t.amount,t.currency||'ILS',t.fx||d.fx)-item.amount)<.01&&daysApart(t.date,item.date)<=3);
     const match=candidates.find(t=>similar(t.description,item.description)||similar(t.category,item.description));
     let status=match?'duplicate':candidates.length?'possible':'new',matched=match||candidates[0]||null;
@@ -98,7 +120,18 @@ export function markDuplicates(d,items){
   });
 }
 
-export function prepareCapture(d,items){
-  items=items.map(item=>item.type==='income'&&item.refund?{...item,type:'refund'}:item);
-  return markDuplicates(d,items).map((item,i)=>({...item,key:`c${i}`,category:item.category&&d.categories.includes(item.category)?item.category:captureCategory(d,item),include:item.status!=='duplicate'}));
+// Items → review rows. `accountId` is the target account: on a bank account, a card-payment line becomes a transfer to
+// the matching card (or keeps its expense type with a hint to add the card); on a card, rows stay expenses and refunds.
+export function prepareCapture(d,items,{accountId}={}){
+  const target=d.accounts.find(a=>a.id===accountId);
+  items=items.map(item=>{
+    item=item.type==='income'&&item.refund?{...item,type:'refund'}:{...item};
+    if(item.cardPayment){
+      delete item.cardHint;
+      if(target?.kind==='bank'){const card=matchCard(d,item);if(card)Object.assign(item,{type:'transfer',toAccountId:card,category:'העברה'});else item.cardHint=true;}
+      if(target?.kind!=='bank'&&item.type==='transfer'){item.type='expense';delete item.toAccountId;delete item.category;}
+    }
+    return item;
+  });
+  return markDuplicates(d,items).map((item,i)=>({...item,key:`c${i}`,category:item.type==='transfer'?'העברה':item.category&&d.categories.includes(item.category)?item.category:captureCategory(d,item),include:item.status!=='duplicate'}));
 }
