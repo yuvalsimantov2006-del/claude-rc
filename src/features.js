@@ -355,11 +355,19 @@ async function writeLetter(){
 function smartInsights(){return `${healthCard()}${letterCard()}<div class="two-columns">${anomaliesCard()}${paceCard()}</div>${recurringCard()}${moduleHook('insights','')}`;}
 
 // ---------- Future lab ----------
+// The lab starts from the user's own numbers. A starting value the user has not changed follows the data (an
+// income, a price update or a sync meanwhile), so the lab never works from a stale balance.
+function labDefaults(){
+  const b=balances(data),avg=averageMonth(data,ui.month,3),cur=monthlySummary(data,ui.month),expenses=avg.expenses||cur.expenses;
+  return {start:Math.round(b.savings+b.investments),monthly:Math.max(0,Math.round(avg.months?avg.saved:cur.saved)),target:Math.round(fireNumber(expenses*12)||1000000)};
+}
 function labState(){
   if(!ui.lab){
-    const b=balances(data),avg=averageMonth(data,ui.month,3),cur=monthlySummary(data,ui.month),expenses=avg.expenses||cur.expenses;
-    const top=data.categories.map(c=>[c,whatIfCut(data,c,100,1,0,ui.month).average]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).find(([c])=>!['חשבונות','משכורת'].includes(c));
-    ui.lab={start:Math.round(b.savings+b.investments),monthly:Math.max(0,Math.round(avg.months?avg.saved:cur.saved)),years:20,ret:7,vol:15,inf:2.5,target:Math.round(fireNumber(expenses*12)||1000000),cutCategory:top?.[0]||data.categories[0]||'',cutPct:25,cutYears:10};
+    const top=data.categories.map(c=>[c,whatIfCut(data,c,100,1,0,ui.month).average]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).find(([c])=>!['חשבונות','משכורת'].includes(c)),auto=labDefaults();
+    ui.lab={...auto,years:20,ret:7,vol:15,inf:2.5,cutCategory:top?.[0]||data.categories[0]||'',cutPct:25,cutYears:10,auto,dataRef:data};
+  }else if(ui.lab.dataRef!==data){
+    const auto=labDefaults();for(const k of Object.keys(auto))if(ui.lab[k]===ui.lab.auto?.[k])ui.lab[k]=auto[k];
+    Object.assign(ui.lab,{auto,dataRef:data});
   }
   return ui.lab;
 }
