@@ -432,6 +432,7 @@ function paletteItems(q){
     {icon:'ScanLine',title:'קליטת הוצאות מקובץ או צילום',sub:'פירוט אשראי, דף בנק או קבלה',run:()=>{closeDialog();navigate('capture');}},
     {icon:'Mail',title:'המכתב החודשי מ־Claude',run:()=>{closeDialog();navigate('insights');}},
     {icon:document.documentElement.classList.contains('privacy')?'Eye':'EyeOff',title:document.documentElement.classList.contains('privacy')?'הצגת סכומים':'מצב פרטיות — הסתרת סכומים',run:()=>{closeDialog();togglePrivacy();}},
+    {icon:'RefreshCw',title:'עדכון יומי של מחירי ההשקעות',sub:'המחירים של היום — אוטומטית או בהקלדה',run:()=>{closeDialog();navigate('investments');setTimeout(()=>openDailyUpdate(),60);}},
     {icon:'CalendarDays',title:'עדכון השקעות חודשי',run:()=>{closeDialog();navigate('monthly');}},
     {icon:'Download',title:'הורדת גיבוי מלא',run:()=>{closeDialog();exportData('backup');}},
     {icon:'FlaskConical',title:'מה יקרה אם…',sub:'רכב, מענק שחרור או שינוי בהפקדה החודשית',run:()=>{closeDialog();ui.labTab='whatif';navigate('lab');}},

@@ -883,3 +883,72 @@ html.privacy main :is(.holding-figures small, .holding-main small bdi):not(:hove
   .holding-row { min-height: 56px; gap: var(--sp-2) var(--sp-3); }
   .container-foot .text-button { min-height: var(--touch); }
 }
+
+/* ======================= 4.1 The daily update (quotes-ui.js) ======================= */
+#daily-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+.daily-progress {
+  display: flex; align-items: center; gap: var(--sp-2); min-height: 40px; padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2);
+  font-size: var(--fs-small); color: var(--text-muted);
+}
+.daily-progress > svg { flex: none; color: var(--accent-text); }
+.daily-spinner {
+  flex: none; width: 14px; height: 14px; border: 2px solid var(--track); border-block-start-color: var(--accent-vivid);
+  border-radius: var(--r-round, 50%); animation: daily-spin .8s linear infinite;
+}
+@keyframes daily-spin { to { transform: rotate(360deg); } }
+.daily-key { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+.daily-key > .notice { width: 100%; }
+.daily-fx .field { max-width: 260px; }
+.daily-list { display: flex; flex-direction: column; gap: var(--sp-4); }
+.daily-group h3 { margin-block-end: var(--sp-1); font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text-muted); }
+.daily-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(130px, 180px); align-items: center; gap: var(--sp-1) var(--sp-3);
+  padding-block: var(--sp-3); border-block-end: 1px solid var(--border);
+}
+.daily-group .daily-row:last-child { border-block-end: 0; }
+.daily-row > .ticker-icon { grid-row: 1 / span 2; align-self: start; }
+.daily-name { min-width: 0; }
+.daily-name b { display: block; font-size: var(--fs-small); font-weight: var(--fw-bold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.daily-name small { display: block; font-size: var(--fs-micro); color: var(--text-subtle); }
+.daily-input { grid-row: 1 / span 2; grid-column: 3; }
+.daily-input > input:not(#\_) { font-family: var(--font-num); font-weight: var(--fw-bold); }
+.daily-row.filled .daily-input > input:not(#\_) { border-color: color-mix(in srgb, var(--positive) 45%, var(--border)); }
+.daily-status { grid-column: 2; font-size: var(--fs-micro); line-height: 1.4; color: var(--text-muted); }
+.daily-status.busy { color: var(--text-subtle); }
+.daily-status.ok { color: var(--positive); }
+.daily-status.warn { color: var(--warning); }
+.daily-status.error { color: var(--negative); }
+.daily-total {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2);
+}
+.daily-total > span { flex: 1 1 auto; font-size: var(--fs-small); color: var(--text-muted); }
+.daily-total > b { font-family: var(--font-num); font-size: var(--fs-num-md); font-weight: var(--fw-bold); }
+.daily-total > small { font-size: var(--fs-small); font-weight: var(--fw-bold); }
+.daily-total > small.positive { color: var(--positive); }
+.daily-total > small.negative { color: var(--negative); }
+
+/* The price-source settings (dialog and the settings card) */
+.quotes-facts { display: flex; flex-direction: column; gap: var(--sp-1); margin-block: var(--sp-3); padding-inline-start: var(--sp-5); font-size: var(--fs-small); color: var(--text-muted); list-style: disc; }
+.quotes-links { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); }
+.quotes-links a { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; color: var(--accent-text); font-size: var(--fs-small); font-weight: var(--fw-semibold); }
+.quotes-test { display: flex; align-items: center; gap: var(--sp-2); margin-block-start: var(--sp-3); font-size: var(--fs-small); }
+.quotes-test:empty { display: none; }
+.quotes-test > .notice { width: 100%; }
+.quotes-rows { display: flex; flex-direction: column; margin-block-end: var(--sp-4); }
+.quotes-rows > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-1) var(--sp-3); min-height: 48px; padding-block: var(--sp-2); border-block-end: 1px solid var(--border); }
+.quotes-rows > div:last-child { border-block-end: 0; }
+.quotes-rows span { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-small); }
+.quotes-rows span > svg { color: var(--text-muted); }
+.quotes-rows b { font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--text-muted); }
+
+@media (max-width: 760px) {
+  .daily-row { grid-template-columns: auto minmax(0, 1fr); }
+  .daily-row > .ticker-icon { grid-row: 1; }
+  .daily-input { grid-row: auto; grid-column: 1 / -1; }
+  .daily-status { grid-column: 1 / -1; }
+  .daily-fx .field { max-width: none; }
+  .quotes-links a, .daily-key .text-button { min-height: var(--touch); }
+}
+@media (prefers-reduced-motion: reduce) { .daily-spinner { animation: none; } }

@@ -334,6 +334,7 @@ export async function runInvest(qa){
   await page.waitForFunction(()=>!document.querySelector('#entity-form'));
   d=await s.stored();assert.equal(d.assets.find(a=>a.id==='ta').accountId,gemel);
   assert.equal(await gemelCard.locator('.holding-row').count(),2);
+  await page.waitForTimeout(1200);   // the figures count up after a change
   const values=await page.evaluate(()=>[...document.querySelectorAll('.container-value')].map(el=>Number(el.textContent.replace(/[^\d.]/g,''))));
   const total=Number((await page.locator('.metric',{hasText:'שווי תיק ההשקעות'}).locator('.metric-value').textContent()).replace(/[^\d.]/g,''));
   assert.ok(Math.abs(values.reduce((a,b)=>a+b,0)-total)<=2,`the accounts add up to the portfolio (${values} vs ${total})`);
@@ -348,4 +349,75 @@ export async function runInvest(qa){
   assert.match(await page.locator('.account-card',{hasText:'מיטב טרייד'}).textContent(),/חשבון מסחר/);
   await s.context.close();
   console.log('invest: containers (virtual default, new fund, direct deposit, rename, move, delete with move) — OK');
+
+  // ---------- The daily update: fetched where possible (mocked sources), typed elsewhere, no snapshot ----------
+  const unix=date=>Date.parse(date+'T20:00:00Z')/1000;
+  const quoteRoutes=async(context,{finnhub=true}={})=>context.route(/api\.coingecko\.com|api\.coinbase\.com|finnhub\.io|api\.twelvedata\.com/,route=>{
+    const u=new URL(route.request().url()),json=body=>route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(body)});
+    if(u.hostname==='api.coingecko.com')return json({bitcoin:{usd:61000,ils:222650,last_updated_at:unix('2026-10-14')}});
+    if(u.hostname==='finnhub.io'&&finnhub)return json(u.searchParams.get('symbol')==='VOO'?{c:512.3,pc:505,t:unix('2026-10-13')}:{c:0,pc:0,t:0});
+    return route.abort('failed');
+  });
+  s=await qa.open({data:fixtureI(),extra:{'ofek-quotes-v1':JSON.stringify({provider:'finnhub',key:'qa-key'})}});
+  await quoteRoutes(s.context);
+  let p=s.page;await settle(p);await go(p,'investments');
+  const snapsBefore=(await s.stored()).snapshots.length;
+  await p.locator('[data-action="daily-update"]').click();
+  await p.waitForFunction(()=>/כל 2 המחירים נמשכו אוטומטית/.test(document.querySelector('#daily-progress')?.textContent||''));
+  assert.equal(await p.locator('#daily-form [name=q_voo]').inputValue(),'512.3');
+  assert.equal(await p.locator('#daily-form [name=q_btc]').inputValue(),'61000');
+  assert.match(await p.locator('#ds-voo').textContent(),/Finnhub.*מחיר מסחר של/);
+  assert.match(await p.locator('#ds-ta').textContent(),/בורסת ת״א/);
+  await p.locator('#daily-form [name=q_ta]').fill('480');
+  assert.match(await p.locator('#daily-total').textContent(),/שווי התיק אחרי העדכון/);
+  await shot(qa,p,'v41-I02-daily-update.png');
+  await p.locator('#daily-form [type=submit]').click();
+  await p.waitForFunction(()=>!document.querySelector('#daily-form'));
+  d=await s.stored();
+  const asset=id=>d.assets.find(a=>a.id===id);
+  assert.deepEqual([asset('voo').currentPrice,asset('voo').priceSource,asset('voo').priceDate,asset('voo').date],[512.3,'Finnhub','2026-10-13','2026-10-14']);
+  assert.deepEqual([asset('btc').currentPrice,asset('btc').priceSource],[61000,'CoinGecko']);
+  assert.deepEqual([asset('ta').currentPrice,asset('ta').priceSource,asset('ta').priceDate],[480,'ידני','2026-10-14']);
+  assert.equal(d.snapshots.length,snapsBefore,'the daily update never makes a snapshot');
+  assert.match(await toastText(p),/עודכנו 3 נכסים/);
+  assert.match(await p.locator('.invest-updates').textContent(),/כל המחירים עודכנו היום/);
+  assert.equal(await p.locator('.holding-fresh.fresh').count(),3);
+  const expected=Math.round(10*512.3*3.65+100*480+.1*61000*3.65+1000);
+  const metricValue=label=>p.evaluate(label=>{const m=[...document.querySelectorAll('.metric')].find(x=>x.textContent.includes(label));return Number(m?.querySelector('.metric-value')?.textContent.replace(/[^\d.]/g,''));},label);
+  await p.waitForFunction(([label,expected])=>{const m=[...document.querySelectorAll('.metric')].find(x=>x.textContent.includes(label));return Math.abs(Number(m?.querySelector('.metric-value')?.textContent.replace(/[^\d.]/g,''))-expected)<=1;},['שווי תיק ההשקעות',expected],{timeout:4000}).catch(()=>{});
+  const shown=await metricValue('שווי תיק ההשקעות');
+  assert.ok(Math.abs(shown-expected)<=1,`the portfolio total follows the new prices (${shown} vs ${expected})`);
+  await go(p,'dashboard');
+  const homeHas=text=>p.waitForFunction(text=>document.querySelector('.page-content')?.textContent.includes(text),text,{timeout:4000}).then(()=>true,()=>false);
+  assert.ok(await homeHas(expected.toLocaleString('en-US')),'the home investments widget shows the new total');
+  assert.ok(await homeHas((expected+10000).toLocaleString('en-US')),'and the net worth includes it');
+  await s.context.close();
+  // Without a key the US stock is typed (with a way to connect a source); an unreachable source never blocks typing.
+  s=await qa.open({data:fixtureI(),width:390,height:844,theme:'dark'});
+  await quoteRoutes(s.context,{finnhub:false});
+  p=s.page;await settle(p);await go(p,'investments');await s.noOverflow('investments phone');
+  await shot(qa,p,'v41-I03-investments-phone.png',true);
+  await p.locator('[data-action="daily-update"]').click();
+  await p.waitForFunction(()=>/המחיר נמשך אוטומטית/.test(document.querySelector('#daily-progress')?.textContent||''));
+  assert.match(await p.locator('#ds-voo').textContent(),/מפתח חינמי/);
+  assert.equal(await p.locator('#daily-form [data-action="quotes-settings"]').count(),1);
+  await s.noOverflow('daily update phone');
+  assert.deepEqual(await tallEnough(p,'#daily-form input, #daily-form .form-actions .button'),[],'daily update controls ≥ 44px');
+  await shot(qa,p,'v41-I04-daily-phone.png');
+  await p.locator('#daily-form [name=q_voo]').fill('505');
+  await p.locator('#daily-form [type=submit]').click();
+  await p.waitForFunction(()=>!document.querySelector('#daily-form'));
+  d=await s.stored();assert.equal(d.assets.find(a=>a.id==='voo').currentPrice,505);
+  await p.locator('.toast [data-action="undo"]').click();
+  await p.waitForFunction(()=>/השינוי בוטל/.test(document.querySelector('.toast')?.textContent||''));
+  assert.equal((await s.stored()).assets.find(a=>a.id==='voo').currentPrice,500,'undo puts the old prices back');
+  // The key dialog: saved on the device only, never in the data.
+  await act(p,'quotes-settings');
+  await p.locator('#quotes-form [name=key]').fill('my-free-key');
+  await p.locator('#quotes-form [type=submit]').click();
+  await p.waitForFunction(()=>!document.querySelector('#quotes-form'));
+  assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('ofek-quotes-v1')).key),'my-free-key');
+  assert.ok(!(await p.evaluate(()=>localStorage.getItem('ofek-finance-v1'))).includes('my-free-key'),'the key is not in the data');
+  await s.context.close();
+  console.log('invest: daily update (CoinGecko + Finnhub mocked, typed TASE, no snapshot, totals and home follow, undo, key on device) — OK');
 }
