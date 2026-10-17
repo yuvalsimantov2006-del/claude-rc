@@ -12,7 +12,7 @@
 .card {
   position: relative; min-width: 0;
   padding: var(--sp-5);
-  background: var(--card-bg);
+  background: var(--glass-sheen), var(--card-bg);
   -webkit-backdrop-filter: var(--card-blur);
   backdrop-filter: var(--card-blur);
   border: 1px solid var(--glass-border);

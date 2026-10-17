@@ -158,7 +158,9 @@ export function surfaces(tokens){
     glow12:over(part(m[1]),over(part(m[0]),bg)),glow23:over(part(m[2]),over(part(m[1]),bg)),glow13:over(part(m[2]),over(part(m[0]),bg))};
   const out=[];
   for(const [where,B] of Object.entries(backs)){
-    const card=over(col('--glass'),saturate(B,sat));
+    const plain=over(col('--glass'),saturate(B,sat)),sheen=over(col('--glass-sheen-peak'),plain);
+    // A card's top corner carries the sheen: in dark it lightens the pane, so the lighter of the two is the card.
+    const card=luminance(sheen)>luminance(plain)&&luminance(plain)<.2?sheen:plain;
     const dialog=over(col('--elevated'),saturate(over(col('--scrim'),B),sat));
     out.push({name:`page/${where}`,c:B,kind:'page'},{name:`card/${where}`,c:card,kind:'card'},
       {name:`tile/${where}`,c:over(col('--glass-tile'),card),kind:'tile'},{name:`field/${where}`,c:over(col('--surface'),card),kind:'field'},
