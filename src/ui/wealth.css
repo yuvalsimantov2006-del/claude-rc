@@ -67,8 +67,9 @@
 }
 .goal-info .goal-details > div {
   flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--sp-3);
-  padding: 9px 0; border-radius: 0; background: none;
+  padding: 9px 0; border: 0; border-radius: 0; background: none;
 }
+.goal-info .goal-details > div + div { border-block-start: 1px solid var(--border); }
 .goal-info .goal-details span { font-size: var(--fs-small); color: var(--text-muted); flex: none; }
 .goal-info .goal-details b { text-align: end; font-variant-numeric: tabular-nums; }
 .saving-assumption {
@@ -151,10 +152,7 @@
 .goal-live-forecast {
   display: flex; flex-direction: column; gap: var(--sp-2);
   padding: var(--sp-4) var(--sp-5); border-radius: var(--r-lg);
-  background:
-    radial-gradient(80% 120% at 100% 0%, color-mix(in srgb, var(--accent-2-vivid) 14%, transparent), transparent 70%),
-    var(--accent-2-soft);
-  border: 1px solid color-mix(in srgb, var(--accent-2) 22%, transparent);
+  background: var(--surface-2); border: 1px solid var(--border); border-inline-start: var(--accent-bar) solid var(--accent);
 }
 .goal-live-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
 .goal-live-heading > span:first-child {

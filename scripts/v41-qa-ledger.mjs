@@ -203,6 +203,7 @@ export async function run(qa){
   s=await qa.open({data:f40});
   await settle(s.page);
   const stored40=await s.stored(),norm=x=>JSON.stringify({...x,fx:0,fxDate:'',fxSource:''});   // the daily dollar rate may update fx, fxDate and fxSource, as in 4.0
+  for(const b of stored40.bills||[])delete b.recordedThrough;   // the only lazy 4.1 field (§A.9): autopay bills start recording from today
   for(const key of new Set([...Object.keys(stored40),...Object.keys(f40)]))if(!['fx','fxDate','fxSource'].includes(key))assert.equal(JSON.stringify(stored40[key]),JSON.stringify(f40[key]),`4.0 data unchanged: ${key}`);
   assert.equal(norm(stored40),norm(f40),'4.0 data is stored byte-identical (apart from the dollar rate)');
   for(const route of ['dashboard','transactions','accounts','budgets','bills','goals'])await go(s.page,route);
