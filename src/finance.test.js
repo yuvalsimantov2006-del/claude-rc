@@ -28,3 +28,65 @@ test('recurring materialization does not duplicate a month after schedule change
 
 test('asset total profit includes realized sale gains and dividends',()=>{const d=emptyData();d.wallets.ILS=0;const a={id:'a',name:'a',currency:'ILS',quantity:100,averagePrice:100,invested:10000,currentPrice:120,currentValue:0,mode:'price'};d.assets.push(a);applyActivity(d,{type:'sell',assetId:'a',amount:2400,quantity:20,currency:'ILS',date:'2026-02-01'});applyActivity(d,{type:'dividend',assetId:'a',amount:100,currency:'ILS',date:'2026-02-01'});const p=assetProfit(d,a);near(p.profit,2100);near(p.return,.21);});
 test('asset period return treats purchase/sale as flows across the asset boundary',()=>{const d=emptyData(),a={id:'a',currency:'ILS'};d.activities=[{assetId:'a',type:'buy',date:'2026-01-16',amount:5000,currency:'ILS',fx:1},{assetId:'a',type:'dividend',date:'2026-01-31',amount:100,currency:'ILS',fx:1}];const p=assetPeriod(d,a,{date:'2026-01-01',value:10000,fx:1,holdings:[{id:'a',value:10000,currency:'ILS'}]},{date:'2026-01-31',value:16000,fx:1,holdings:[{id:'a',value:16000,currency:'ILS'}]});near(p.profit,1100);near(p.return,1100/12500);});
+
+// ---------- 4.1 investment containers ----------
+{
+  const {investAccounts,assetContainerId,cashContainerId,containerValue,containerAssets,ensureDefaultContainer,INVEST_TYPES}=await import('./finance.js');
+  const holding=(id,extra={})=>({id,name:id,currency:'ILS',quantity:10,averagePrice:100,invested:1000,currentPrice:120,currentValue:0,mode:'price',...extra});
+  const inv=(id,invType,extra={})=>({id,name:id,institution:'',kind:'investment',currency:'ILS',balance:0,original:0,payment:0,interest:0,...(invType?{invType}:{}),...extra});
+  test('containers: before any exists every holding and the cash sit in the virtual one (id ""), worth the whole portfolio',()=>{
+    const d=emptyData();d.wallets={ILS:500,USD:10};d.fx=3.5;d.assets=[holding('a'),holding('b',{currency:'USD'})];
+    assert.equal(assetContainerId(d,d.assets[0]),'');assert.equal(cashContainerId(d),'');
+    near(containerValue(d,''),portfolioValue(d));
+  });
+  test('containers: a missing or stale id means the first container; the cash shows in the first trading account; they add up',()=>{
+    const d=emptyData();d.fx=3.65;d.wallets={ILS:1000,USD:100};
+    d.accounts=[inv('gemel','gemel'),inv('meitav','broker'),inv('old',null)];
+    d.assets=[holding('a',{accountId:'meitav'}),holding('b'),holding('c',{accountId:'deleted-long-ago'}),holding('d',{accountId:'old',currency:'USD'})];
+    assert.equal(assetContainerId(d,d.assets[1]),'gemel');assert.equal(assetContainerId(d,d.assets[2]),'gemel');
+    assert.equal(cashContainerId(d),'meitav','the first broker account holds the portfolio cash (a fund never does)');
+    assert.deepEqual(containerAssets(d,'gemel').map(a=>a.id),['b','c']);
+    near(containerValue(d,'meitav'),1200+1000+365);near(containerValue(d,'old'),1200*3.65);
+    near(investAccounts(d).reduce((s,a)=>s+containerValue(d,a.id),0),portfolioValue(d));
+    const noType=emptyData();noType.accounts=[inv('x',null)];assert.equal(cashContainerId(noType),'x','an investment account without a type is a trading account');
+  });
+  test('containers: ensureDefaultContainer creates "התיק שלי" once, only when none exists, and adopts the holdings without one',()=>{
+    const d=emptyData();d.assets=[holding('a'),holding('b',{accountId:'gone'})];
+    const id=ensureDefaultContainer(d);
+    assert.equal(d.accounts.length,1);assert.equal(d.accounts[0].name,'התיק שלי');assert.equal(d.accounts[0].invType,'broker');
+    assert.ok(d.assets.every(a=>a.accountId===id));
+    assert.equal(ensureDefaultContainer(d),id);assert.equal(d.accounts.length,1,'idempotent');
+    validateData(d);
+    const e2=emptyData();e2.accounts=[inv('f','gemel')];e2.assets=[holding('x')];
+    assert.equal(ensureDefaultContainer(e2),'f');assert.equal(e2.accounts.length,1,'an existing container is reused');
+  });
+  test('containers: validation is lenient on 4.0 shapes and stale ids, strict only on the new fields',()=>{
+    const d=demoData();validateData(d);
+    d.assets[0].accountId='no-such-account';validateData(d);
+    d.accounts.find(a=>a.kind==='investment').invType='gemel';d.assets[1].priceDate='2026-10-14';d.assets[1].priceSource='Finnhub';validateData(d);
+    assert.throws(()=>validateData({...d,accounts:d.accounts.map(a=>a.kind==='investment'?{...a,invType:'toString'}:a)}),/החשבונות/);
+    assert.throws(()=>validateData({...d,assets:d.assets.map((a,i)=>i?a:{...a,priceDate:'2026-13-01'})}),/ההשקעות/);
+    assert.throws(()=>validateData({...d,assets:d.assets.map((a,i)=>i?a:{...a,accountId:7})}),/ההשקעות/);
+    assert.ok(Object.keys(INVEST_TYPES).includes('gemel'));
+  });
+  test('a deposit straight into a value-tracked fund raises its value and cost, never the portfolio cash; a withdrawal realizes its share',()=>{
+    const d=emptyData();d.accounts=[{id:'bank',name:'bank',kind:'bank',currency:'ILS',balance:5000}];
+    d.assets=[{id:'f',name:'מסלול מניות',currency:'ILS',quantity:0,averagePrice:0,invested:8000,currentPrice:0,currentValue:10000,mode:'value'},holding('p')];
+    const net=balances(d).net;
+    applyActivity(d,{type:'deposit',date:'2026-10-01',amount:1000,currency:'ILS',assetId:'f',accountId:'bank'});
+    assert.equal(d.assets[0].currentValue,11000);assert.equal(d.assets[0].invested,9000);assert.equal(d.wallets.ILS,0);assert.equal(d.accounts[0].balance,4000);
+    near(balances(d).net,net);
+    assert.equal(assetProfit(d,d.assets[0]).profit,2000);
+    applyActivity(d,{type:'withdrawal',date:'2026-10-05',amount:5500,currency:'ILS',assetId:'f'});
+    assert.equal(d.assets[0].currentValue,5500);near(d.assets[0].invested,4500);near(d.activities.at(-1).costBasis,4500);
+    near(assetProfit(d,d.assets[0]).profit,2000,'the withdrawn half keeps its profit as realized');
+    assert.throws(()=>applyActivity(d,{type:'withdrawal',date:'2026-10-06',amount:9999,currency:'ILS',assetId:'f'}),/גדול משווי/);
+    assert.throws(()=>applyActivity(d,{type:'deposit',date:'2026-10-06',amount:10,currency:'ILS',assetId:'p'}),/שווי כולל/);
+    const flows=d.activities.filter(a=>a.assetId==='f');assert.equal(flows.length,2);
+    near(dietz({date:'2026-09-30',value:10000},{date:'2026-10-31',value:5500},d.activities).flows,1000-5500,'both stay external flows for the returns');
+  });
+  test('snapshots record each holding\'s container',()=>{
+    const d=emptyData();d.accounts=[inv('m','broker')];d.assets=[holding('a')];
+    assert.equal(snapshot(d,'2026-10-01',{}).holdings[0].accountId,'m');
+  });
+}

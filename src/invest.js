@@ -1,4 +1,4 @@
-import {toILS,assetValue,balances,dietz} from './finance.js';
+import {toILS,assetValue,balances,dietz,portfolioValue,assetProfit,investAccounts,investType,assetContainerId,cashContainerId,containerAssets,containerCash,DEFAULT_CONTAINER_NAME} from './finance.js';
 import {averageMonth} from './smart.js';
 import {parseNumber} from './xlsx.js';
 
@@ -27,15 +27,17 @@ export function assetSector(a){
 export const SENSITIVITY={'מניות ארה״ב':1,'טכנולוגיה':1.3,'מניות ישראל':.95,'שווקים בינלאומיים':1,'אג״ח':.15,'נדל״ן':.9,'קריפטו':2.2,'סחורות וזהב':.1,'מזומן ופיקדונות':0,'חיסכון ארוך טווח':.55,'אחר':.8};
 
 const group=(items,key)=>{const map=new Map();for(const x of items)map.set(x[key],(map.get(x[key])||0)+x.value);return map;};
+const containerName=(d,id)=>investAccounts(d).find(a=>a.id===id)?.name||DEFAULT_CONTAINER_NAME;
 export function riskProfile(d){
-  const holdings=d.assets.map(a=>({id:a.id,name:a.ticker||a.name,fullName:a.name,currency:a.currency,type:a.type||'אחר',sector:assetSector(a),value:toILS(assetValue(a),a.currency,d.fx)})).filter(h=>h.value>0).sort((a,b)=>b.value-a.value);
-  const cash=[{name:'מזומן בתיק',currency:'ILS',type:'מזומן',sector:'מזומן ופיקדונות',value:Math.max(0,d.wallets?.ILS||0)},{name:'דולרים בתיק',currency:'USD',type:'מזומן',sector:'מזומן ופיקדונות',value:Math.max(0,(d.wallets?.USD||0)*d.fx)}].filter(c=>c.value>0);
+  const holdings=d.assets.map(a=>({id:a.id,name:a.ticker||a.name,fullName:a.name,currency:a.currency,type:a.type||'אחר',sector:assetSector(a),container:containerName(d,assetContainerId(d,a)),value:toILS(assetValue(a),a.currency,d.fx)})).filter(h=>h.value>0).sort((a,b)=>b.value-a.value);
+  const cashIn=containerName(d,cashContainerId(d));
+  const cash=[{name:'מזומן בתיק',currency:'ILS',type:'מזומן',sector:'מזומן ופיקדונות',container:cashIn,value:Math.max(0,d.wallets?.ILS||0)},{name:'דולרים בתיק',currency:'USD',type:'מזומן',sector:'מזומן ופיקדונות',container:cashIn,value:Math.max(0,(d.wallets?.USD||0)*d.fx)}].filter(c=>c.value>0);
   const invested=holdings.reduce((s,h)=>s+h.value,0),all=[...holdings,...cash],total=all.reduce((s,h)=>s+h.value,0);
   const hhi=invested?holdings.reduce((s,h)=>s+(h.value/invested)**2,0):0;
   const usd=all.filter(h=>h.currency==='USD').reduce((s,h)=>s+h.value,0);
   const toList=map=>[...map].map(([name,value])=>({name,value,share:total?value/total:0})).sort((a,b)=>b.value-a.value);
   const largest=holdings[0]||null,top3=holdings.slice(0,3).reduce((s,h)=>s+h.value,0);
-  return {total,invested,cash:total-invested,holdings:holdings.map(h=>({...h,share:total?h.value/total:0})),largest:largest?{name:largest.name,fullName:largest.fullName,share:total?largest.value/total:0}:null,top3Share:total?top3/total:0,effective:hhi?1/hhi:0,usd,usdShare:total?usd/total:0,bySector:toList(group(all,'sector')),byType:toList(group(all,'type')),concentration:!largest?'none':largest.value/total>.4?'high':largest.value/total>.25?'medium':'low'};
+  return {total,invested,cash:total-invested,holdings:holdings.map(h=>({...h,share:total?h.value/total:0})),largest:largest?{name:largest.name,fullName:largest.fullName,share:total?largest.value/total:0}:null,top3Share:total?top3/total:0,effective:hhi?1/hhi:0,usd,usdShare:total?usd/total:0,bySector:toList(group(all,'sector')),byType:toList(group(all,'type')),byContainer:toList(group(all,'container')),concentration:!largest?'none':largest.value/total>.4?'high':largest.value/total>.25?'medium':'low'};
 }
 
 export const STRESS_SCENARIOS=[
@@ -57,6 +59,19 @@ export function stressTest(d,scenario){
   if(scenario.usd)change+=Math.max(0,(d.wallets?.USD||0)*d.fx)*scenario.usd;
   const net=balances(d).net;
   return {...scenario,change,share:profile.total?change/profile.total:0,netWorthAfter:net+change,months:avg.expenses>0?-change/avg.expenses:null};
+}
+
+// One entry per investment container (or the virtual "התיק שלי" before any exists): its holdings, value,
+// lifetime profit and return in ₪ (a dollar holding's profit at today's rate), its cash and its share of the
+// portfolio. The values add up to portfolioValue exactly.
+export function containerSummary(d){
+  const list=investAccounts(d),total=portfolioValue(d),cashId=cashContainerId(d);
+  const groups=list.length?list.map(a=>({id:a.id,account:a,name:a.name,type:investType(a),institution:a.institution||'',virtual:false})):[{id:'',account:null,name:DEFAULT_CONTAINER_NAME,type:'broker',institution:'',virtual:true}];
+  return groups.map(g=>{
+    const holdings=containerAssets(d,g.id).map(a=>{const p=assetProfit(d,a),rate=a.currency==='USD'?d.fx:1;return {asset:a,value:toILS(assetValue(a),a.currency,d.fx),profit:p.profit*rate,invested:p.invested*rate,return:p.return};}).sort((x,y)=>y.value-x.value);
+    const cash=containerCash(d,g.id),value=holdings.reduce((s,h)=>s+h.value,0)+cash,profit=holdings.reduce((s,h)=>s+h.profit,0),invested=holdings.reduce((s,h)=>s+h.invested,0);
+    return {...g,holdings,cash,value,profit,invested,return:invested>0?profit/invested:null,share:total>0?value/total:0,holdsCash:g.id===cashId&&(d.wallets.ILS||d.wallets.USD)?true:false};
+  });
 }
 
 // Volatility and drawdown measured from the monthly snapshots (flow-adjusted returns).
@@ -117,18 +132,19 @@ export function parseHoldingsRows(rows){
 }
 
 const norm=s=>String(s||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
-function findAsset(d,row){
+function findAsset(assets,row){
   const sym=String(row.symbol||'').toUpperCase().trim(),name=norm(row.name);
-  return d.assets.find(a=>sym&&String(a.ticker||'').toUpperCase()===sym)
-    ||d.assets.find(a=>a.ticker&&(String(row.name||'').toUpperCase().split(/[^A-Z0-9.]+/).includes(String(a.ticker).toUpperCase())))
-    ||d.assets.find(a=>{const n=norm(a.name);return n&&name&&(n===name||n.includes(name)||name.includes(n));})
-    ||d.assets.find(a=>{const words=norm(a.name).split(' ').filter(w=>w.length>2);return words.length&&words.filter(w=>name.includes(w)).length>=Math.min(2,words.length);});
+  return assets.find(a=>sym&&String(a.ticker||'').toUpperCase()===sym)
+    ||assets.find(a=>a.ticker&&(String(row.name||'').toUpperCase().split(/[^A-Z0-9.]+/).includes(String(a.ticker).toUpperCase())))
+    ||assets.find(a=>{const n=norm(a.name);return n&&name&&(n===name||n.includes(name)||name.includes(n));})
+    ||assets.find(a=>{const words=norm(a.name).split(' ').filter(w=>w.length>2);return words.length&&words.filter(w=>name.includes(w)).length>=Math.min(2,words.length);});
 }
-// Matches report rows to existing holdings and proposes new prices or values for review.
-export function matchHoldings(d,rows){
-  const matches=[],unmatched=[],used=new Set();
+// Matches report rows to existing holdings and proposes new prices or values for review. A report usually comes
+// from one account (a broker's holdings page), so `accountId` limits the match to that container's holdings.
+export function matchHoldings(d,rows,{accountId=null}={}){
+  const matches=[],unmatched=[],used=new Set(),assets=accountId==null?d.assets:containerAssets(d,accountId);
   for(const row of rows){
-    const asset=findAsset(d,row);
+    const asset=findAsset(assets,row);
     if(!asset||used.has(asset.id)){unmatched.push(row);continue;}
     used.add(asset.id);
     let {quantity,price,value}=row;const flags=[];
@@ -148,5 +164,5 @@ export function matchHoldings(d,rows){
     }
     if(matches.at(-1).change!=null&&Math.abs(matches.at(-1).change)>.35)matches.at(-1).flags.push('jump');
   }
-  return {matches,unmatched,missing:d.assets.filter(a=>!used.has(a.id))};
+  return {matches,unmatched,missing:assets.filter(a=>!used.has(a.id))};
 }

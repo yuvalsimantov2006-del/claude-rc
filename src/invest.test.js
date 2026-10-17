@@ -123,3 +123,33 @@ test('xlsx files are read with shared strings, inline strings and dates',async()
   assert.equal(excelDate(46296),'2026-10-01');
   await assert.rejects(readXlsx(Buffer.from('not a zip at all, sorry')));
 });
+
+// ---------- 4.1 investment containers ----------
+test('containerSummary: one entry per investment account, values add up to the portfolio, profit in ₪',async()=>{
+  const {containerSummary}=await import('./invest.js');const {portfolioValue}=await import('./finance.js');
+  const d=demoData();
+  const one=containerSummary(d);
+  assert.equal(one.length,1);assert.equal(one[0].id,'broker');assert.equal(one[0].holdings.length,4);
+  near(one[0].value,portfolioValue(d));assert.ok(one[0].holdsCash);near(one[0].share,1);
+  d.accounts.push({id:'gemel',name:'אלטשולר שחם',institution:'אלטשולר שחם',kind:'investment',invType:'gemel',currency:'ILS',balance:0,original:0,payment:0,interest:0});
+  d.assets.push({id:'track',name:'מסלול כללי',ticker:'',type:'קופת גמל להשקעה',currency:'ILS',quantity:0,averagePrice:0,invested:30000,currentPrice:0,currentValue:33000,mode:'value',date:'2026-09-30',notes:'',accountId:'gemel'});
+  const two=containerSummary(d);
+  assert.deepEqual(two.map(c=>[c.id,c.type,c.holdings.length]),[['broker','broker',4],['gemel','gemel',1]]);
+  near(two.reduce((s,c)=>s+c.value,0),portfolioValue(d));
+  assert.equal(two[1].profit,3000);near(two[1].return,.1);assert.equal(two[1].cash,0);
+  const voo=two[0].holdings.find(h=>h.asset.id==='voo');near(voo.profit,(31680-27300)*d.fx);
+  const none=containerSummary({...demoData(),accounts:demoData().accounts.filter(a=>a.kind!=='investment')});
+  assert.equal(none.length,1);assert.ok(none[0].virtual);assert.equal(none[0].name,'התיק שלי');
+});
+test('risk profile and holdings import know the containers',()=>{
+  const d=demoData();
+  d.accounts.push({id:'gemel',name:'גמל',institution:'',kind:'investment',invType:'gemel',currency:'ILS',balance:0,original:0,payment:0,interest:0});
+  d.assets.find(a=>a.id==='ta').accountId='gemel';
+  const r=riskProfile(d);
+  assert.deepEqual(r.byContainer.map(x=>x.name).sort(),['גמל','תיק השקעות'].sort());
+  near(r.byContainer.reduce((s,x)=>s+x.share,0),1);
+  const rows=[{symbol:'TA125',name:'תכלית',price:480},{symbol:'VOO',name:'Vanguard',price:530}];
+  const scoped=matchHoldings(d,rows,{accountId:'gemel'});
+  assert.deepEqual(scoped.matches.map(m=>m.asset.id),['ta']);assert.equal(scoped.unmatched.length,1);assert.deepEqual(scoped.missing,[]);
+  assert.equal(matchHoldings(d,rows).matches.length,2,'without a scope every holding can match');
+});

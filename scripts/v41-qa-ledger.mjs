@@ -264,4 +264,88 @@ export async function run(qa){
     await s.context.close();
   }
   console.log('ledger: card body, transfers, ATM, loan payment, installments, refund, goal deposit, capture card lines, undo and its refusal, 4.0 upgrade, phone layout — OK');
+  await runInvest(qa);
+}
+
+// ======================= Investment accounts, the daily update, goals and "everything connects" =======================
+// Fixture I: a bank account and three holdings with NO investment account (as a 4.0 user who never made one).
+function fixtureI(){
+  const d={...emptyData(),createdAt:'2026-09-01',fx:3.65,fxDate:'2026-10-14',profile:'נועה',wallets:{ILS:1000,USD:0}};
+  d.accounts=[{id:'bank',name:'עו״ש',institution:'',kind:'bank',currency:'ILS',balance:10000,original:0,payment:0,interest:0}];
+  const asset=(id,name,ticker,currency,quantity,price,extra={})=>({id,name,ticker,type:'קרן סל',currency,quantity,averagePrice:price,invested:quantity*price,currentPrice:price,currentValue:quantity*price,mode:'price',date:'2026-10-01',notes:'',...extra});
+  d.assets=[asset('voo','Vanguard S&P 500','VOO','USD',10,500),asset('ta','תכלית ת״א 125','TA125','ILS',100,477),asset('btc','Bitcoin','BTC','USD',.1,60000,{type:'קריפטו'})];
+  d.goals=[{id:'g1',name:'קרן חירום',type:'קרן חירום',target:30000,saved:0,date:'2027-12-31',monthly:1000,accountId:'bank',allocation:5000},{id:'g2',name:'חופשה',type:'חופשה',target:null,saved:2000,date:'2027-06-30',monthly:500,accountId:''}];
+  return d;
+}
+const containers=d=>d.accounts.filter(a=>a.kind==='investment');
+export async function runInvest(qa){
+  const {assert}=qa;
+  // ---------- Containers: the virtual "התיק שלי", a new provident fund, a direct deposit, moving and deleting ----------
+  let s=await qa.open({data:fixtureI()});
+  const {page}=s;await settle(page);
+  await go(page,'investments');
+  assert.equal(await page.locator('.container-card').count(),1,'one (virtual) container before any exists');
+  assert.match(await page.locator('.container-card h2').first().textContent(),/התיק שלי/);
+  assert.equal(await page.locator('.container-card .holding-row').count(),4,'three holdings and the portfolio cash');
+  assert.equal(containers(await s.stored()).length,0,'viewing the page writes nothing');
+  // A new provident fund: "התיק שלי" is created first for the three holdings.
+  await page.locator('[data-action="container-new"]').click();
+  await page.locator('#entity-form [name=name]').fill('אלטשולר שחם · גמל');
+  await page.locator('#entity-form [name=invType]').selectOption('gemel');
+  await page.locator('#entity-form [name=institution]').fill('אלטשולר שחם');
+  await page.locator('#entity-form [type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#entity-form'));
+  let d=await s.stored();
+  assert.deepEqual(containers(d).map(a=>[a.name,a.invType]),[['התיק שלי','broker'],['אלטשולר שחם · גמל','gemel']]);
+  const mine=containers(d)[0].id,gemel=containers(d)[1].id;
+  assert.ok(d.assets.every(a=>a.accountId===mine),'the existing holdings went to "התיק שלי"');
+  assert.match(await toastText(page),/התיק שלי/);
+  // A track inside the fund (value mode), then a monthly deposit from the bank straight into it.
+  await page.locator(`[data-action="container-add:${gemel}"]`).click();
+  assert.equal(await page.locator('#entity-form [name=mode]').inputValue(),'value');
+  assert.equal(await page.locator('#entity-form [name=accountId]').inputValue(),gemel);
+  await page.locator('#entity-form [name=name]').fill('מסלול מניות');
+  await page.locator('#entity-form [name=currentValue]').fill('50000');
+  await page.locator('#entity-form [name=invested]').fill('40000');
+  await page.locator('#entity-form [type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#entity-form'));
+  d=await s.stored();const track=d.assets.find(a=>a.name==='מסלול מניות');
+  assert.equal(track.accountId,gemel);assert.equal(track.mode,'value');
+  await page.locator('[data-action="open:activity"]').click();
+  await page.locator('#entity-form [name=assetId]').selectOption(track.id);
+  await page.locator('#entity-form [name=amount]').fill('1000');
+  await page.locator('#entity-form [name=accountId]').selectOption('bank');
+  await page.locator('#entity-form [type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#entity-form'));
+  d=await s.stored();
+  const t2=d.assets.find(a=>a.id===track.id);
+  assert.equal(t2.currentValue,51000);assert.equal(t2.invested,41000);
+  assert.equal(d.accounts.find(a=>a.id==='bank').balance,9000);assert.equal(d.wallets.ILS,1000,'a direct deposit never sits in the portfolio cash');
+  const gemelCard=page.locator('.container-card',{hasText:'אלטשולר שחם · גמל'});
+  assert.match(await gemelCard.locator('.container-value').textContent(),/51,000/);
+  // Rename "התיק שלי", move TA125 to the fund through the holding form, then delete the fund (holdings move back).
+  await page.locator(`[data-action="container-edit:${mine}"]`).click();
+  await page.locator('#entity-form [name=name]').fill('מיטב טרייד');
+  await page.locator('#entity-form [type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#entity-form'));
+  await page.locator('[data-action="edit:asset:ta"]').click();
+  await page.locator('#entity-form [name=accountId]').selectOption(gemel);
+  await page.locator('#entity-form [type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#entity-form'));
+  d=await s.stored();assert.equal(d.assets.find(a=>a.id==='ta').accountId,gemel);
+  assert.equal(await gemelCard.locator('.holding-row').count(),2);
+  const values=await page.evaluate(()=>[...document.querySelectorAll('.container-value')].map(el=>Number(el.textContent.replace(/[^\d.]/g,''))));
+  const total=Number((await page.locator('.metric',{hasText:'שווי תיק ההשקעות'}).locator('.metric-value').textContent()).replace(/[^\d.]/g,''));
+  assert.ok(Math.abs(values.reduce((a,b)=>a+b,0)-total)<=2,`the accounts add up to the portfolio (${values} vs ${total})`);
+  await shot(qa,page,'v41-I01-containers.png',true);
+  await page.locator(`[data-action="container-remove:${gemel}"]`).click();
+  await page.locator('#container-remove-form [name=target]').selectOption(mine);
+  await page.locator('#container-remove-form [type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#container-remove-form'));
+  d=await s.stored();
+  assert.deepEqual(containers(d).map(a=>a.name),['מיטב טרייד']);assert.ok(d.assets.every(a=>a.accountId===mine),'the fund holdings moved');
+  await go(page,'accounts');
+  assert.match(await page.locator('.account-card',{hasText:'מיטב טרייד'}).textContent(),/חשבון מסחר/);
+  await s.context.close();
+  console.log('invest: containers (virtual default, new fund, direct deposit, rename, move, delete with move) — OK');
 }

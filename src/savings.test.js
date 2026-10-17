@@ -84,3 +84,16 @@ test('goals linked without an allocation share the remainder',()=>{
   assert.equal(effectiveGoalSavings(d,d.goals[2]),7500);
   assert.equal(effectiveGoalSavings(d,{id:'draft',accountId:'saving',allocation:'',saved:0}),5000,'a draft shares the remainder with the other unallocated goals');
 });
+
+test('a goal linked to an investment account uses that account\'s holdings, not the whole portfolio (4.1 containers)',async()=>{
+  const {containerValue,portfolioValue}=await import('./finance.js');
+  const d=demoData();
+  d.accounts.push({id:'gemel',name:'גמל',institution:'',kind:'investment',invType:'gemel',currency:'ILS',balance:0,original:0,payment:0,interest:0});
+  d.assets.push({id:'track',name:'מסלול',ticker:'',type:'קופת גמל להשקעה',currency:'ILS',quantity:0,averagePrice:0,invested:20000,currentPrice:0,currentValue:25000,mode:'value',date:'2026-09-30',notes:'',accountId:'gemel'});
+  d.goals.push({id:'g4',name:'דירה',type:'דירה',target:100000,saved:0,date:'2030-01-01',monthly:0,accountId:'gemel'});
+  assert.equal(effectiveGoalSavings(d,d.goals.at(-1)),25000);
+  d.goals.push({id:'g5',name:'פרישה',type:'מטרה אישית',target:null,saved:0,date:'2040-01-01',monthly:0,accountId:'broker'});
+  assert.equal(effectiveGoalSavings(d,d.goals.at(-1)),containerValue(d,'broker'));
+  assert.ok(containerValue(d,'broker')<portfolioValue(d));
+  validateData(d);
+});

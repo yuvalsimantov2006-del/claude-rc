@@ -1,4 +1,4 @@
-import {today,validDate,toILS,portfolioValue,FREE_KINDS} from './finance.js';
+import {today,validDate,toILS,containerValue,FREE_KINDS} from './finance.js';
 
 // Future deposits retain the original calendar day, clamped in shorter months.
 export function savingsDepositDate(from,offset){
@@ -40,8 +40,9 @@ export function savingsProjection(goal,from=today()){
 }
 
 export const hasAllocation=goal=>goal.allocation!=null&&goal.allocation!==''&&Number.isFinite(Number(goal.allocation));
+// An investment account is a container (§4.1): its value is its holdings (and the portfolio cash, when it holds it).
 export function accountBalanceILS(data,account){
-  return Math.max(0,account.kind==='investment'?portfolioValue(data):toILS(account.balance,account.currency,data.fx));
+  return Math.max(0,account.kind==='investment'?containerValue(data,account.id):toILS(account.balance,account.currency,data.fx));
 }
 
 // One account can fund several goals. A goal with an `allocation` gets that amount (scaled down

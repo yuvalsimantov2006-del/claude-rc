@@ -272,49 +272,10 @@
    ============================================================ */
 
 /* ---------- Monthly prompt banner ---------- */
-.monthly-prompt {
-  display: flex; align-items: center; gap: var(--sp-4);
-  padding: var(--sp-5) var(--sp-6); border-radius: var(--r-lg);
-  background:
-    linear-gradient(110deg, color-mix(in srgb, var(--accent-vivid) 10%, transparent), color-mix(in srgb, var(--accent-2-vivid) 10%, transparent)),
-    var(--surface);
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  box-shadow: var(--shadow-1);
-}
-.monthly-prompt-icon {
-  display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 16px;
-  background: var(--brand-gradient); color: var(--on-hero); box-shadow: var(--shadow-1);
-}
-.monthly-prompt-icon svg { width: 24px; height: 24px; }
-.monthly-prompt > div { flex: 1 1 auto; min-width: 0; }
-.monthly-prompt h2 { font-size: var(--fs-h2); font-weight: var(--fw-black); line-height: 1.3; }
-.monthly-prompt p { margin-block-start: 2px; font-size: var(--fs-small); color: var(--text-muted); }
-.monthly-prompt > .button { flex: none; }
 
 /* ---------- Holdings table ---------- */
-.investment-table { min-width: 760px; }
-.investment-table td { padding-block: var(--sp-4); vertical-align: top; }
-.investment-table td > small, .investment-table td > b + small, .investment-table td > span + small { display: block; margin-block-start: 2px; font-size: var(--fs-micro); font-weight: var(--fw-medium); }
-.investment-table td > b[dir="ltr"], .investment-table td > span[dir="ltr"] { display: block; width: fit-content; font-size: var(--fs-num-sm); }
-.investment-table td[dir="ltr"] { text-align: end; font-family: var(--font-num); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
-.investment-table td.positive b, .investment-table td.positive small[dir="ltr"] { color: var(--positive); }
-.investment-table td.negative b, .investment-table td.negative small[dir="ltr"] { color: var(--negative); }
-.investment-table td.positive small[dir="ltr"], .investment-table td.negative small[dir="ltr"] { font-weight: var(--fw-bold); }
-.investment-table small.profit-note { max-width: 170px; white-space: normal; line-height: 1.4; color: var(--text-subtle); }
-.investment-table td:first-child > small.muted { max-width: 260px; margin-block-start: var(--sp-2); white-space: normal; line-height: 1.45; }
-.investment-table td > small[dir="ltr"] { width: fit-content; }
-/* The same profit note repeats on every row: keep it on the first row only */
-.investment-table tbody tr + tr small.profit-note { display: none; }
 /* Activity log amounts: the ltr cell's end edge lines up with the start-aligned header */
-.page-content:has(> .monthly-prompt) td[dir="ltr"] { text-align: end; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.investment-table td.muted { font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
-.investment-table .table-actions { justify-content: flex-end; }
-/* Asset column stays in view while the numbers scroll on narrow screens */
-.investment-table th:first-child, .investment-table td:first-child {
-  position: sticky; inset-inline-start: 0; z-index: 1; background: var(--surface);
-}
-.investment-table thead th:first-child { z-index: 2; }
-.investment-table tbody tr:hover td:first-child { background: linear-gradient(var(--hover), var(--hover)), var(--surface); }
+.activity-card td[dir="ltr"] { text-align: end; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 
 .asset-name { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .asset-name > div { min-width: 0; }
@@ -636,23 +597,9 @@ html.privacy .goal-live-number:hover, html.privacy .alloc-summary b:hover,
 html.privacy .holdings-review td[dir="ltr"]:hover, html.privacy .confirm-text b[dir="ltr"]:hover { filter: none; }
 
 /* Standalone figures that are not wrapped in a dir="ltr" element */
-html.privacy main :is(.saving-card .goal-details b, .saving-target small, .investment-table td > small, .risk-kpis small, .wallet-note > span) { filter: blur(6px); }
-html.privacy main :is(.saving-card .goal-details b, .saving-target small, .investment-table td > small, .risk-kpis small, .wallet-note > span):hover { filter: none; }
+html.privacy main :is(.saving-card .goal-details b, .saving-target small, .risk-kpis small, .wallet-note > span) { filter: blur(6px); }
+html.privacy main :is(.saving-card .goal-details b, .saving-target small, .risk-kpis small, .wallet-note > span):hover { filter: none; }
 
-/* Narrow desktop / tablet: the repeated profit note goes, and the holdings fit the card without sideways scroll */
-@media (max-width: 1220px) {
-  .investment-table small.profit-note { display: none; }
-  /* without the note the holdings fit a tablet card: no sideways scroll */
-  .investment-table { min-width: 0; }
-  .investment-table td, .investment-table th { padding-inline: var(--sp-2); }
-  .investment-table td:first-child { min-width: 190px; white-space: normal; }
-  .investment-table th { white-space: normal; } /* 'כמות / מחיר ממוצע' may take two lines; the figures never do */
-  .investment-table .asset-name b { max-width: 156px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .investment-table td:nth-child(2) > small { white-space: nowrap; }
-  /* the update date moves out: the row keeps value, profit and both actions on one line */
-  .investment-table :is(th, td):nth-child(6) { display: none; }
-  .investment-table .table-actions { flex-wrap: nowrap; gap: 2px; }
-}
 
 /* ============================================================
    TABLET (≤1100)
@@ -704,45 +651,6 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   .goal-live-number { font-size: 32px; }
 
   /* Investments */
-  .monthly-prompt { flex-wrap: wrap; padding: var(--sp-4); gap: var(--sp-3); border-radius: 18px; }
-  .monthly-prompt > div { flex: 1 1 200px; }
-  .monthly-prompt-icon { width: 44px; height: 44px; border-radius: 14px; }
-  .monthly-prompt h2 { font-size: 16px; }
-  .monthly-prompt > .button { width: 100%; }
-  /* Holdings: each asset is a stacked row (name + actions | value + profit), no sideways scroll */
-  .investment-table { min-width: 0; }
-  .investment-table, .investment-table tbody { display: block; white-space: normal; }
-  .investment-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .investment-table tr {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;
-    gap: var(--sp-1) var(--sp-3); padding-block: var(--sp-3);
-    border-block-end: 1px solid var(--border);
-  }
-  .investment-table tbody tr:last-child { border-block-end: 0; }
-  .investment-table td, .investment-table td:first-child {
-    position: static; min-width: 0; max-width: none; padding: 0; border: 0;
-    background: none; box-shadow: none; white-space: normal;
-  }
-  .investment-table tbody tr:hover td, .investment-table tbody tr:hover td:first-child { background: none; }
-  .investment-table td:nth-child(1) { grid-column: 1; grid-row: 1; }
-  .investment-table td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; text-align: end; }
-  .investment-table td:nth-child(5) { grid-column: 2; grid-row: 2; align-self: center; justify-self: end; text-align: end; }
-  .investment-table td:nth-child(7) { grid-column: 1; grid-row: 2; align-self: center; }
-  .investment-table td:is(:nth-child(2), :nth-child(3), :nth-child(6)), .investment-table small.profit-note { display: none; }
-  /* amounts hug the card's inline-end edge (left), one under the other */
-  .investment-table td:nth-child(4) { display: flex; flex-direction: column; align-items: flex-end; }
-  .investment-table td:nth-child(4) > b[dir="ltr"] { font-size: var(--fs-num-md); font-weight: var(--fw-bold); }
-  .investment-table td:nth-child(5) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 0 var(--sp-2); }
-  .investment-table td:nth-child(5) > small { margin: 0; }
-  .investment-table td:nth-child(5) > b[dir="ltr"] { font-size: var(--fs-small); }
-  .investment-table .table-actions { justify-content: flex-start; gap: var(--sp-2); padding-inline-start: 42px; }
-  .investment-table .asset-name { gap: var(--sp-2); }
-  .investment-table .asset-name b { max-width: none; white-space: normal; }
-  .investment-table .ticker-icon { width: 34px; height: 34px; border-radius: 10px; font-size: 10px; }
-  .investment-table .ticker-icon.long { font-size: 8.5px; }
-  .investment-table td:first-child > small.muted { display: none; }
-  .table-wrap:has(.investment-table) { overflow: visible; }
-
   .snapshot-list > div { grid-template-columns: minmax(0, 1fr) auto minmax(58px, auto); gap: var(--sp-2); }
   .snapshot-date svg { width: 28px; height: 28px; }
 
@@ -821,21 +729,21 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
   }
   .stress-table td.negative { color: var(--negative); }
 
-  /* Activity log (last card on the investments page): stacked rows, amount always visible */
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]),
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) > tbody { display: block; white-space: normal; }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) > thead { display: none; }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) tr {
+  /* Activity log on the investments page: stacked rows, amount always visible */
+  .activity-card .table-wrap > table:not([class]),
+  .activity-card .table-wrap > table:not([class]) > tbody { display: block; white-space: normal; }
+  .activity-card .table-wrap > table:not([class]) > thead { display: none; }
+  .activity-card .table-wrap > table:not([class]) tr {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px var(--sp-3);
     padding-block: var(--sp-3); border-block-end: 1px solid var(--border);
   }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) tr:last-child { border-block-end: 0; }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td { padding: 0; border: 0; background: none; min-width: 0; }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: var(--fw-bold); }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; font-family: var(--font-num); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(3) { grid-column: 1; grid-row: 2; font-size: var(--fs-micro); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(2) { grid-column: 2; grid-row: 2; justify-self: end; font-size: var(--fs-micro); color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .page-content:has(> .monthly-prompt) > section.card:last-of-type .table-wrap > table:not([class]) td:nth-child(5) { display: none; }
+  .activity-card .table-wrap > table:not([class]) tr:last-child { border-block-end: 0; }
+  .activity-card .table-wrap > table:not([class]) td { padding: 0; border: 0; background: none; min-width: 0; }
+  .activity-card .table-wrap > table:not([class]) td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: var(--fw-bold); }
+  .activity-card .table-wrap > table:not([class]) td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; font-family: var(--font-num); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+  .activity-card .table-wrap > table:not([class]) td:nth-child(3) { grid-column: 1; grid-row: 2; font-size: var(--fs-micro); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .activity-card .table-wrap > table:not([class]) td:nth-child(2) { grid-column: 2; grid-row: 2; justify-self: end; font-size: var(--fs-micro); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .activity-card .table-wrap > table:not([class]) td:nth-child(5) { display: none; }
 
   .benchmark-toggles > .legend-name, .benchmark-toggles > label { min-height: var(--touch); }
 
@@ -890,4 +798,88 @@ html.privacy main :is(.saving-card .goal-details b, .saving-target small, .inves
 .lg-goal-note { margin-block-start: var(--sp-3); line-height: 1.6; }
 @media (max-width: 760px) {
   .lg-goal-deposit > .button { min-height: var(--touch); }
+}
+
+/* ======================= 4.1 Investment accounts (containers) ======================= */
+/* The update card: daily prices and the monthly snapshot, one place. */
+.invest-updates { display: flex; align-items: center; gap: var(--sp-4); }
+.invest-updates-icon {
+  display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: var(--r-md);
+  background: var(--accent-soft); color: var(--accent-text);
+}
+.invest-updates-copy { flex: 1 1 auto; min-width: 0; }
+.invest-updates-copy h2 { font-size: var(--fs-h3); font-weight: var(--fw-bold); }
+.invest-updates-copy p { margin-block-start: 2px; font-size: var(--fs-small); color: var(--text-muted); }
+.invest-updates > .actions { flex: none; flex-wrap: nowrap; }
+
+.invest-section-head { margin-block: var(--sp-2) 0; align-items: flex-end; }
+.invest-section-head h2 { font-size: var(--fs-h2); }
+.container-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: var(--gap-grid); align-items: start; }
+
+.container-card { display: flex; flex-direction: column; gap: var(--sp-4); }
+.container-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); }
+.container-head .asset-icon { width: 40px; height: 40px; }
+.container-head h2 { font-size: var(--fs-h2); font-weight: var(--fw-bold); line-height: 1.3; overflow-wrap: anywhere; }
+.container-head small { display: block; font-size: var(--fs-micro); color: var(--text-muted); }
+.container-actions { display: flex; gap: var(--sp-1); }
+
+.container-figures {
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr); gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2);
+}
+.container-figures:has(> div:nth-child(3)) { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, .7fr); }
+.container-figures > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.container-figures span { font-size: var(--fs-micro); color: var(--text-muted); }
+.container-figures b { width: fit-content; font-family: var(--font-num); font-size: var(--fs-num-md); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.container-figures b.container-value { font-size: var(--fs-num-lg); }
+.container-figures b.positive { color: var(--positive); }
+.container-figures b.negative { color: var(--negative); }
+.container-figures small { width: fit-content; font-size: var(--fs-micro); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.container-empty { font-size: var(--fs-small); }
+
+/* One row per holding: the whole row opens the holding (edit, move to another account, delete). */
+.holding-list { display: flex; flex-direction: column; margin-block: calc(-1 * var(--sp-2)); }
+.holding-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 60px; padding: var(--sp-3) var(--sp-2); margin-inline: calc(-1 * var(--sp-2)); box-sizing: content-box;
+  border-block-end: 1px solid var(--border); text-align: start; color: inherit; cursor: pointer;
+}
+.holding-list > .holding-row:last-child { border-block-end: 0; }
+button.holding-row:hover { background: var(--hover); }
+button.holding-row:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -2px; }
+.holding-row.cash-row { cursor: default; }
+.holding-row .ticker-icon.neutral { background: var(--surface-2); color: var(--text-muted); }
+.holding-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.holding-main b { font-size: var(--fs-small); font-weight: var(--fw-bold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.holding-main small { font-size: var(--fs-micro); color: var(--text-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.holding-main small.holding-fresh { color: var(--text-muted); }
+.holding-main small.holding-fresh.fresh { color: var(--positive); }
+.holding-main small.holding-fresh.stale { color: var(--warning); }
+.holding-figures { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 0; }
+.holding-figures > * { width: fit-content; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.holding-figures b { font-family: var(--font-num); font-size: var(--fs-num-sm); font-weight: var(--fw-bold); }
+.holding-figures small { font-size: var(--fs-micro); }
+.holding-figures small.positive { color: var(--positive); }
+.holding-figures small.negative { color: var(--negative); }
+.container-foot { display: flex; justify-content: flex-start; margin-block-start: calc(-1 * var(--sp-2)); }
+
+/* The monthly update: one heading per investment account */
+.update-group { margin-block: var(--sp-4) var(--sp-1); font-size: var(--fs-small); font-weight: var(--fw-bold); color: var(--text-muted); }
+.update-group:first-child { margin-block-start: 0; }
+
+html.privacy main :is(.holding-figures small, .holding-main small bdi):not(:hover) { filter: blur(6px); }
+
+@media (max-width: 760px) {
+  .invest-updates { flex-wrap: wrap; gap: var(--sp-3); }
+  .invest-updates-copy { flex: 1 1 200px; }
+  .invest-updates > .actions { width: 100%; flex-wrap: wrap; }
+  .invest-updates > .actions > .button { flex: 1 1 0; min-height: var(--touch); }
+  .invest-section-head > .actions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+  .invest-section-head > .actions > .button { min-height: var(--touch); padding-inline: var(--sp-3); }
+  .invest-section-head > .actions > .button.primary { order: -1; }
+  .container-head .icon-button { width: var(--touch); height: var(--touch); }
+  .container-figures, .container-figures:has(> div:nth-child(3)) { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--sp-3); }
+  .container-figures:has(> div:nth-child(3)) > div:first-child { grid-column: 1 / -1; }
+  .holding-row { min-height: 56px; gap: var(--sp-2) var(--sp-3); }
+  .container-foot .text-button { min-height: var(--touch); }
 }
