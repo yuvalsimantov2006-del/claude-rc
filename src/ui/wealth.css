@@ -111,7 +111,7 @@
 .alloc-bar > span:first-child { border-start-start-radius: var(--r-pill); border-end-start-radius: var(--r-pill); }
 .alloc-bar > span:last-child { border-start-end-radius: var(--r-pill); border-end-end-radius: var(--r-pill); }
 .alloc-bar > span.free, .alloc-legend i.free {
-  background: repeating-linear-gradient(-45deg, var(--track) 0 4px, color-mix(in srgb, var(--chart-muted) 30%, var(--track)) 4px 6px);
+  background: color-mix(in srgb, var(--chart-muted) 35%, var(--track));
 }
 .alloc-bar > span[style*="width:0%"] { display: none; }
 .alloc-legend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); }
@@ -337,7 +337,7 @@
 }
 .update-number {
   grid-row: span 2; display: grid; place-items: center; min-width: 76px; height: 56px; padding: 0 var(--sp-3);
-  border-radius: var(--r-lg); background: var(--brand-gradient); color: var(--on-hero);
+  border-radius: var(--r-lg); background: var(--accent); color: var(--accent-contrast);
   font-family: var(--font-num); font-size: 17px; font-weight: var(--fw-black); letter-spacing: .02em;
   direction: ltr; font-variant-numeric: tabular-nums; box-shadow: var(--shadow-1);
 }
