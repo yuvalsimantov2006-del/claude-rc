@@ -10,6 +10,8 @@ import {run as integrate} from './v41-qa-integrate.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_PATH||'/opt/node22/lib/node_modules/playwright');
 const root=path.resolve(import.meta.dirname,'..'),shots=process.argv[2]||path.join(root,'.qa');
+// The "what's new" version the app ships with, so the one-time dialog stays away on every run.
+const SEEN=(fs.readFileSync(path.join(root,'src/polish-ui.js'),'utf8').match(/WHATS_NEW_VERSION='([^']+)'/)||[])[1];
 const app='file://'+(process.env.OFEK_APP?path.resolve(process.env.OFEK_APP):path.join(root,'dist/index.html'));
 const only=process.env.QA41_ONLY||'all';
 if(!['ledger','modules','all'].includes(only))throw new Error('QA41_ONLY must be ledger, modules or all');
@@ -23,9 +25,9 @@ const qa={assert,shots,app,errors,path,
     const context=await browser.newContext({viewport:{width,height},locale:'he-IL',colorScheme:theme});
     await context.route(/api\.frankfurter\.dev|cdn\.jsdelivr\.net|open\.er-api\.com/,route=>{const u=new URL(route.request().url()),date=u.searchParams.get('date')||now.slice(0,10);route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({date,base:'USD',quote:'ILS',rate:3.65})});});
     await context.clock.setFixedTime(new Date(now));
-    await context.addInitScript(([data,theme,extra])=>{if(localStorage.getItem('qa-seeded'))return;localStorage.setItem('qa-seeded','1');
-      localStorage.setItem('ofek-seen-version','4.1');localStorage.setItem('ofek-theme',theme);
-      if(data)localStorage.setItem('ofek-finance-v1',JSON.stringify(data));for(const [k,v] of Object.entries(extra))localStorage.setItem(k,v);},[data,theme,extra]);
+    await context.addInitScript(([data,theme,extra,seen])=>{if(localStorage.getItem('qa-seeded'))return;localStorage.setItem('qa-seeded','1');
+      localStorage.setItem('ofek-seen-version',seen);localStorage.setItem('ofek-theme',theme);
+      if(data)localStorage.setItem('ofek-finance-v1',JSON.stringify(data));for(const [k,v] of Object.entries(extra))localStorage.setItem(k,v);},[data,theme,extra,SEEN]);
     const page=await context.newPage();
     page.on('pageerror',err=>errors.push(err.message));page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
     await page.goto(app);

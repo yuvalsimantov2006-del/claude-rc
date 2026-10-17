@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_PATH||'/opt/node22/lib/node_modules/playwright');
 const root=path.resolve(import.meta.dirname,'..'),shots=process.argv[2]||path.join(root,'.qa');
+// The "what's new" version the app ships with, so the one-time dialog stays away on every run.
+const SEEN=(fs.readFileSync(path.join(root,'src/polish-ui.js'),'utf8').match(/WHATS_NEW_VERSION='([^']+)'/)||[])[1];
 fs.mkdirSync(shots,{recursive:true});
 
 const sse=events=>events.map(e=>`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
@@ -40,7 +42,7 @@ async function newPage(viewport){
   // Dollar rate sources are mocked: the app fetches the USD/ILS rate on start.
   await context.route(/api\.frankfurter\.dev|cdn\.jsdelivr\.net|open\.er-api\.com/,route=>{const url=new URL(route.request().url());route.fulfill({status:200,headers:{'content-type':'application/json','access-control-allow-origin':'*'},body:JSON.stringify({base:'USD',quote:'ILS',rate:3.65,date:url.searchParams.get('date')||'2026-10-12'})});});
   // The one-time "what's new" tour is covered by its own checks; keep it out of the way here.
-  await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.1');}catch{}});
+  await context.addInitScript(v=>{try{localStorage.setItem('ofek-seen-version',v);}catch{}},SEEN);
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
   page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});

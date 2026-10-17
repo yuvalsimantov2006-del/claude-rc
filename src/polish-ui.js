@@ -40,23 +40,19 @@ function animateNumbers(entering){
 }
 function motionAfterRender(){animateNumbers(ui.entering);}
 
-// ---------- What's new in 4.1 ----------
-const WHATS_NEW_KEY='ofek-seen-version',WHATS_NEW_VERSION='4.1';
+// ---------- What's new in 4.2 ----------
+const WHATS_NEW_KEY='ofek-seen-version',WHATS_NEW_VERSION='4.2';
 // Read before app.js loads (and saves) the data: a first visit gets the setup, a returning user "what's new".
 const firstVisit=(()=>{try{return typeof localStorage!=='undefined'&&!localStorage.getItem(STORAGE_KEY);}catch{return false;}})();
 const WHATS_NEW=[
-  ['Square','עיצוב חדש: כהה, נקי ומרובע','רקע גרפיט, צבע הדגשה אחד וכפתורים מרובעים. המצב הבהיר עדיין כאן (השמש/הירח למעלה).',''],
-  ['TrendingUp','ההשקעות לפי חשבונות','פותחים חשבון לכל בית השקעות (מיטב טרייד, אלטשולר שחם…) ומכניסים לתוכו את המניות, הקרנות והקופות.','invest'],
-  ['RefreshCw','עדכון יומי של המחירים','לחיצה אחת מביאה את מחירי היום (קריפטו, ומניות חו״ל עם מפתח חינמי), ואת השאר מקלידים. הכול מתעדכן מיד.','daily'],
-  ['CalendarDays','כל ראשון לחודש — לבד','משכורת, הוראות קבע והפקדה קבועה לחיסכון או ליעד נרשמות אוטומטית. אפשר לאשר סכום, להשהות או לעצור.','bills'],
-  ['Target','יעדים וחסכונות פשוטים','כרטיס קצר לכל יעד: כמה נחסך, כמה חסר ומתי מגיעים. הפרטים מאחורי ״פרטים״.','goals'],
-  ['ArrowLeftRight','העברות, כרטיס אשראי והחזרים','משיכה מכספומט, הפקדה, חיוב כרטיס, תשלומים והחזר כספי — בלי לספור כסף פעמיים.','transfer'],
-  ['Award','אחרי השחרור ונקודות זיכוי','מענק שחרור, פיקדון אישי, עבודה מועדפת ונקודות זיכוי לחיילים משוחררים ולמילואים. הערכות מסומנות ככאלה.','benefits'],
-  ['ShieldCheck','בדיקה שנתית, נעילה וגיבוי','הר הכסף והחזר מס פעם בשנה, נעילה בקוד או בטביעת אצבע, תזכורת לגיבוי — וביטול בלחיצה אחרי מחיקה.','lock']
+  ['Sparkles','עיצוב זכוכית חדש','כרטיסים שקופים כמו זכוכית, פינות מעוגלות ורקע צבעוני שמשתנה עם הצבעים שבחרת — בבהיר ובכהה.',''],
+  ['Palette','בוחרים את הצבעים','בהגדרות, ״צבעי האפליקציה״: כל בחירה היא שלושה צבעים שהולכים יחד, והאפליקציה כולה מתחלפת מיד.','colors'],
+  ['House','דף בית פשוט וברור','כמה יש בעו״ש, בחסכונות ובהשקעות — כל אחד בנפרד — ו״השווי שלי״ שמחבר את הכול. השאר ב״התאמה אישית״.','dashboard'],
+  ['RefreshCw','״מחיר היום״ ליד כל נכס','לחיצה ליד המניה, מקלידים את המחיר של היום (או שהוא נמשך לבד) — והשווי, היעדים והבית מתעדכנים.','invest']
 ];
 function openWhatsNew(){
   try{localStorage.setItem(WHATS_NEW_KEY,WHATS_NEW_VERSION);}catch{}
-  showDialog('מה חדש באופק 4.1',`<p class="confirm-text">הכול מחובר: כל הכנסה, הוצאה או מחיר חדש מעדכנים מיד את היתרה, היעדים, ההשקעות והתחזית.</p><div class="whats-new">${WHATS_NEW.map(([ic,title,text,go],i)=>`<${go?`button type="button" data-action="whats-new:${go}"`:'div'} class="whats-new-item" style="--i:${i}"><span class="whats-new-icon">${icon(ic,20)}</span><span><b>${e(title)}</b><small>${e(text)}</small></span>${go?icon('ChevronLeft',15):''}</${go?'button':'div'}>`).join('')}</div><div class="form-actions">${btn('יאללה, מתחילים','dialog-close','Check','primary')}</div>`,true);
+  showDialog('מה חדש באופק 4.2',`<p class="confirm-text">מראה חדש וצבעוני, ודף בית שמראה בדיוק מה יש לך — כל דבר במקומו.</p><div class="whats-new">${WHATS_NEW.map(([ic,title,text,go],i)=>`<${go?`button type="button" data-action="whats-new:${go}"`:'div'} class="whats-new-item" style="--i:${i}"><span class="whats-new-icon">${icon(ic,20)}</span><span><b>${e(title)}</b><small>${e(text)}</small></span>${go?icon('ChevronLeft',15):''}</${go?'button':'div'}>`).join('')}</div><div class="form-actions">${btn('יאללה, מתחילים','dialog-close','Check','primary')}</div>`,true);
   // Focus the dialog itself (not the close button), so it opens at the top without a focus ring.
   const dialog=document.querySelector('dialog');if(dialog){dialog.tabIndex=-1;dialog.focus();}
 }
@@ -75,6 +71,8 @@ function goToFeature(target){
   else if(target==='whatif'){ui.labTab='whatif';navigate('lab');}
   else if(target==='capture')navigate('capture');
   else if(target==='invest')navigate('investments');
+  else if(target==='colors')openAppColors();
+  else if(target==='dashboard')navigate('dashboard');
   else if(target==='daily'){navigate('investments');setTimeout(()=>openDailyUpdate(),60);}
   else if(target==='transfer')openTransfer();
   else if(target==='benefits')navigate('benefits');
