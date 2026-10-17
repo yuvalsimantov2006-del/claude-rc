@@ -127,7 +127,7 @@ input[dir="ltr"], textarea[dir="ltr"] { text-align: end; }
 /* The mark: a rounded tile in the palette gradient (shell-ui.js brandMark) */
 .brand-svg {
   display: block; border-radius: 28%; background: var(--accent-grad);
-  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent-vivid) 75%, transparent), inset 0 1px 0 rgba(255, 255, 255, .28);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent-vivid) 75%, transparent), var(--fill-highlight);
 }
 .brand-svg .bm-bar { fill: var(--accent-contrast); fill-opacity: .7; }
 .brand-svg .bm-bar.bm-peak { fill-opacity: 1; }
@@ -149,7 +149,7 @@ input[dir="ltr"], textarea[dir="ltr"] { text-align: end; }
 /* The active hub: a pane in the palette gradient */
 .hub-item.active {
   background: var(--accent-grad); color: var(--accent-contrast); font-weight: var(--fw-bold);
-  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--accent-vivid) 75%, transparent), inset 0 1px 0 rgba(255, 255, 255, .22);
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--accent-vivid) 75%, transparent), var(--fill-highlight);
 }
 .hub-item.active svg { color: var(--accent-contrast); }
 
@@ -194,7 +194,7 @@ input[dir="ltr"], textarea[dir="ltr"] { text-align: end; }
   display: inline-grid; place-items: center; flex: none;
   width: 36px; height: 36px; border-radius: var(--r-round); /* a person: the one round thing in the frame */
   background: var(--accent-grad); color: var(--accent-contrast);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25);
+  box-shadow: var(--avatar-ring);
   font-size: 14px; font-weight: var(--fw-bold); line-height: 1;
 }
 
@@ -573,7 +573,7 @@ html.privacy .metric-value .amt, html.privacy .hero-balance .amt { filter: none;
     width: 52px; height: 52px; border: 0; border-radius: var(--r-md);
     display: grid; place-items: center; margin-block-start: -10px;
     background: var(--accent-grad); color: var(--accent-contrast);
-    box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--accent-vivid) 85%, transparent), inset 0 1px 0 rgba(255, 255, 255, .3);
+    box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--accent-vivid) 85%, transparent), var(--fill-highlight);
     transition: transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-fast) var(--ease-out);
   }
   .bottom-add svg { stroke-width: 2.4; }

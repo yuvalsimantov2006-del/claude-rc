@@ -473,7 +473,7 @@ button.flow-day:hover { border-color: var(--border-strong); }
 /* Expense / income keep their meaning: the chosen type is a raised light pane with red or green text, not the gradient */
 .segmented.quick-type > button.active, #entity-form .segmented.full > button.active:is([data-action="entity-type:expense"], [data-action="entity-type:income"]) {
   background: var(--seg-active); color: var(--text);
-  box-shadow: 0 2px 8px -3px rgba(15, 23, 42, .25), inset 0 0 0 1px var(--glass-border);
+  box-shadow: var(--raised-shadow), inset 0 0 0 1px var(--glass-border);
 }
 .segmented.quick-type > button.active[data-quick-type="expense"] { color: var(--negative); }
 .segmented.quick-type > button.active[data-quick-type="income"] { color: var(--positive); }

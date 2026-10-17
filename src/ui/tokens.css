@@ -82,6 +82,10 @@
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
   --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
   --lift: translateY(-2px);   /* hover lift on interactive cards and tiles */
+  --fill-highlight: inset 0 1px 0 rgba(255, 255, 255, .26);   /* the light top edge of gradient fills */
+  --avatar-ring: inset 0 0 0 1px rgba(255, 255, 255, .25);
+  --knob-shadow: 0 1px 3px rgba(15, 23, 42, .28);             /* switch knobs */
+  --raised-shadow: 0 2px 8px -3px rgba(15, 23, 42, .25);      /* a light pane raised inside a track */
 
   /* Hero (the home balance card): the palette's deep gradient (--hero-gradient, per palette) with white
      text in both themes. --hero-text and --hero-text-muted are contrast-checked on every gradient stop. */

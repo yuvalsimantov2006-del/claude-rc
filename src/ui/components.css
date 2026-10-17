@@ -53,10 +53,10 @@
 /* The primary action wears the palette gradient (text: --accent-contrast, checked on every point of it) */
 .button.primary {
   background: var(--accent-grad); color: var(--accent-contrast); border-color: transparent;
-  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--accent-vivid) 80%, transparent), inset 0 1px 0 rgba(255, 255, 255, .24);
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--accent-vivid) 80%, transparent), var(--fill-highlight);
 }
 .button.primary:hover { transform: var(--lift); color: var(--accent-contrast); border-color: transparent;
-  box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--accent-vivid) 90%, transparent), inset 0 1px 0 rgba(255, 255, 255, .3); }
+  box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--accent-vivid) 90%, transparent), var(--fill-highlight); }
 .button.primary:active { transform: scale(.98); background: var(--accent-grad); }
 .button.danger { background: var(--surface); color: var(--negative); border-color: color-mix(in srgb, var(--negative) 40%, transparent); }
 .button.danger:hover { background: var(--negative-soft); border-color: var(--negative); color: var(--negative); }
@@ -148,7 +148,7 @@
 /* The chosen segment: a raised pane of the palette gradient */
 .segmented > button.active, .segmented > button[aria-pressed="true"], .segmented > button[aria-selected="true"] {
   background: var(--accent-grad); color: var(--accent-contrast); font-weight: var(--fw-bold);
-  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent-vivid) 80%, transparent), inset 0 1px 0 rgba(255, 255, 255, .22);
+  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent-vivid) 80%, transparent), var(--fill-highlight);
 }
 .segmented > button:focus-visible { outline-offset: -2px; }
 .segmented.mini { padding: 2px; }
@@ -266,11 +266,11 @@ input.switch {
 input.switch::before {
   content: ""; position: absolute; inset-block-start: 3px; inset-inline-start: 3px;
   width: 20px; height: 20px; border-radius: 7px;
-  background: var(--knob); box-shadow: 0 1px 3px rgba(15, 23, 42, .25), inset 0 0 0 1px var(--border);
+  background: var(--knob); box-shadow: var(--knob-shadow), inset 0 0 0 1px var(--border);
   transition: inset-inline-start var(--dur-base) var(--ease-spring), background var(--dur-base) var(--ease-out);
 }
 input.switch:checked { background: var(--accent-grad); box-shadow: none; }
-input.switch:checked::before { inset-inline-start: 23px; background: var(--accent-contrast); box-shadow: 0 1px 3px rgba(15, 23, 42, .3); }
+input.switch:checked::before { inset-inline-start: 23px; background: var(--accent-contrast); box-shadow: var(--knob-shadow); }
 input.switch:disabled { opacity: .45; cursor: not-allowed; }
 input.switch:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 2px; }
 
