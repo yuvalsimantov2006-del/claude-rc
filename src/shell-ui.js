@@ -13,9 +13,10 @@ const PAGE_ICONS={dashboard:'House',accounts:'Landmark',transactions:'ArrowLeftR
 const hubOf=page=>HUBS.find(h=>h.pages.includes(page))||null;
 const hubLast={};
 const hubTarget=hub=>hub.pages.includes(hubLast[hub.id])?hubLast[hub.id]:hub.pages[0];
-// The mark ("Graphite"): a square near-black tile with a hairline edge and four square bars rising toward the
-// horizon ("אופק"); three white, the tallest in the accent blue. No gradients, so hidden copies need no ids.
-const brandMark=(size=30)=>`<svg class="brand-svg" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" fill="#111113"/><rect x=".5" y=".5" width="31" height="31" fill="none" stroke="#3F3F46"/><path d="M7 17h3v6H7zM12 13h3v10h-3zM17 18h3v5h-3z" fill="#FAFAFA"/><path d="M22 9h3v14h-3z" fill="#3B82F6"/></svg>`;
+// The mark (4.2): a rounded tile in the palette gradient (the svg's CSS background, base.css) with four rounded
+// bars rising toward the horizon ("אופק"), the tallest at full strength. Colours come from CSS, so the mark
+// follows the palette and the theme, and hidden copies need no SVG ids.
+const brandMark=(size=30)=>`<svg class="brand-svg" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><rect class="bm-bar" x="7" y="17" width="3" height="6" rx="1"/><rect class="bm-bar" x="12" y="13" width="3" height="10" rx="1"/><rect class="bm-bar" x="17" y="18" width="3" height="5" rx="1"/><rect class="bm-bar bm-peak" x="22" y="9" width="3" height="14" rx="1"/></svg>`;
 const firstLetter=()=>e(data.profile?.trim().slice(0,1)||'א');
 
 // ---------- Theme ----------
@@ -31,8 +32,9 @@ function applyTheme(){
   if(typeof document==='undefined'||!document.documentElement?.setAttribute)return;
   const theme=resolvedTheme();
   document.documentElement.setAttribute('data-theme',theme);
+  // The browser bar takes the palette's --theme-color for this theme (the frosted top bar's colour), else --bg.
   const meta=document.querySelector?.('meta[name="theme-color"]');
-  if(meta&&typeof getComputedStyle==='function'){const bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();if(bg)meta.setAttribute('content',bg);}
+  if(meta&&typeof getComputedStyle==='function'){const cs=getComputedStyle(document.documentElement),bar=cs.getPropertyValue('--theme-color').trim()||cs.getPropertyValue('--bg').trim();if(bar)meta.setAttribute('content',bar);}
 }
 function setTheme(pref){try{localStorage.setItem(THEME_KEY,pref);}catch{}applyTheme();render();}
 function themeButton(){const dark=resolvedTheme()==='dark';return ib(dark?'Sun':'Moon',dark?'מעבר למצב בהיר':'מעבר למצב כהה','theme-toggle');}
@@ -55,7 +57,7 @@ function subTabsHTML(){
 function openMoreSheet(){
   const tile=p=>`<button type="button" class="more-tile${ui.page===p?' active':''}" data-action="navigate:${p}">${icon(PAGE_ICONS[p],22)}<span>${PAGE_LABELS[p]}</span></button>`;
   const dark=resolvedTheme()==='dark',privacy=document.documentElement.classList.contains('privacy');
-  showDialog('כל העמודים',`<div class="more-sheet">${HUBS.filter(h=>h.id!=='home').map(h=>`<section class="more-group"><h3>${e(h.label)}</h3><div class="more-tiles">${h.pages.map(tile).join('')}</div></section>`).join('')}<section class="more-group"><h3>עוד</h3><div class="more-tiles">${tile('settings')}<button type="button" class="more-tile" data-action="theme-toggle">${icon(dark?'Sun':'Moon',22)}<span>${dark?'מצב בהיר':'מצב כהה'}</span></button><button type="button" class="more-tile" data-action="privacy">${icon(privacy?'Eye':'EyeOff',22)}<span>${privacy?'הצגת סכומים':'הסתרת סכומים'}</span></button><button type="button" class="more-tile" data-action="whats-new">${icon('Sparkles',22)}<span>מה חדש</span></button></div></section></div>`);
+  showDialog('כל העמודים',`<div class="more-sheet">${HUBS.filter(h=>h.id!=='home').map(h=>`<section class="more-group"><h3>${e(h.label)}</h3><div class="more-tiles">${h.pages.map(tile).join('')}</div></section>`).join('')}<section class="more-group"><h3>עוד</h3><div class="more-tiles">${tile('settings')}${typeof openAppColors==='function'?`<button type="button" class="more-tile" data-action="app-colors">${icon('Palette',22)}<span>צבעים</span></button>`:''}<button type="button" class="more-tile" data-action="theme-toggle">${icon(dark?'Sun':'Moon',22)}<span>${dark?'מצב בהיר':'מצב כהה'}</span></button><button type="button" class="more-tile" data-action="privacy">${icon(privacy?'Eye':'EyeOff',22)}<span>${privacy?'הצגת סכומים':'הסתרת סכומים'}</span></button><button type="button" class="more-tile" data-action="whats-new">${icon('Sparkles',22)}<span>מה חדש</span></button></div></section></div>`);
   document.querySelector('dialog')?.classList.add('sheet');
 }
 

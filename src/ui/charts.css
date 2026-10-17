@@ -1,9 +1,9 @@
 /* ============================================================
-   Ofek — charts ("Graphite"): line/area graph, bar chart, donut, score ring,
+   Ofek — charts (4.2 "Glass"): line/area graph, bar chart, donut, score ring,
    fan chart (all rendered by src/charts.js), tooltips and legends.
    charts.js writes theme tokens straight into inline styles (palette, tone), so every chart follows
-   light/dark automatically. Square marks: bars, legend keys and tooltips have no rounding; only the
-   rings (donut, score) and the line points stay round. Tokens only.
+   light/dark and the colour palette (--chart-1…6 come from the palette) automatically.
+   Bars and legend keys have softly rounded corners; tooltips are small frosted tiles. Tokens only.
    ============================================================ */
 
 /* ---------- Chart frame ---------- */
@@ -14,7 +14,7 @@
   font-variant-numeric: tabular-nums;
 }
 .native-chart path, .native-chart line, .native-chart circle, .native-chart rect { transition: opacity var(--dur-fast) var(--ease-out); }
-.bar-chart rect { rx: 0; ry: 0; transition: opacity var(--dur-fast) var(--ease-out); } /* overrides charts.js rx="4" */
+.bar-chart rect { rx: 3px; ry: 3px; transition: opacity var(--dur-fast) var(--ease-out); }
 .bar-chart .graph-point:hover rect, .bar-chart .graph-point:focus-visible rect { opacity: 1; filter: brightness(1.08); }
 
 /* Points: larger hit area is the transparent circle; the visible dot grows on hover/focus */
@@ -32,7 +32,7 @@
   position: absolute; inset-block-start: var(--sp-2); inset-inline: 0; margin-inline: auto; z-index: 2;
   width: max-content; max-width: min(92%, 440px);
   padding: 6px var(--sp-3); border-radius: var(--r-sm);
-  background: var(--toast-bg); color: var(--toast-text); box-shadow: var(--shadow-3);
+  background: var(--toast-bg); color: var(--toast-text); box-shadow: var(--shadow-3); border: 1px solid var(--toast-border);
   font-size: var(--fs-micro); font-weight: var(--fw-semibold); line-height: 1.45; text-align: center;
   font-variant-numeric: tabular-nums;
   direction: rtl; unicode-bidi: plaintext; white-space: normal;
@@ -51,7 +51,7 @@
 .chart-footer > span { display: inline-flex; align-items: center; gap: 0; }
 .chart-footer > span > i, .chart-footer > span > svg { margin-inline-end: 6px; }
 .gold-dot, .purple-dot {
-  display: inline-block; flex: none; width: 10px; height: 10px; border-radius: var(--r-xs); vertical-align: middle;
+  display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle;
   background: var(--chart-1);
 }
 .purple-dot { background: var(--chart-2); }
@@ -80,7 +80,7 @@
 }
 .donut-legend > div + div { border-block-start: 1px solid var(--border); padding-block-start: var(--sp-2); }
 .legend-name { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--text); }
-.legend-name i { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: var(--r-xs); }
+.legend-name i { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 3px; }
 .legend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .donut-legend b { font-family: var(--font-num); font-weight: var(--fw-num); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
