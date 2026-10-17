@@ -1,6 +1,6 @@
 // Ofek service worker: keeps the app working offline and shows the reminders the user chose.
 // Only same-origin GET requests are handled; calls to Claude or GitHub are never cached.
-const CACHE='ofek-4.0.0';
+const CACHE='ofek-4.1.0';
 const SHELL=['./','index.html','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/badge-96.png'];
 
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));});

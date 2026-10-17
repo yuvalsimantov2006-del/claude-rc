@@ -447,7 +447,7 @@ function paletteItems(q){
     {icon:'Upload',title:'עדכון השקעות מהדבקת דוח',sub:'טבלה מבית ההשקעות או קובץ Excel',run:()=>{closeDialog();navigate('investments');setTimeout(()=>openHoldingsImport(),60);}},
     {icon:'LayoutGrid',title:'התאמת דף הבית',sub:'אילו כרטיסים יופיעו ובאיזה סדר',run:()=>{closeDialog();ui.homeEdit=true;navigate('dashboard');}},
     {icon:'Repeat',title:'סנכרון בין מכשירים',sub:'טלפון ומחשב, מוצפן',run:()=>{closeDialog();navigate('settings');setTimeout(()=>document.querySelector('#sync-card')?.scrollIntoView({block:'start'}),60);}},
-    {icon:'Sparkles',title:'מה חדש באופק 4.0',run:()=>{closeDialog();openWhatsNew();}}
+    {icon:'Sparkles',title:'מה חדש באופק 4.1',run:()=>{closeDialog();openWhatsNew();}}
   ];
   actions.push(...moduleHook('palette',[]));
   // Screens: the sidebar names plus the short sub-tab names (PAGE_LABELS), so "תזרים" or "יעדים" finds them too.
