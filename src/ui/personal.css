@@ -1,5 +1,5 @@
 /* ============================================================
-   Ofek 4.1 — personal area: backup & storage, after discharge,
+   Ofek 4.1 — personal area ("Graphite"): backup & storage, after discharge,
    credit points, annual check, app lock.
    Tokens only; logical properties only.
    ============================================================ */
@@ -55,7 +55,7 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 .lk-sub { margin-block-start: var(--sp-1); color: var(--text-muted); font-size: var(--fs-body); }
 .lk-dots { direction: ltr; display: flex; justify-content: center; gap: var(--sp-4); margin-block-start: var(--sp-6); }
 .lk-dots span {
-  width: 14px; height: 14px; border-radius: 50%;
+  width: 12px; height: 12px; border-radius: 0;
   border: 2px solid var(--border-strong); background: transparent;
   transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
@@ -91,8 +91,8 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
 }
 .lk-key:hover { background: var(--hover); }
-.lk-key:active { background: var(--pressed); transform: scale(.96); }
-.lk-key:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.lk-key:active { background: var(--pressed); }
+.lk-key:disabled { opacity: .4; cursor: not-allowed; }
 .lk-key.lk-del, .lk-key.lk-bio { background: transparent; border-color: transparent; color: var(--text-muted); }
 .lk-key.lk-bio { color: var(--accent-text); }
 .lk-key.lk-del:hover, .lk-key.lk-bio:hover { background: var(--hover); }
@@ -101,7 +101,7 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 
 /* The "forgot the code" view */
 .lk-panel.lk-wipe { width: min(100%, 440px); align-items: stretch; text-align: start; gap: var(--sp-3); }
-.lk-wipe-icon { width: 48px; height: 48px; border-radius: 14px; }
+.lk-wipe-icon { width: 48px; height: 48px; }
 .lk-wipe-icon svg { width: 22px; height: 22px; }
 .lk-wipe h2 { font-size: var(--fs-h1); font-weight: var(--fw-bold); letter-spacing: var(--tracking-tight); }
 .lk-wipe > p { color: var(--text-muted); line-height: 1.7; }
@@ -160,8 +160,8 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 .bn-est-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
 .bn-est-value { font-size: var(--fs-body); font-weight: var(--fw-bold); line-height: 1.5; color: var(--text); }
 .bn-amount {
-  display: inline-block; font-family: var(--font-num); font-size: var(--fs-num-lg); font-weight: var(--fw-bold);
-  letter-spacing: var(--tracking-tight); font-variant-numeric: tabular-nums; line-height: 1.2;
+  display: inline-block; font-family: var(--font-num); font-size: var(--fs-num-lg); font-weight: var(--fw-num);
+  letter-spacing: var(--tracking-num); font-variant-numeric: tabular-nums; line-height: 1.2;
 }
 .bn-est-meta { display: block; margin-block-start: var(--sp-1); font-size: var(--fs-micro); line-height: 1.5; color: var(--text-muted); }
 .bn-est-src { margin-block-start: var(--sp-1); font-size: var(--fs-micro); }
@@ -205,7 +205,7 @@ html.privacy main .bn-amount:hover { filter: none; }
 }
 .bn-stepper > .icon-button:hover:not(:disabled) { background: var(--hover); }
 .bn-stepper > .icon-button:disabled { opacity: .4; cursor: not-allowed; }
-.bn-stepper-value { min-width: 2.2ch; text-align: center; font-family: var(--font-num); font-size: var(--fs-num-md); font-weight: var(--fw-bold); }
+.bn-stepper-value { min-width: 2.2ch; text-align: center; font-family: var(--font-num); font-size: var(--fs-num-md); font-weight: var(--fw-num); }
 .bn-work-controls .check-field { min-height: var(--touch); }
 .bn-start-field { flex: 1 1 180px; max-width: 240px; }
 .bn-dates { margin-block-start: var(--sp-3); }

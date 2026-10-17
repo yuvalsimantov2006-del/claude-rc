@@ -286,7 +286,11 @@ test('4.0 data loads byte-identical',()=>{
   const F=as40({...demoData(),demo:false});
   for(const t of F.transactions)t.recurring=false;   // no due recurring template (4.0 would add rows too)
   const text=JSON.stringify(F),loaded=validateData(structuredClone(F)),out=materializeAll(loaded,NOW);
-  assert.equal(out,loaded);assert.equal(JSON.stringify(out),text);
+  // §A.9: the only addition is recordedThrough on autopay bills (lazy init, nothing recorded); the next load is a no-op.
+  assert.ok(out.bills.filter(b=>b.autopay).every(b=>b.recordedThrough===NOW));assert.ok(out.bills.filter(b=>!b.autopay).every(b=>!('recordedThrough' in b)));
+  const back=structuredClone(out);for(const b of back.bills)delete b.recordedThrough;
+  assert.equal(JSON.stringify(back),text);assert.equal(out.transactions.length,F.transactions.length);
+  assert.equal(materializeAll(out,NOW),out);
   assert.equal(hasV41Content(F),false);
 });
 

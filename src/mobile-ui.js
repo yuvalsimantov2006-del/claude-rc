@@ -1,7 +1,7 @@
 import {uid,today,money,plainText,dateLabel,validDate,applyTransaction,categorySpend,accountDelta,accountsOf,isLiability,TX_KINDS,TRANSFER_FROM_KINDS,TRANSFER_TO_KINDS} from './finance.js';
 import {makeTransfer,transferProblem} from './ledger.js';
 import {detectAnomalies,suggestCategory,shiftDate} from './smart.js';
-import {scheduledItems} from './money.js';
+import {scheduledItems,pendingConfirmations} from './money.js';
 import {parseNumber} from './xlsx.js';
 import {moduleHook} from './hooks.js';
 
@@ -130,10 +130,13 @@ function saveQuick(form){
 const NOTIFY_KEY='ofek-notify-v1',SEEN_KEY='ofek-alerts-seen',SENT_KEY='ofek-alerts-sent';
 const NOTIFY_TYPES=[['monthly','תזכורת לעדכון החודשי','כשעבר חודש מאז העדכון האחרון של התיק'],['bills','חיובים קרובים','יום לפני תשלום קבוע או הוראת קבע'],['anomalies','הוצאות חריגות','כשהוצאה או קטגוריה גבוהות בהרבה מהרגיל'],['budgets','חריגה מתקציב','כשקטגוריה עוברת את התקציב החודשי'],['reminders','תזכורות אישיות','גיבוי, מענקים, החזר מס ובדיקה שנתית']];
 const notifySettings=()=>({monthly:false,bills:false,anomalies:false,budgets:false,reminders:false,...readJSON(NOTIFY_KEY,{})});
+const billAlertVerb=x=>x.type==='transfer'&&x.source==='bill'?(x.autopay?'יעברו אוטומטית לחיסכון':'להפקדה'):x.autopay?'יירדו אוטומטית':'לתשלום';
 function currentAlerts(){
   const now=today(),month=now.slice(0,7),list=[],last=sortedSnapshots().at(-1);
   if(data.assets.length&&(!last||(new Date(now)-new Date(last.date))/864e5>=30))list.push({id:`monthly-${month}`,type:'monthly',icon:'CalendarDays',color:'gold',title:'זמן לעדכון החודשי',body:last?`העדכון האחרון של התיק היה ב־${dateLabel(last.date)}.`:'עוד לא נשמר עדכון ראשון לתיק.',action:'navigate:monthly'});
-  for(const x of scheduledItems(data,now,shiftDate(now,2),now).filter(x=>!x.paid&&x.type!=='income'&&!x.onCard))list.push({id:`bill-${x.key}`,type:'bills',icon:x.source==='card'?'CreditCard':'Receipt',color:'purple',title:`${x.date===now?'היום':x.date===shiftDate(now,1)?'מחר':'בעוד יומיים'}: ${x.name}`,body:`${money(x.amount)} ${x.autopay?'יירדו אוטומטית':'לתשלום'}`,action:'navigate:bills'});
+  // "כמה בדיוק?" (§D.4): one alert per auto row that waits for its real amount.
+  for(const t of pendingConfirmations(data))list.push({id:`confirm-${t.id}`,type:'bills',icon:'CircleDollarSign',color:t.type==='income'?'green':'purple',title:confirmTitle(t),body:`רשמנו ${money(t.amount,t.currency||'ILS')}. לחץ כדי לאשר או לתקן.`,action:'navigate:bills'});
+  for(const x of scheduledItems(data,now,shiftDate(now,2),now).filter(x=>!x.paid&&x.type!=='income'&&!x.onCard))list.push({id:`bill-${x.key}`,type:'bills',icon:x.source==='card'?'CreditCard':x.type==='transfer'?'PiggyBank':'Receipt',color:'purple',title:`${x.date===now?'היום':x.date===shiftDate(now,1)?'מחר':'בעוד יומיים'}: ${x.name}`,body:`${money(x.amount)} ${billAlertVerb(x)}`,action:'navigate:bills'});
   for(const a of detectAnomalies(data,month).slice(0,3))list.push({id:`anomaly-${a.kind}-${a.id||a.title}-${month}`,type:'anomalies',icon:'TriangleAlert',color:'red',title:a.kind==='category'?`ההוצאות על ${a.title} גבוהות מהרגיל`:`הוצאה חריגה: ${a.title}`,body:`${money(a.amount)} לעומת כ־${money(a.typical)} בדרך כלל`,action:'navigate:insights'});
   for(const b of data.budgets){const spent=categorySpend(data,b.category,month);if(b.limit>0&&spent>b.limit)list.push({id:`budget-${b.category}-${month}`,type:'budgets',icon:'SlidersHorizontal',color:'red',title:`חריגה מתקציב ${b.category}`,body:`${money(spent)} מתוך ${money(b.limit)} החודש`,action:'navigate:budgets'});}
   list.push(...moduleHook('alerts',[],now));
@@ -188,7 +191,7 @@ async function checkAlerts(){
 async function sendDigest(st,sent){
   if(!servedOnline()||!hasNavigator||!navigator.serviceWorker)return;
   const now=today(),items=[];
-  if(st.bills)for(const x of scheduledItems(data,shiftDate(now,1),shiftDate(now,21),now).filter(x=>!x.paid&&x.type!=='income'&&!x.onCard))items.push({id:`bill-${x.key}`,at:`${shiftDate(x.date,-1)}T09:00`,title:`מחר: ${x.name}`,body:`${money(x.amount)} ${x.autopay?'יירדו אוטומטית':'לתשלום'}`,url:'./#bills'});
+  if(st.bills)for(const x of scheduledItems(data,shiftDate(now,1),shiftDate(now,21),now).filter(x=>!x.paid&&x.type!=='income'&&!x.onCard))items.push({id:`bill-${x.key}`,at:`${shiftDate(x.date,-1)}T09:00`,title:`מחר: ${x.name}`,body:`${money(x.amount)} ${billAlertVerb(x)}`,url:'./#bills'});
   const last=sortedSnapshots().at(-1);
   if(st.monthly&&data.assets.length&&last){const due=shiftDate(last.date,30);items.push({id:`monthly-${due.slice(0,7)}`,at:`${due}T10:00`,title:'זמן לעדכון החודשי',body:'כמה דקות, ותראה איך התיק התקדם.',url:'./#monthly'});}
   try{

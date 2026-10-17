@@ -1,5 +1,5 @@
-import {today,toILS,balances,monthlySummary,monthOffset,spendILS,LIQUID_KINDS,accountsOf} from './finance.js';
-import {installmentAmount,installmentDate,billingDates,projectCardStatements} from './ledger.js';
+import {uid,today,toILS,balances,monthlySummary,monthOffset,spendILS,amountILS,applyTransaction,validDate,LIQUID_KINDS,TX_KINDS,TRANSFER_TO_KINDS,accountsOf} from './finance.js';
+import {installmentAmount,installmentDate,billingDates,projectCardStatements,makeTransfer,transferProblem,goalDeposit} from './ledger.js';
 import {daysInMonth,shiftDate,averageMonth} from './smart.js';
 import {savingsDepositDate,effectiveGoalSavings} from './savings.js';
 
@@ -177,6 +177,207 @@ export function billOccurrences(bill,from,to){
 }
 export const billMonthly=(d,b)=>toILS(b.amount,b.currency||'ILS',d.fx)/(BILL_STEPS[b.frequency]||1);
 
+// ---------- Bill kinds and auto-recorded bills (§A.5, §B.6) ----------
+// A fixed item is an income, an expense, or a standing deposit between your own accounts ("הפקדה קבועה"):
+// kind:'transfer', from accountId into toAccountId and/or a goal (goalId). A deposit keeps type:'expense' so the
+// bills validation of 4.0 and 4.1 (type ∈ income|expense, §A.5) still accepts it; read it only through billKind().
+// A deposit is never income or spending: it is recorded as a transfer, and the forecast moves money between accounts.
+export const isDepositBill=b=>b?.kind==='transfer';
+export const billKind=b=>isDepositBill(b)?'transfer':b?.type==='income'?'income':'expense';
+export const DEPOSIT_FROM_KINDS=['bank','cash','savings'];
+export const DEPOSIT_TO_KINDS=['savings','deposit','bank','cash'];
+const billDayGap=(a,b)=>Math.round((Date.parse(a+'T12:00:00Z')-Date.parse(b+'T12:00:00Z'))/864e5);
+
+// Where a standing deposit goes today. A goal follows its current link; an unlinked goal uses the chosen account,
+// or none ("only the goal grows", as in "הפקדתי עכשיו"). `problem` is a short Hebrew reason it cannot be recorded.
+export function depositRoute(d,b){
+  const goal=b.goalId?(d.goals||[]).find(g=>g.id===b.goalId)||null:null;
+  const linked=goal?.accountId?d.accounts.find(a=>a.id===goal.accountId)||null:null;
+  const from=d.accounts.find(a=>a.id===b.accountId&&DEPOSIT_FROM_KINDS.includes(a.kind))||null;
+  const chosen=b.toAccountId?d.accounts.find(a=>a.id===b.toAccountId)||null:null,to=goal?linked||chosen:chosen;
+  let problem='';
+  if(b.goalId&&!goal)problem='היעד נמחק';
+  else if(!from)problem='חסר חשבון שממנו יוצא הכסף';
+  else if(linked?.kind==='investment')problem='יעד שמקושר לתיק ההשקעות מתעדכן דרך פעולה בתיק';
+  else if(!goal&&!to)problem='חסר חשבון יעד';
+  else if(to&&(to.id===from.id||!TRANSFER_TO_KINDS.includes(to.kind)))problem='חשבון היעד אינו מתאים';
+  return {from,to,goal,linked,problem};
+}
+// How a deposit changes bank + cash (the forecast's money), in shekels: out of a liquid account, into one, or both.
+// A goal-only deposit (an unlinked goal, no destination account) moves no account at all.
+const depositLiquid=(d,route,amount)=>!route.to?0:(LIQUID_KINDS.includes(route.to.kind)?amount:0)-(route.from&&LIQUID_KINDS.includes(route.from.kind)?amount:0);
+
+// An occurrence is handled when it was marked paid, or when it is an autopay occurrence on or before
+// recordedThrough that the user did not put back on hold ("עוד לא נכנסה").
+export const billHandled=(b,date)=>(b.paid||[]).includes(date)||(!!b.autopay&&!!b.recordedThrough&&date<=b.recordedThrough&&!(b.waiting||[]).includes(date));
+
+// Two names match when, as letters and digits only, one contains the other or they share a word of 3+ letters.
+const billNameKey=s=>String(s||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+export function billNameMatch(a,b){
+  const x=billNameKey(a),y=billNameKey(b);if(!x||!y)return false;
+  const xs=x.replace(/ /g,''),ys=y.replace(/ /g,'');if(xs.includes(ys)||ys.includes(xs))return true;
+  const words=new Set(x.split(' ').filter(w=>w.length>2));return y.split(' ').some(w=>w.length>2&&words.has(w));
+}
+// A row the user recorded by hand for this occurrence: same kind, within 4 days and max(20 ₪, 35%) of the amount,
+// and the same category or a matching name (a deposit: the same accounts or the same goal). Auto rows never match.
+export function findManualTwin(d,b,date){
+  const kind=billKind(b),billILS=toILS(b.amount,b.currency||'ILS',d.fx),tolerance=Math.max(20,.35*billILS),route=kind==='transfer'?depositRoute(d,b):null;
+  return d.transactions.find(t=>!t.auto&&t.type===kind&&Math.abs(billDayGap(t.date,date))<=4&&Math.abs(amountILS(d,t)-billILS)<=tolerance&&
+    (route?t.accountId===b.accountId&&((!!route.to&&t.toAccountId===route.to.id)||(!!b.goalId&&t.goalId===b.goalId)):(t.category===b.category||billNameMatch(t.description,b.name))))||null;
+}
+
+// Records one occurrence (mutates d). Income and expense rows go to the bill's account, converted to its currency;
+// a deposit is a transfer (a goal deposit goes through goalDeposit, so a fixed allocation grows with it).
+function recordBillRow(d,b,date,id,now){
+  const kind=billKind(b),ils=round2(toILS(b.amount,b.currency||'ILS',d.fx)),tags=['תשלום קבוע','אוטומטי'],auto={source:'bill',ref:b.id,date,confirm:kind==='transfer'?false:b.confirm??(kind==='income')};
+  const inCurrency=a=>a.currency===(b.currency||'ILS')?Number(b.amount):round2(a.currency==='USD'?ils/d.fx:ils);
+  if(kind==='transfer'){
+    const {from,to,goal}=depositRoute(d,b);let t=null;
+    if(goal)t=goalDeposit(d,goal.id,{amount:ils,fromId:from.id,toId:to?.id||'',date},now).transaction;
+    else{t=makeTransfer(d,{fromId:from.id,toId:to.id,amount:inCurrency(from),date,description:b.name});const problem=transferProblem(d,t,now);if(problem)throw new Error(problem);applyTransaction(d,t);d.transactions.push(t);}
+    if(t)Object.assign(t,{id,description:b.name,tags,auto});
+    return t;
+  }
+  const account=d.accounts.find(a=>a.id===b.accountId),category=b.category||(kind==='income'?'משכורת':'חשבונות');
+  const t={id,type:kind,amount:inCurrency(account),currency:account.currency,fx:d.fx,date,category,subcategory:'',accountId:account.id,description:b.name,tags,recurring:false,auto};
+  if(!d.categories.includes(category))d.categories.push(category);
+  applyTransaction(d,t);d.transactions.push(t);
+  return t;
+}
+// Autopay occurrences in (recordedThrough, now] become real rows with deterministic ids (§B.6, §B.7). A bill first
+// seen without recordedThrough starts today: nothing in the past is recorded, not even today (§A.9). A matching
+// manual row marks the occurrence paid instead. A bill whose account is missing waits (the table says why).
+export function materializeBills(d,now=today()){
+  let changed=false;
+  for(const b of d.bills||[]){
+    if(!b.autopay||b.active===false)continue;
+    if(!b.recordedThrough){b.recordedThrough=now;changed=true;continue;}
+    if(b.recordedThrough>=now)continue;
+    if(isDepositBill(b)?depositRoute(d,b).problem:!d.accounts.some(a=>a.id===b.accountId&&TX_KINDS.includes(a.kind)))continue;
+    const to=b.endDate&&b.endDate<now?b.endDate:now;
+    for(const date of billOccurrences(b,shiftDate(b.recordedThrough,1),to)){
+      if(!(b.paid||[]).includes(date)&&!(b.waiting||[]).includes(date)){
+        const twin=findManualTwin(d,b,date),id=`bill-${b.id}-${date}`;
+        if(twin)b.paid=[...new Set([...(b.paid||[]),date])].sort().slice(-36);
+        else if(!d.transactions.some(t=>t.id===id)){try{recordBillRow(d,b,date,id,now);}catch{break;}}   // retried next time
+      }
+      b.recordedThrough=date;changed=true;   // advances only on occurrence days → no daily rewrites
+    }
+  }
+  return changed;
+}
+
+// The next `count` occurrences on or after `from` that are not handled (windows of four years: billOccurrences
+// stops after 60 steps).
+function billUpcoming(b,from,count,until='9999-12-31'){
+  const out=[];let start=from;
+  for(let guard=0;out.length<count&&start<=until&&guard<30;guard++){
+    const stop=`${monthOffset(start.slice(0,7),47)}-31`;
+    for(const date of billOccurrences(b,start,stop<until?stop:until))if(!billHandled(b,date)&&out.length<count)out.push(date);
+    start=`${monthOffset(start.slice(0,7),48)}-01`;
+  }
+  return out;
+}
+// "Stop after N payments": the N-th occurrence from today that is not handled yet; null clears it.
+export function billEndDate(b,n,now=today()){n=Number(n);if(!Number.isInteger(n)||n<1||n>600)return null;return billUpcoming(b,now,n)[n-1]||null;}
+// Occurrences left until endDate (from today, not handled); null when the bill has no end.
+export const billRemaining=(b,now=today())=>!b.endDate?null:b.endDate<now?0:billUpcoming(b,now,600,b.endDate).length;
+export const billEnded=(b,now=today())=>!!b.endDate&&(b.endDate<now||billRemaining(b,now)===0);
+
+// Auto rows that wait for "כמה בדיוק?", newest first.
+export const pendingConfirmations=d=>d.transactions.filter(t=>t.auto?.confirm===true).sort((a,b)=>b.date.localeCompare(a.date)||String(a.id).localeCompare(String(b.id)));
+// Confirms an auto row with the real amount (edit = undo + apply). A transfer's toAmount follows (same currency:
+// equal; otherwise at the row's rate). Returns whether the amount changed.
+export function confirmAutoAmount(d,txId,amount){
+  const i=d.transactions.findIndex(t=>t.id===txId),t=d.transactions[i];if(!t)throw new Error('הרישום כבר לא קיים.');
+  const value=round2(Number(amount));if(!(value>0)||!Number.isFinite(value))throw new Error('יש להזין סכום חיובי.');
+  const next={...t,amount:value,auto:{...t.auto,confirm:false}};
+  if(t.type==='transfer'){const to=d.accounts.find(a=>a.id===t.toAccountId),from=d.accounts.find(a=>a.id===t.accountId),fx=Number(t.fx)||d.fx;next.toAmount=!to||!from||from.currency===to.currency?value:round2(from.currency==='USD'?value*fx:value/fx);}
+  applyTransaction(d,t,-1);applyTransaction(d,next);d.transactions[i]=next;
+  return Math.abs(value-t.amount)>.004;
+}
+// "עוד לא נכנסה / עוד לא ירד": the row goes away and the occurrence waits (shown as manual and overdue).
+export function holdAutoBill(d,txId){
+  const t=d.transactions.find(x=>x.id===txId);if(!t)throw new Error('הרישום כבר לא קיים.');
+  if(t.auto?.source!=='bill'||t.type==='transfer')throw new Error('אפשר לדחות רק הכנסה או תשלום קבוע שנרשמו אוטומטית.');
+  applyTransaction(d,t,-1);d.transactions=d.transactions.filter(x=>x.id!==txId);
+  const b=(d.bills||[]).find(x=>x.id===t.auto.ref);
+  if(b)b.waiting=[...new Set([...(b.waiting||[]),t.auto.date])].sort();
+  return b||null;
+}
+// "מחיקת החיוב" of an automatic card statement: the amount stays owed on the card until the next statement.
+export function dropAutoCard(d,txId){
+  const t=d.transactions.find(x=>x.id===txId);if(!t)throw new Error('הרישום כבר לא קיים.');
+  if(t.auto?.source!=='card')throw new Error('זה לא חיוב כרטיס אוטומטי.');
+  applyTransaction(d,t,-1);d.transactions=d.transactions.filter(x=>x.id!==txId);
+}
+const findBill=(d,id)=>{const b=(d.bills||[]).find(x=>x.id===id);if(!b)throw new Error('התשלום הקבוע לא נמצא.');return b;};
+export function pauseBill(d,id,now=today()){const b=findBill(d,id);b.active=false;b.pausedOn=now;return b;}
+// Resuming never back-fills the paused period.
+export function resumeBill(d,id,now=today()){const b=findBill(d,id);b.active=true;b.pausedOn=null;b.recordedThrough=now;return b;}
+// A new or edited bill from the form's values (strings). Every new bill starts recording tomorrow
+// (recordedThrough=today); an edit keeps its through-date unless autopay is switched on now. `remaining`
+// ("כמה תשלומים נשארו") sets endDate; empty clears it; 0 stops it.
+export function makeBill(d,v,previous=null,now=today()){
+  const kind=['income','expense','transfer'].includes(v.kind)?v.kind:'expense',amount=round2(Number(v.amount)),day=Math.round(Number(v.day)),left=String(v.remaining??'').trim();
+  if(!(amount>0)||!Number.isFinite(amount))throw new Error('יש להזין סכום חיובי.');
+  if(!(day>=1&&day<=31))throw new Error('יום בחודש צריך להיות בין 1 ל־31.');
+  if(left!==''&&!(Number.isInteger(Number(left))&&+left>=0&&+left<=120))throw new Error('מספר התשלומים שנשארו צריך להיות בין 1 ל־120, או ריק.');
+  const bill={paid:[],...previous,id:previous?.id||uid(),amount,currency:'ILS',frequency:BILL_STEPS[v.frequency]?v.frequency:'monthly',day};
+  if(/^\d{4}-(0[1-9]|1[0-2])$/.test(v.startMonth||''))bill.startMonth=v.startMonth;
+  if(kind==='transfer'){
+    const [tk,tid]=String(v.target||'').split(':'),goal=tk==='goal'?(d.goals||[]).find(g=>g.id===tid):null,account=tk==='acc'?d.accounts.find(a=>a.id===tid):null;
+    if(!goal&&!account)throw new Error('בחר לאן להפקיד: חשבון חיסכון או יעד.');
+    const linked=goal&&d.accounts.some(a=>a.id===goal.accountId);
+    Object.assign(bill,{type:'expense',kind:'transfer',accountId:String(v.from||''),toAccountId:goal?(linked?'':String(v.dest||'')):account.id,category:'העברה',autopay:true,confirm:false});
+    if(goal)bill.goalId=goal.id;else delete bill.goalId;
+    const {problem}=depositRoute(d,bill);if(problem)throw new Error(problem+'.');
+    bill.name=String(v.name||'').trim().slice(0,80)||`הפקדה ל${goal?goal.name:account.name}`;
+  }else{
+    const name=String(v.name||'').trim().slice(0,80);if(!name)throw new Error('יש להזין שם.');
+    delete bill.kind;delete bill.toAccountId;delete bill.goalId;
+    Object.assign(bill,{name,type:kind,category:String(v.category||''),accountId:String(v.accountId||''),autopay:!!v.autopay,confirm:!!v.confirm});
+    if(bill.autopay&&!d.accounts.some(a=>a.id===bill.accountId&&TX_KINDS.includes(a.kind)))throw new Error('כדי שאופק תרשום את זה לבד, בחר חשבון.');
+  }
+  if(!previous||!previous.recordedThrough||(bill.autopay&&!previous.autopay))bill.recordedThrough=now;
+  if(left==='')bill.endDate=null;
+  else if(+left===0)bill.endDate=previous?.endDate&&previous.endDate<=now?previous.endDate:shiftDate(now,-1);
+  else bill.endDate=billEndDate(bill,+left,now);
+  if(!previous&&bill.endDate==null)delete bill.endDate;
+  return bill;
+}
+// The first occurrence a new bill will record or show (strictly after today), or null.
+export const nextBillDate=(b,now=today())=>billUpcoming({...b,paid:[],waiting:[],recordedThrough:now,autopay:true},shiftDate(now,1),1,b.endDate||'9999-12-31')[0]||null;
+// "שולם / התקבל / הופקד" from the agenda (mutates d): the occurrence is handled, a waiting one stops waiting, and
+// with `record` a row is added: income or expense on the chosen account, or the deposit itself (a transfer).
+export function markBillPaid(d,billId,occurrence,{record=false,amount,date,accountId}={},now=today()){
+  const b=findBill(d,billId);
+  if(record){
+    const value=round2(Number(amount));
+    if(!(value>0)||!Number.isFinite(value))throw new Error('יש להזין סכום חיובי.');
+    if(!validDate(date)||date>now)throw new Error('יש לבחור תאריך שאינו בעתיד.');
+    if(isDepositBill(b)){
+      const route=depositRoute(d,{...b,accountId:accountId||b.accountId});if(route.problem)throw new Error(route.problem+'.');
+      if(route.goal)goalDeposit(d,route.goal.id,{amount:value,fromId:route.from.id,toId:route.to?.id||'',date},now);
+      else{const t=makeTransfer(d,{fromId:route.from.id,toId:route.to.id,amount:route.from.currency==='USD'?round2(value/d.fx):value,date,description:b.name});const problem=transferProblem(d,t,now);if(problem)throw new Error(problem);t.tags=['תשלום קבוע'];applyTransaction(d,t);d.transactions.push(t);}
+    }else{
+      if(!d.accounts.some(a=>a.id===accountId&&TX_KINDS.includes(a.kind)))throw new Error('יש לבחור חשבון.');
+      const kind=billKind(b),t={id:uid(),type:kind,amount:value,currency:'ILS',fx:d.fx,date,category:b.category||(kind==='income'?'משכורת':'חשבונות'),subcategory:'',accountId,description:b.name,tags:['תשלום קבוע'],recurring:false};
+      if(!d.categories.includes(t.category))d.categories.push(t.category);
+      applyTransaction(d,t);d.transactions.push(t);
+    }
+  }
+  b.paid=[...new Set([...(b.paid||[]),occurrence])].sort().slice(-36);
+  if(b.waiting){b.waiting=b.waiting.filter(x=>x!==occurrence);if(!b.waiting.length)delete b.waiting;}
+  return b;
+}
+// The standing deposit of a goal, or of an account (one without a goal), if there is one.
+export function depositBillFor(d,{goalId='',accountId=''}={}){
+  const list=(d.bills||[]).filter(isDepositBill);
+  if(goalId)return list.find(b=>b.goalId===goalId)||null;
+  return accountId?list.find(b=>!b.goalId&&b.toAccountId===accountId)||null:null;
+}
+
 // Bills, recurring transactions, installment payments and card statements that fall between two dates
 // (inclusive). `onCard` items are paid by a credit card: they move the card, not the bank, and reach the bank
 // only through the card's statement (source 'card').
@@ -184,7 +385,12 @@ export function scheduledItems(d,from,to,now=today()){
   const items=[],kindOf=id=>d.accounts.find(a=>a.id===id)?.kind,onCard=id=>kindOf(id)==='credit';
   for(const b of d.bills||[]){
     if(b.active===false)continue;
-    for(const date of billOccurrences(b,from,to))items.push({key:`${b.id}@${date}`,date,name:b.name,amount:toILS(b.amount,b.currency||'ILS',d.fx),type:b.type||'expense',category:b.category||'',source:'bill',billId:b.id,autopay:!!b.autopay,paid:(b.paid||[]).includes(date),accountId:b.accountId||'',onCard:onCard(b.accountId)});
+    const kind=billKind(b),route=kind==='transfer'?depositRoute(d,b):null,amount=toILS(b.amount,b.currency||'ILS',d.fx);
+    for(const date of billOccurrences(b,from,b.endDate&&b.endDate<to?b.endDate:to)){
+      const waiting=(b.waiting||[]).includes(date),item={key:`${b.id}@${date}`,date,name:b.name,amount,type:kind,category:b.category||'',source:'bill',billId:b.id,autopay:!!b.autopay&&!waiting,waiting,paid:billHandled(b,date),accountId:b.accountId||'',onCard:!route&&onCard(b.accountId)};
+      if(route)Object.assign(item,{toAccountId:route.to?.id||'',goalId:b.goalId||'',liquid:depositLiquid(d,route,amount)});
+      items.push(item);
+    }
   }
   for(const t of d.transactions.filter(t=>t.recurring&&!t.recurringParent)){
     const day=Number(t.date.slice(8,10));
@@ -224,9 +430,9 @@ export function nextCardCharge(d,card,now=today()){
 }
 
 // Monthly cost of fixed expenses: bills (monthly equivalent) + recurring expense transactions + the next payment
-// of every unfinished installment plan.
-export function monthlyFixed(d){
-  return sumBy((d.bills||[]).filter(b=>b.active!==false&&(b.type||'expense')==='expense'),b=>billMonthly(d,b))+sumBy(d.transactions.filter(t=>t.recurring&&!t.recurringParent&&t.type==='expense'),t=>txAmount(d,t))+sumBy((d.installments||[]).filter(p=>p.next<=p.count),p=>toILS(installmentAmount(p,p.next),p.currency,p.fx));
+// of every unfinished installment plan. Paused, ended and deposit bills are not fixed spending.
+export function monthlyFixed(d,now=today()){
+  return sumBy((d.bills||[]).filter(b=>b.active!==false&&billKind(b)==='expense'&&!(b.endDate&&b.endDate<now)),b=>billMonthly(d,b))+sumBy(d.transactions.filter(t=>t.recurring&&!t.recurringParent&&t.type==='expense'),t=>txAmount(d,t))+sumBy((d.installments||[]).filter(p=>p.next<=p.count),p=>toILS(installmentAmount(p,p.next),p.currency,p.fx));
 }
 
 // Salary-like incomes seen in at least two of the last three months, projected forward.
@@ -250,11 +456,12 @@ export function estimatedIncome(d,from,to,now=today()){
 // Planned monthly deposits to savings goals that move money out of the bank (to a savings or
 // investment account, or set aside by hand). Goals funded inside a bank or cash account are skipped:
 // that money never leaves the account. Deposits stop once a goal reaches its target.
+// A goal with a standing deposit (a deposit bill to the goal or to its account) is skipped: the bill is that plan.
 export function goalDepositItems(d,from,to,now=today()){
-  const items=[];
+  const items=[],standing=new Set((d.bills||[]).filter(b=>isDepositBill(b)&&b.active!==false&&!(b.endDate&&b.endDate<now)).flatMap(b=>[b.goalId&&'g:'+b.goalId,b.toAccountId&&!b.goalId&&'a:'+b.toAccountId]).filter(Boolean));
   for(const g of d.goals||[]){
     const account=d.accounts.find(a=>a.id===g.accountId);
-    if(!(g.monthly>0)||!(g.date>now)||(account&&['bank','cash','deposit'].includes(account.kind)))continue;
+    if(!(g.monthly>0)||!(g.date>now)||(account&&['bank','cash','deposit'].includes(account.kind))||standing.has('g:'+g.id)||(g.accountId&&standing.has('a:'+g.accountId)))continue;
     let saved=effectiveGoalSavings(d,g);
     for(let k=1;k<=600;k++){
       const date=savingsDepositDate(now,k);
@@ -277,7 +484,7 @@ export function cashflowForecast(d,{days=60,now=today(),includeGoals=true,includ
   const hasIncome=items.some(x=>x.type==='income')||(d.bills||[]).some(b=>b.type==='income'&&b.active!==false)||d.transactions.some(t=>t.recurring&&!t.recurringParent&&t.type==='income');
   const estimated=hasIncome?[]:estimatedIncome(d,from,end,now);
   items=[...items,...estimated,...(includeGoals?goalDepositItems(d,from,end,now):[])].sort((a,b)=>a.date.localeCompare(b.date));
-  const avg=averageMonth(d,now.slice(0,7),3),fixed=monthlyFixed(d),variableDaily=includeVariable?Math.max(0,avg.expenses-fixed)/30.4:0;
+  const avg=averageMonth(d,now.slice(0,7),3),fixed=monthlyFixed(d,now),variableDaily=includeVariable?Math.max(0,avg.expenses-fixed)/30.4:0;
   const byDate=new Map();for(const x of items){if(!byDate.has(x.date))byDate.set(x.date,[]);byDate.get(x.date).push(x);}
   let balance=start,lowest={date:now,balance:start},overdraft=null;
   const points=[{date:now,balance,events:[]}],months=new Map();
@@ -290,7 +497,7 @@ export function cashflowForecast(d,{days=60,now=today(),includeGoals=true,includ
       if(x.onCard)continue;                              // paid by card: reaches the bank in the card statement
       if(x.type==='income'){balance+=x.amount;m.income+=x.amount;}
       else if(x.source==='card'){balance-=x.amount;m.card+=x.amount;}
-      else if(x.type==='transfer'){balance-=x.amount;m.deposits+=x.amount;}
+      else if(x.type==='transfer'){const v=x.liquid??-x.amount;balance+=v;m.deposits-=v;}   // a standing deposit moves only what leaves bank + cash
       else{balance-=x.amount;m.fixed+=x.amount;}
     }
     m.end=balance;if(balance<m.lowest.balance)m.lowest={date,balance};
@@ -298,7 +505,7 @@ export function cashflowForecast(d,{days=60,now=today(),includeGoals=true,includ
     if(balance<lowest.balance)lowest={date,balance};
     if(balance<0&&!overdraft)overdraft=date;
   }
-  return {start,end:balance,points,lowest,overdraft,items,variableDaily,fixed,estimatedIncome:estimated.length>0,days,months:[...months.values()],deposits:sumBy(items.filter(x=>x.type==='transfer'&&x.source!=='card'),x=>x.amount),cardCharges:sumBy(items.filter(x=>x.source==='card'),x=>x.amount)};
+  return {start,end:balance,points,lowest,overdraft,items,variableDaily,fixed,estimatedIncome:estimated.length>0,days,months:[...months.values()],deposits:sumBy(items.filter(x=>x.type==='transfer'&&x.source!=='card'),x=>-(x.liquid??-x.amount)),cardCharges:sumBy(items.filter(x=>x.source==='card'),x=>x.amount)};
 }
 
 // How much can be spent per day for the rest of the month: the monthly target minus spending so far and the
@@ -311,8 +518,9 @@ export function safeToSpend(d,now=today()){
   const liquid=sumBy(d.accounts.filter(a=>LIQUID_KINDS.includes(a.kind)),a=>toILS(a.balance,a.currency,d.fx));
   const cardCharges=items.filter(x=>x.source==='card'),cardDue=sumBy(cardCharges,x=>x.amount);
   const bankOut=sumBy(upcoming.filter(x=>!x.onCard),x=>x.amount),incomeDue=sumBy(items.filter(x=>x.type==='income'),x=>x.amount);
-  const cash=liquid-bankOut-cardDue+incomeDue,room=Math.min(available,cash);
-  return {perDay:Math.max(0,room)/daysLeft,available,spent,upcomingFixed,daysLeft,budget:d.overallBudget,upcoming,cash,cardDue,cardCharges,limitedBy:cash<available?'cash':'budget'};
+  const depositDue=-sumBy(items.filter(x=>x.source==='bill'&&x.type==='transfer'),x=>x.liquid||0);   // standing deposits leaving bank + cash: never budget, but not cash to spend
+  const cash=liquid-bankOut-cardDue-depositDue+incomeDue,room=Math.min(available,cash);
+  return {perDay:Math.max(0,room)/daysLeft,available,spent,upcomingFixed,daysLeft,budget:d.overallBudget,upcoming,cash,cardDue,cardCharges,depositDue,limitedBy:cash<available?'cash':'budget'};
 }
 
 // ---------- Purchase decisions & wishlist ----------

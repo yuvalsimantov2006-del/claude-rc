@@ -13,14 +13,16 @@ const PAGE_ICONS={dashboard:'House',accounts:'Landmark',transactions:'ArrowLeftR
 const hubOf=page=>HUBS.find(h=>h.pages.includes(page))||null;
 const hubLast={};
 const hubTarget=hub=>hub.pages.includes(hubLast[hub.id])?hubLast[hub.id]:hub.pages[0];
-// Each mark gets its own gradient id: a hidden copy (e.g. the phone sidebar) must not take the gradient with it.
-let brandSeq=0;
-const brandMark=(size=30)=>{const id=`ofek-brand-${brandSeq=(brandSeq+1)%1000}`;return `<svg class="brand-svg" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22D3EE"/><stop offset=".55" stop-color="#2B6FE0"/><stop offset="1" stop-color="#4F46E5"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#${id})"/><path d="M8.5 21.5V16M13.5 21.5V12.5M18.5 21.5V17M23.5 21.5V9.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg>`;};
+// The mark ("Graphite"): a square near-black tile with a hairline edge and four square bars rising toward the
+// horizon ("אופק"); three white, the tallest in the accent blue. No gradients, so hidden copies need no ids.
+const brandMark=(size=30)=>`<svg class="brand-svg" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" fill="#111113"/><rect x=".5" y=".5" width="31" height="31" fill="none" stroke="#3F3F46"/><path d="M7 17h3v6H7zM12 13h3v10h-3zM17 18h3v5h-3z" fill="#FAFAFA"/><path d="M22 9h3v14h-3z" fill="#3B82F6"/></svg>`;
 const firstLetter=()=>e(data.profile?.trim().slice(0,1)||'א');
 
 // ---------- Theme ----------
 const THEME_KEY='ofek-theme';
-function themePref(){try{return localStorage.getItem(THEME_KEY)||'system';}catch{return 'system';}}
+// Graphite is dark first: until the user picks a look, Ofek opens dark. An explicit "לפי המכשיר" (system)
+// choice still follows the device. scripts/build.mjs paints the same default before the app loads.
+function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark';}catch{return 'dark';}}
 function resolvedTheme(pref=themePref()){
   if(pref==='light'||pref==='dark')return pref;
   return typeof matchMedia==='function'&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';

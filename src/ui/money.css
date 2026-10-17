@@ -1003,3 +1003,83 @@ html.privacy .lg-effect-lines b:hover, html.privacy .transfer-amount:hover { fil
   /* The four-way type control of the transaction form (הוצאה · הכנסה · החזר · העברה) */
   #entity-form .segmented.full > button { min-height: var(--touch); }
 }
+
+/* ======================= 4.1 fixed items: auto-recorded bills and standing deposits (INTEGRATE) =======================
+   The "כמה בדיוק?" prompts, the three-kind form (income · expense · standing deposit), bill statuses and the
+   standing-deposit line for goal and savings cards. Tokens only: radii follow --r-*, colours the theme. */
+
+/* "המשכורת נכנסה? כמה בדיוק?" — on the bills page (a card) and inside the home "חיובים קרובים" card */
+.confirm-card { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: var(--accent-soft); backdrop-filter: none; }
+.confirm-list { display: flex; flex-direction: column; min-width: 0; }
+.confirm-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 280px) auto; align-items: center;
+  gap: var(--sp-3) var(--sp-4); padding-block: var(--sp-3); min-width: 0;
+}
+.confirm-item:first-child { padding-block-start: 0; }
+.confirm-item:last-child { padding-block-end: 0; }
+.confirm-item + .confirm-item { border-block-start: 1px solid var(--border); }
+.confirm-item > .asset-icon { width: 40px; height: 40px; align-self: start; }
+.confirm-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.confirm-copy > b { font-size: var(--fs-body); font-weight: var(--fw-bold); color: var(--text); overflow-wrap: anywhere; }
+.confirm-copy > small { font-size: var(--fs-small); line-height: 1.5; color: var(--text-muted); }
+.confirm-form { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.confirm-form > .currency-input { flex: 1 1 110px; }
+.confirm-form > .currency-input > input:not(#\_) {
+  min-height: var(--touch); background-color: var(--surface);
+  font-family: var(--font-num); font-size: var(--fs-num-sm); font-weight: var(--fw-bold);
+}
+.confirm-form > .button { flex: none; min-height: var(--touch); }
+.confirm-more { display: flex; min-width: 0; }
+.confirm-more > .button { min-height: var(--touch); white-space: nowrap; }
+.confirm-foot { padding-block-start: var(--sp-2); }
+.upcoming-card .confirm-list {
+  padding: var(--sp-3); border-radius: var(--r-md);
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+.upcoming-card .confirm-item { grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2) var(--sp-3); }
+.upcoming-card .confirm-item > .asset-icon { width: 36px; height: 36px; }
+.upcoming-card .confirm-item > .confirm-form, .upcoming-card .confirm-item > .confirm-more { grid-column: 1 / -1; }
+.upcoming-card .confirm-more > .button { flex: 1 1 auto; }
+.upcoming-card .confirm-copy > b { font-size: var(--fs-small); }
+.upcoming-card .confirm-copy > small { font-size: var(--fs-micro); }
+#auto-amount-form .currency-input > input:not(#\_) { font-family: var(--font-num); font-weight: var(--fw-bold); }
+
+/* The add / edit form */
+#bill-form > .bill-kinds > button { min-height: var(--touch); }
+.bill-kind-hint { margin-block: var(--sp-2) var(--sp-4); font-size: var(--fs-small); line-height: 1.5; color: var(--text-muted); }
+#bill-form .form-grid > .check-field { grid-column: 1 / -1; }
+.bill-note {
+  margin-block: var(--sp-4) 0; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: var(--fs-small); line-height: 1.6; color: var(--text);
+}
+.bill-note:empty { display: none; }
+
+/* The table: status first, paused and ended items step back; the name column wraps so the three row actions fit */
+.bills-table td:first-child { white-space: normal; }
+.bills-table .transaction-name small.bill-sub { max-width: none; line-height: 1.5; }
+.bills-table .bill-sub .badge { margin-inline-end: 2px; font-size: var(--fs-micro); vertical-align: 1px; }
+.bills-table tr.bill-off .transaction-name b, .bills-table tr.bill-off td.amount b { color: var(--text-muted); }
+.bills-table tr.bill-off .transaction-icon { opacity: .55; }
+.agenda-item > div > small .badge { font-size: var(--fs-micro); vertical-align: 1px; }
+
+/* A goal or savings card: the standing deposit that feeds it (recurringDepositLine) */
+.bill-standing { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); min-width: 0; font-size: var(--fs-small); color: var(--text-muted); }
+.bill-standing > svg { flex: none; color: var(--accent-text); }
+.bill-standing > span { min-width: 0; }
+.bill-standing > .text-button { margin-inline-start: auto; }
+
+html.privacy .confirm-form .currency-input > input:not(:focus) { filter: blur(6px); }
+
+@media (max-width: 1100px) {
+  .confirm-item { grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2) var(--sp-3); }
+  .confirm-item > .confirm-form { grid-column: 1 / -1; }
+  .confirm-item > .confirm-more { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .confirm-more > .button { flex: 1 1 auto; }
+  #bill-form > .bill-kinds > button { padding-inline: var(--sp-2); font-size: var(--fs-small); }
+  #bill-form > .bill-kinds > button > svg { display: none; }
+  .bills-table .transaction-name small.bill-sub { white-space: normal; }
+  .bill-standing > .text-button { min-height: var(--touch); }
+}

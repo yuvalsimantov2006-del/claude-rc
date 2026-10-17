@@ -1,7 +1,7 @@
 import {uid,today,money,minusMoney,plainText,pct,dateLabel,monthLabel,monthOffset,applyTransaction,validDate,toILS,TX_KINDS,LIQUID_KINDS} from './finance.js';
 import {palette,tone,graph} from './charts.js';
 import {shiftDate,detectRecurring} from './smart.js';
-import {IL_TAX_2026,netSalary,grossForNet,loanSchedule,loanByYear,debtPayoff,feeImpact,maaserSummary,expenseShares,groupSummary,splitTotals,billMonthly,scheduledItems,monthlyFixed,cashflowForecast,safeToSpend,purchaseCheck,COOLING_DAYS,wishStatus,wishlistSummary} from './money.js';
+import {IL_TAX_2026,netSalary,grossForNet,loanSchedule,loanByYear,debtPayoff,feeImpact,maaserSummary,expenseShares,groupSummary,splitTotals,billMonthly,billOccurrences,scheduledItems,monthlyFixed,cashflowForecast,safeToSpend,purchaseCheck,COOLING_DAYS,wishStatus,wishlistSummary,billKind,isDepositBill,depositRoute,billRemaining,billEnded,pendingConfirmations,confirmAutoAmount,holdAutoBill,dropAutoCard,pauseBill,resumeBill,makeBill,markBillPaid,nextBillDate,depositBillFor,DEPOSIT_FROM_KINDS,DEPOSIT_TO_KINDS} from './money.js';
 import {aiReady} from './ai.js';
 import {moduleHook} from './hooks.js';
 
@@ -23,23 +23,74 @@ function mutate(change,message,opts={}){
 function showFormError(form,err){const box=form?.querySelector('.form-error');if(box)box.innerHTML=notice(err.message,'error');else toast(err.message,true);}
 
 // ---------- Bills & cash-flow ----------
-function agendaItems(now=today()){
-  return scheduledItems(data,shiftDate(now,-14),shiftDate(now,30)).filter(x=>x.date>=now||(x.source==='bill'&&!x.paid&&!x.autopay));
+// Fixed items are incomes, expenses or standing deposits ("הפקדה קבועה", a transfer between your own accounts).
+const paidWord=kind=>kind==='income'?'התקבל':kind==='transfer'?'הופקד':'שולם';
+const billAccountName=id=>data.accounts.find(a=>a.id===id)?.name||'';
+// "מ־עו״ש ל־קרן חירום": where a standing deposit moves money (a goal shows its name).
+function depositPath(b){
+  const r=depositRoute(data,b),dest=r.goal?(r.to&&r.to.id!==r.goal.accountId?`${r.goal.name} (${r.to.name})`:r.goal.name):r.to?.name||'—';
+  return `מ־${r.from?.name||billAccountName(b.accountId)||'—'} ל־${dest}`;
 }
+function agendaItems(now=today()){
+  const pending=new Set(pendingConfirmations(data).filter(t=>t.auto?.source==='bill').map(t=>`${t.auto.ref}@${t.auto.date}`));
+  return scheduledItems(data,shiftDate(now,-14),shiftDate(now,30),now).filter(x=>x.date>=now||(x.source==='bill'&&!x.paid&&!x.autopay)||pending.has(x.key)).map(x=>pending.has(x.key)?{...x,confirming:true}:x);
+}
+// The sign of an item for bank + cash: income comes in; a deposit only when it leaves bank or cash.
+const itemSign=x=>x.type==='income'?'+':x.type==='transfer'&&x.source==='bill'&&!(x.liquid<0)?'':'−';
+const itemClass=x=>x.type==='income'?'positive':x.type==='transfer'&&x.source==='bill'?'transfer-amount':'';
 function agendaHTML(items,now=today()){
-  if(!items.length)return empty('אין תשלומים קרובים','הוסף תשלומים קבועים כמו שכירות, ארנונה וביטוחים, ותראה כאן מה יורד ומתי.');
+  if(!items.length)return empty('אין תשלומים קרובים','הוסף הכנסות ותשלומים קבועים כמו משכורת, שכירות וארנונה, ותראה כאן מה נכנס, מה יורד ומתי.');
   const days=new Map();for(const x of items){if(!days.has(x.date))days.set(x.date,[]);days.get(x.date).push(x);}
-  return `<div class="agenda">${[...days].map(([date,list])=>`<div class="agenda-day ${date<now?'overdue':date===now?'today':''}"><div class="agenda-date"><b>${Number(date.slice(8))}</b><small>${date===now?'היום':date<now?'באיחור':weekday(date)}</small></div><div class="agenda-items">${list.map(x=>`<div class="agenda-item">${agendaIcon(x)}<div><b>${e(x.name)}</b><small>${e(agendaSub(x))}</small></div><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b>${x.paid?badge(x.type==='income'?'התקבל':'שולם','green'):x.source==='bill'?`<button type="button" class="pay-button" data-action="bill-pay:${e(x.billId)}:${x.date}">${x.type==='income'?'התקבל':'שולם'}</button>`:''}</div>`).join('')}</div></div>`).join('')}</div>`;
+  const status=x=>x.paid?(x.confirming?badge('לאישור','purple'):badge(paidWord(x.type),'green')):x.source==='bill'?`<button type="button" class="pay-button" data-action="bill-pay:${e(x.billId)}:${x.date}">${paidWord(x.type)}</button>`:'';
+  return `<div class="agenda">${[...days].map(([date,list])=>`<div class="agenda-day ${date<now?'overdue':date===now?'today':''}"><div class="agenda-date"><b>${Number(date.slice(8))}</b><small>${date===now?'היום':date<now?'באיחור':weekday(date)}</small></div><div class="agenda-items">${list.map(x=>`<div class="agenda-item">${agendaIcon(x)}<div><b>${e(x.name)}</b><small>${x.waiting?badge('ממתין','gold')+' ':''}${e(agendaSub(x))}</small></div><b dir="ltr" class="${itemClass(x)}">${itemSign(x)}${money(x.amount)}</b>${status(x)}</div>`).join('')}</div></div>`).join('')}</div>`;
 }
 // Card statements and installment payments have their own look; items paid by card say which card (§C.2.8).
-function agendaIcon(x){const [ic,color]=x.source==='card'?['CreditCard','blue']:x.source==='installment'?['CreditCard','purple']:x.type==='income'?['ArrowDownLeft','green']:x.source==='recurring'?['Repeat','purple']:['Receipt','gold'];return `<span class="asset-icon ${color}">${icon(ic,16)}</span>`;}
-function agendaSub(x){const name=id=>data.accounts.find(a=>a.id===id)?.name||'';if(x.source==='card')return `חיוב כרטיס · יורד מ־${name(x.accountId)}`;if(x.source==='installment')return [x.category,`תשלום ${x.n} מתוך ${x.of}`,x.onCard?`בכרטיס ${name(x.accountId)}`:''].filter(Boolean).join(' · ');return [x.category,x.onCard?`בכרטיס ${name(x.accountId)}`:x.autopay?'חיוב אוטומטי':'תשלום ידני',x.source==='recurring'?'תנועה חוזרת':''].filter(Boolean).join(' · ');}
+function agendaIcon(x){const [ic,color]=x.source==='card'?['CreditCard','blue']:x.source==='installment'?['CreditCard','purple']:x.type==='income'?['ArrowDownLeft','green']:x.type==='transfer'?['PiggyBank','blue']:x.source==='recurring'?['Repeat','purple']:['Receipt','gold'];return `<span class="asset-icon ${color}">${icon(ic,16)}</span>`;}
+function agendaSub(x){
+  if(x.source==='card')return `חיוב כרטיס · יורד מ־${billAccountName(x.accountId)}`;
+  if(x.source==='installment')return [x.category,`תשלום ${x.n} מתוך ${x.of}`,x.onCard?`בכרטיס ${billAccountName(x.accountId)}`:''].filter(Boolean).join(' · ');
+  if(x.type==='transfer'&&x.source==='bill'){const b=moneyItems('bills').find(v=>v.id===x.billId);return [b?depositPath(b):'הפקדה',x.autopay?'אוטומטית':'ממתינה'].join(' · ');}
+  return [x.category,x.onCard?`בכרטיס ${billAccountName(x.accountId)}`:x.autopay?(x.type==='income'?'נרשמת אוטומטית':'חיוב אוטומטי'):'תשלום ידני',x.source==='recurring'?'תנועה חוזרת':''].filter(Boolean).join(' · ');
+}
 // The safe-to-spend detail line (§B.3): limited by the budget or by the cash in the bank, with the card charge.
-function safeDetail(s){const card=s.cardDue>0?` · כולל חיוב כרטיס של ${amt(s.cardDue)} ב־${Number(s.cardCharges[0].date.slice(8))} לחודש`:'';return (s.limitedBy==='cash'?`${amt(Math.max(0,s.cash))} בעו״ש ובמזומן אחרי החיובים עד סוף החודש`:`${amt(Math.max(0,s.available))} נשארו מיעד החודש, אחרי ${amt(s.upcomingFixed)} תשלומים קבועים · ${s.daysLeft} ימים`)+card;}
+function safeDetail(s){const card=s.cardDue>0?` · כולל חיוב כרטיס של ${amt(s.cardDue)} ב־${Number(s.cardCharges[0].date.slice(8))} לחודש`:'',deposit=s.depositDue>0&&s.limitedBy==='cash'?` · אחרי הפקדות של ${amt(s.depositDue)} לחיסכון`:'';return (s.limitedBy==='cash'?`${amt(Math.max(0,s.cash))} בעו״ש ובמזומן אחרי החיובים עד סוף החודש`:`${amt(Math.max(0,s.available))} נשארו מיעד החודש, אחרי ${amt(s.upcomingFixed)} תשלומים קבועים · ${s.daysLeft} ימים`)+card+deposit;}
+// One status for a fixed item (§D.4): paused, ended, cannot be recorded, or how many payments are left.
+function billStatus(b,now=today()){
+  const kind=billKind(b),left=billRemaining(b,now);
+  if(b.active===false)return [badge('מושהה','neutral'),b.pausedOn?`מושהה מאז ${dateLabel(b.pausedOn)}`:''];
+  if(billEnded(b,now))return [badge('הסתיים','neutral'),''];
+  const problem=kind==='transfer'?depositRoute(data,b).problem:b.autopay&&!data.accounts.some(a=>a.id===b.accountId&&TX_KINDS.includes(a.kind))?'חסר חשבון':'';
+  if(problem)return [badge('לא נרשם','red'),problem];
+  return ['',left?`עוד ${left===1?'תשלום אחד':`${left} תשלומים`}`:''];
+}
 function billsTable(bills){
-  if(!bills.length)return empty('עוד אין תשלומים קבועים','שכר דירה, ארנונה, חשמל, ביטוחים ומנויים — מוסיפים פעם אחת ומקבלים לוח תשלומים ותחזית.',btn('תשלום קבוע ראשון','bill-new','','primary'));
-  const sorted=[...bills].sort((a,b)=>((a.type==='income')-(b.type==='income'))||billMonthly(data,b)-billMonthly(data,a));
-  return `<div class="table-wrap"><table class="bills-table"><thead><tr><th>תשלום</th><th>מתי</th><th>סכום</th><th aria-label="פעולות"></th></tr></thead><tbody>${sorted.map(b=>`<tr><td><div class="transaction-name"><span class="transaction-icon ${b.type==='income'?'green':''}">${icon(b.type==='income'?'ArrowDownLeft':'Receipt',16)}</span><div><b>${e(b.name)}</b><small>${e([b.category,b.autopay?'הוראת קבע / אשראי':'תשלום ידני'].filter(Boolean).join(' · '))}</small></div></div></td><td class="muted">${freqLabels[b.frequency]}<small>ב־${b.day} לחודש</small></td><td class="amount"><b dir="ltr" class="${b.type==='income'?'positive':''}">${b.type==='income'?money(b.amount):minusMoney(b.amount)}</b>${b.frequency!=='monthly'?`<small class="muted">כ־${amt(billMonthly(data,b))} בחודש</small>`:''}</td><td><div class="row-actions">${ib('Edit3','עריכת '+b.name,'bill-edit:'+b.id)}${ib('Trash2','מחיקת '+b.name,'bill-remove:'+b.id)}</div></td></tr>`).join('')}</tbody></table></div>`;
+  if(!bills.length)return empty('עוד אין כאן קבועים','משכורת, שכר דירה, ארנונה, מנויים או הפקדה חודשית לחיסכון — מוסיפים פעם אחת, ואופק רושמת אותם בזמן ומראה תחזית.',btn('הוספה ראשונה','bill-new','','primary'));
+  const now=today(),rank=b=>(b.active===false||billEnded(b,now)?10:0)+{expense:0,transfer:1,income:2}[billKind(b)];
+  const sorted=[...bills].sort((a,b)=>rank(a)-rank(b)||billMonthly(data,b)-billMonthly(data,a));
+  const row=b=>{
+    const kind=billKind(b),[flag,state]=billStatus(b,now),off=b.active===false||billEnded(b,now);
+    const ic=kind==='income'?['ArrowDownLeft','green']:kind==='transfer'?['PiggyBank','transfer']:['Receipt',''];
+    const parts=kind==='transfer'?[depositPath(b),state||'אוטומטית']:[b.category,state,b.autopay?(kind==='income'?'נרשמת אוטומטית':'נרשם אוטומטית'):'תשלום ידני'];
+    const amount=kind==='income'?`<b dir="ltr" class="positive">${money(b.amount)}</b>`:kind==='transfer'?`<b dir="ltr" class="transfer-amount">${money(b.amount)}</b>`:`<b dir="ltr">${minusMoney(b.amount)}</b>`;
+    return `<tr class="${off?'bill-off':''}"><td><div class="transaction-name"><span class="transaction-icon ${ic[1]}">${icon(ic[0],16)}</span><div><b>${e(b.name)}</b><small class="bill-sub">${flag}${flag?' ':''}${e(parts.filter(Boolean).join(' · '))}</small></div></div></td><td class="muted">${freqLabels[b.frequency]}<small>ב־${b.day} לחודש</small></td><td class="amount">${amount}${b.frequency!=='monthly'?`<small class="muted">כ־${amt(billMonthly(data,b))} בחודש</small>`:''}</td><td><div class="row-actions">${b.active===false?ib('Play','חידוש '+b.name,'bill-resume:'+b.id):billEnded(b,now)?'':ib('Pause','השהיית '+b.name,'bill-pause:'+b.id)}${ib('Edit3','עריכת '+b.name,'bill-edit:'+b.id)}${ib('Trash2','מחיקת '+b.name,'bill-remove:'+b.id)}</div></td></tr>`;
+  };
+  return `<div class="table-wrap"><table class="bills-table"><thead><tr><th>פריט</th><th>מתי</th><th>סכום</th><th aria-label="פעולות"></th></tr></thead><tbody>${sorted.map(row).join('')}</tbody></table></div>`;
+}
+// "המשכורת נכנסה? כמה בדיוק?" (§D.4): auto rows that wait for the real amount, with the actions for each.
+function confirmTitle(t){
+  if(t.auto?.source==='card')return `חיוב ${billAccountName(t.toAccountId)||'הכרטיס'} ירד? כמה בדיוק?`;
+  if(t.type==='income')return t.category==='משכורת'?'המשכורת נכנסה? כמה בדיוק?':`${t.description||t.category} נכנסה? כמה בדיוק?`;
+  return `${t.description||t.category} ירד? כמה בדיוק?`;
+}
+function confirmItem(t){
+  const card=t.auto?.source==='card',symbol=(t.currency||'ILS')==='USD'?'$':'₪';
+  const second=card?btn('מחיקת החיוב','auto-drop:'+t.id,'','danger'):btn(t.type==='income'?'עוד לא נכנסה':'עוד לא ירד','auto-hold:'+t.id);
+  return `<div class="confirm-item"><span class="asset-icon ${t.type==='income'?'green':card?'blue':'purple'}">${icon(t.type==='income'?'ArrowDownLeft':card?'CreditCard':'Receipt',17)}</span><div class="confirm-copy"><b>${e(confirmTitle(t))}</b><small>רשמנו ${amt(t.amount,t.currency||'ILS',Number.isInteger(t.amount)?0:2)} ב־${dateLabel(t.date)} לפי ${card?'הקניות בכרטיס (הערכה)':'הסכום הקבוע'}.</small></div><form class="confirm-form" data-tx="${e(t.id)}"><label class="currency-input"><input name="amount" type="number" inputmode="decimal" min="0.01" step="any" required value="${e(t.amount)}" aria-label="${e('הסכום בפועל: '+confirmTitle(t))}"><span>${symbol}</span></label>${submit('זה הסכום','Check')}</form><div class="confirm-more">${second}</div></div>`;
+}
+// The card at the top of the bills page (all of them) and, in the home "חיובים קרובים" card, the first two.
+function confirmPromptsCard(limit=Infinity){
+  const list=pendingConfirmations(data);if(!list.length)return '';
+  return card(`<div class="confirm-list">${list.slice(0,limit).map(confirmItem).join('')}</div>${list.length>limit?`<div class="confirm-foot">${textBtn(`ועוד ${list.length-limit}`,'navigate:bills')}</div>`:''}`,'confirm-card');
 }
 // Recurring charges that look like fixed payments and are not on the bills calendar yet.
 const BILL_LIKE=['חשבונות','רכב','כושר','לימודים','בריאות','תרומות','חיסכון','השקעות'];
@@ -50,67 +101,193 @@ function billSuggestions(){
 function flowCard(f,days){
   const step=Math.max(1,Math.ceil(f.points.length/120)),chart=f.points.filter((p,i)=>i%step===0||i===f.points.length-1||p.date===f.lowest.date);
   const toggles=`<div class="flow-toggles"><label class="check-field"><input type="checkbox" data-flow="flowGoals" ${ui.flowGoals!==false?'checked':''}>הפקדות מתוכננות ליעדים</label><label class="check-field"><input type="checkbox" data-flow="flowVariable" ${ui.flowVariable!==false?'checked':''}>הוצאות משתנות ממוצעות</label></div>`;
-  return card(head('תחזית היתרה בעו״ש',safe(`יתרה של ${amt(f.start)} היום · ${f.deposits?`${amt(f.deposits)} הפקדות ליעדים · `:''}${f.cardCharges>0?`${amt(f.cardCharges)} חיובי כרטיס · `:''}הוצאה משתנה של כ־${amt(f.variableDaily)} ביום`),`<div class="segmented mini">${[[30,'חודש'],[90,'3 חודשים'],[180,'חצי שנה'],[365,'שנה']].map(([v,l])=>`<button class="${days===v?'active':''}" data-action="flow-days:${v}">${l}</button>`).join('')}</div>`)+toggles+graph(chart.map(p=>({date:p.date,label:shortDate(p.date),balance:p.balance})),[{key:'balance',name:'יתרה צפויה',color:f.overdraft?tone.negative:palette[0]}],{height:240,area:true})+`<div class="chart-footer"><span><i class="gold-dot"></i>יתרה צפויה בעו״ש ובמזומן</span><span>${f.estimatedIncome?'ההכנסות מוערכות לפי ההיסטוריה':'לפי לוח התשלומים, התנועות החוזרות וההפקדות ליעדים'}</span></div>`,'flow-card');
+  return card(head('תחזית היתרה בעו״ש',safe(`יתרה של ${amt(f.start)} היום · ${f.deposits>=.5?`${amt(f.deposits)} הפקדות לחיסכון וליעדים · `:''}${f.cardCharges>0?`${amt(f.cardCharges)} חיובי כרטיס · `:''}הוצאה משתנה של כ־${amt(f.variableDaily)} ביום`),`<div class="segmented mini">${[[30,'חודש'],[90,'3 חודשים'],[180,'חצי שנה'],[365,'שנה']].map(([v,l])=>`<button class="${days===v?'active':''}" data-action="flow-days:${v}">${l}</button>`).join('')}</div>`)+toggles+graph(chart.map(p=>({date:p.date,label:shortDate(p.date),balance:p.balance})),[{key:'balance',name:'יתרה צפויה',color:f.overdraft?tone.negative:palette[0]}],{height:240,area:true})+`<div class="chart-footer"><span><i class="gold-dot"></i>יתרה צפויה בעו״ש ובמזומן</span><span>${f.estimatedIncome?'ההכנסות מוערכות לפי ההיסטוריה':'לפי לוח התשלומים, התנועות החוזרות וההפקדות ליעדים'}</span></div>`,'flow-card');
 }
 function flowCalendarCard(f,now){
   const months=[...new Set(f.points.map(p=>p.date.slice(0,7)))],shown=ui.flowAllMonths?months:months.slice(0,2),byDate=new Map(f.points.map(p=>[p.date,p]));
   const low=Math.max(500,f.variableDaily*7),selected=byDate.get(ui.flowDay)||null;
   const grid=m=>{const first=new Date(m+'-01T12:00:00').getDay(),count=new Date(+m.slice(0,4),+m.slice(5),0).getDate();return `<div class="flow-month"><b>${monthLabel(m)}</b><div class="flow-grid">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(d=>`<span class="flow-week">${d}</span>`).join('')}${'<span></span>'.repeat(first)}${Array.from({length:count},(_,i)=>{const date=`${m}-${String(i+1).padStart(2,'0')}`,p=byDate.get(date);if(!p)return `<span class="flow-day past"><i>${i+1}</i></span>`;const level=p.balance<0?'neg':p.balance<low?'low':'ok',kinds=new Set((p.events||[]).filter(x=>!x.onCard).map(x=>x.source==='card'?'card':x.type));return `<button type="button" class="flow-day ${level} ${date===now?'today':''} ${ui.flowDay===date?'selected':''}" data-action="flow-day:${date}" aria-label="${e(`${dateLabel(date)}: ${money(p.balance)}`)}"><i>${i+1}</i><b class="amt">${compactAmount(p.balance)}</b><span class="flow-dots">${[...kinds].map(k=>`<em class="k-${k}"></em>`).join('')}</span></button>`;}).join('')}</div></div>`;};
-  const detail=selected?`<div class="flow-detail"><div class="row-between"><b>${dateLabel(selected.date)}</b><b dir="ltr" class="${selected.balance<0?'negative':''}">${money(selected.balance)}</b></div>${(selected.events||[]).length?selected.events.map(x=>`<div class="flow-event"><span>${e(x.name)}</span><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b></div>`).join(''):'<small class="muted">אין תשלומים קבועים ביום הזה — רק הוצאה משתנה ממוצעת.</small>'}</div>`:'<p class="muted small">לחץ על יום כדי לראות מה צפוי בו.</p>';
-  return card(head('יתרה צפויה בכל יום','ירוק — מצב טוב · צהוב — יתרה נמוכה · אדום — מינוס',months.length>2?btn(ui.flowAllMonths?'פחות חודשים':`כל ${months.length} החודשים`,'flow-months',''):'')+`<div class="flow-calendar">${shown.map(grid).join('')}</div>${detail}<div class="flow-legend"><span><em class="k-income"></em>הכנסה</span><span><em class="k-expense"></em>תשלום</span><span><em class="k-transfer"></em>הפקדה ליעד</span><span><em class="k-card"></em>חיוב כרטיס</span></div>`,'flow-calendar-card');
+  const detail=selected?`<div class="flow-detail"><div class="row-between"><b>${dateLabel(selected.date)}</b><b dir="ltr" class="${selected.balance<0?'negative':''}">${money(selected.balance)}</b></div>${(selected.events||[]).length?selected.events.map(x=>`<div class="flow-event"><span>${e(x.name)}</span><b dir="ltr" class="${itemClass(x)}">${itemSign(x)}${money(x.amount)}</b></div>`).join(''):'<small class="muted">אין תשלומים קבועים ביום הזה — רק הוצאה משתנה ממוצעת.</small>'}</div>`:'<p class="muted small">לחץ על יום כדי לראות מה צפוי בו.</p>';
+  return card(head('יתרה צפויה בכל יום','ירוק — מצב טוב · צהוב — יתרה נמוכה · אדום — מינוס',months.length>2?btn(ui.flowAllMonths?'פחות חודשים':`כל ${months.length} החודשים`,'flow-months',''):'')+`<div class="flow-calendar">${shown.map(grid).join('')}</div>${detail}<div class="flow-legend"><span><em class="k-income"></em>הכנסה</span><span><em class="k-expense"></em>תשלום</span><span><em class="k-transfer"></em>הפקדה לחיסכון</span><span><em class="k-card"></em>חיוב כרטיס</span></div>`,'flow-calendar-card');
 }
 function flowMonthsCard(f){
-  return card(head('סיכום לפי חודשים','כמה נכנס, כמה יוצא וכמה נשאר בסוף כל חודש')+`<div class="table-wrap"><table class="flow-table"><thead><tr><th>חודש</th><th>פתיחה</th><th>הכנסות</th><th>תשלומים</th><th>חיובי כרטיס</th><th>הפקדות ליעדים</th><th>משתנות</th><th>סגירה</th><th>שפל</th></tr></thead><tbody>${f.months.map(m=>`<tr><td><b>${monthLabel(m.month)}</b>${m.days<new Date(+m.month.slice(0,4),+m.month.slice(5),0).getDate()?`<small class="muted">${m.days} ימים</small>`:''}</td><td dir="ltr" data-label="פתיחה">${money(m.start)}</td><td dir="ltr" data-label="הכנסות" class="${m.income>=.5?'positive':'muted'}">${m.income>=.5?'+':''}${money(m.income)}</td><td dir="ltr" data-label="תשלומים">${minusMoney(m.fixed)}</td><td dir="ltr" data-label="חיובי כרטיס">${minusMoney(m.card||0)}</td><td dir="ltr" data-label="הפקדות ליעדים">${minusMoney(m.deposits)}</td><td dir="ltr" data-label="משתנות">${minusMoney(m.variable)}</td><td dir="ltr" data-label="סגירה"><b class="${m.end<0?'negative':''}">${money(m.end)}</b></td><td dir="ltr" data-label="שפל" class="${m.lowest.balance<0?'negative':'muted'}">${money(m.lowest.balance)}</td></tr>`).join('')}</tbody></table></div>`,'flow-months-card');
+  return card(head('סיכום לפי חודשים','כמה נכנס, כמה יוצא וכמה נשאר בסוף כל חודש')+`<div class="table-wrap"><table class="flow-table"><thead><tr><th>חודש</th><th>פתיחה</th><th>הכנסות</th><th>תשלומים</th><th>חיובי כרטיס</th><th>הפקדות</th><th>משתנות</th><th>סגירה</th><th>שפל</th></tr></thead><tbody>${f.months.map(m=>`<tr><td><b>${monthLabel(m.month)}</b>${m.days<new Date(+m.month.slice(0,4),+m.month.slice(5),0).getDate()?`<small class="muted">${m.days} ימים</small>`:''}</td><td dir="ltr" data-label="פתיחה">${money(m.start)}</td><td dir="ltr" data-label="הכנסות" class="${m.income>=.5?'positive':'muted'}">${m.income>=.5?'+':''}${money(m.income)}</td><td dir="ltr" data-label="תשלומים">${minusMoney(m.fixed)}</td><td dir="ltr" data-label="חיובי כרטיס">${minusMoney(m.card||0)}</td><td dir="ltr" data-label="הפקדות">${minusMoney(m.deposits)}</td><td dir="ltr" data-label="משתנות">${minusMoney(m.variable)}</td><td dir="ltr" data-label="סגירה"><b class="${m.end<0?'negative':''}">${money(m.end)}</b></td><td dir="ltr" data-label="שפל" class="${m.lowest.balance<0?'negative':'muted'}">${money(m.lowest.balance)}</td></tr>`).join('')}</tbody></table></div>`,'flow-months-card');
 }
 function billsView(){
-  const now=today(),days=ui.flowDays||90,f=cashflowForecast(data,{days,now,includeGoals:ui.flowGoals!==false,includeVariable:ui.flowVariable!==false}),s=safeToSpend(data,now),bills=moneyItems('bills'),fixed=monthlyFixed(data),suggestions=billSuggestions();
+  const now=today(),days=ui.flowDays||90,f=cashflowForecast(data,{days,now,includeGoals:ui.flowGoals!==false,includeVariable:ui.flowVariable!==false}),s=safeToSpend(data,now),bills=moneyItems('bills'),fixed=monthlyFixed(data,now),suggestions=billSuggestions();
   ui.flowCache=f;
   ui.billSuggestions=suggestions;
-  const expenseCount=bills.filter(b=>(b.type||'expense')==='expense'&&b.active!==false).length;
-  return `<div class="three-metrics">${metric('בטוח לבזבז היום',money(s.perDay),safeDetail(s),'Wallet','green')}${metric('תשלומים קבועים בחודש',money(fixed),`${expenseCount} תשלומים במעקב · ${amt(fixed*12)} בשנה`,'Repeat','purple')}${metric('נקודת השפל בעו״ש',money(f.lowest.balance),f.overdraft?`<span class="negative">צפוי מינוס ב־${dateLabel(f.overdraft)}</span>`:`ב־${dateLabel(f.lowest.date)} · עו״ש ומזומן`,'TrendingDown',f.overdraft?'red':'gold')}</div>
+  const live=bills.filter(b=>b.active!==false&&!billEnded(b,now)),expenseCount=live.filter(b=>billKind(b)==='expense').length;
+  const monthlyOf=kind=>live.filter(b=>billKind(b)===kind).reduce((sum,b)=>sum+billMonthly(data,b),0),incomes=monthlyOf('income'),deposits=monthlyOf('transfer');
+  const sub=[`${amt(fixed)} תשלומים בחודש`,incomes?`${amt(incomes)} הכנסות`:'',deposits?`${amt(deposits)} הפקדות`:''].filter(Boolean).join(' · ');
+  return `${confirmPromptsCard()}<div class="three-metrics">${metric('בטוח לבזבז היום',money(s.perDay),safeDetail(s),'Wallet','green')}${metric('תשלומים קבועים בחודש',money(fixed),`${expenseCount} תשלומים במעקב · ${amt(fixed*12)} בשנה`,'Repeat','purple')}${metric('נקודת השפל בעו״ש',money(f.lowest.balance),f.overdraft?`<span class="negative">צפוי מינוס ב־${dateLabel(f.overdraft)}</span>`:`ב־${dateLabel(f.lowest.date)} · עו״ש ומזומן`,'TrendingDown',f.overdraft?'red':'gold')}</div>
   ${f.overdraft?notice(safe(`בקצב הנוכחי היתרה בעו״ש תרד מתחת לאפס ב־${dateLabel(f.overdraft)} ותגיע עד ${amt(f.lowest.balance)}. אפשר להעביר כסף מחיסכון, לדחות תשלום ידני או לצמצם הוצאות משתנות.`),'error'):''}
   ${flowCard(f,days)}
   ${flowCalendarCard(f,now)}
   ${flowMonthsCard(f)}
-  <div class="bills-layout">${card(head('לוח התשלומים','30 הימים הקרובים',aiReady()?btn('האם צפוי לי מינוס?','ai-prompt:bills','Sparkles'):'')+agendaHTML(agendaItems(now),now),'agenda-card')}${card(head('התשלומים הקבועים שלך',safe(`${amt(fixed)} בחודש`),btn('תשלום קבוע חדש','bill-new','Plus','primary'))+billsTable(bills),'bills-card')}</div>
+  <div class="bills-layout">${card(head('לוח התשלומים','30 הימים הקרובים',aiReady()?btn('האם צפוי לי מינוס?','ai-prompt:bills','Sparkles'):'')+agendaHTML(agendaItems(now),now),'agenda-card')}${card(head('הכנסות, תשלומים והפקדות קבועים',safe(sub),btn('הוספה','bill-new','Plus','primary'))+billsTable(bills),'bills-card')}</div>
   ${suggestions.length?card(head('זיהינו תשלומים חוזרים','להוסיף אותם ללוח? בלחיצה אחת, וכל הפרטים ניתנים לעריכה.')+`<div class="suggestions">${suggestions.map((r,i)=>`<div class="suggestion"><span class="asset-icon purple">${icon('Repeat',16)}</span><div><b>${e(r.name)}</b><small>${e(r.category)} · כ־${amt(r.average)} בחודש · בסביבות ה־${Number(r.lastDate.slice(8))} לחודש</small></div><button type="button" class="button" data-action="bill-suggest:${i}">${icon('Plus',15)}<span>הוספה</span></button></div>`).join('')}</div>`,'suggest-card'):''}`;
 }
+// ---------- The add / edit form: a fixed income, a fixed expense or a standing deposit (§D.4) ----------
+const BILL_KIND_TABS=[['income','הכנסה קבועה','ArrowDownLeft'],['expense','הוצאה קבועה','Receipt'],['transfer','הפקדה קבועה','PiggyBank']];
+const BILL_KIND_HINTS={income:'משכורת, קצבה או דמי כיס שנכנסים כל חודש.',expense:'שכר דירה, ארנונה, ביטוח או מנוי.',transfer:'הפקדה קבועה לחיסכון או ליעד: כסף שעובר מחשבון לחשבון ביום שבחרת. זו לא הוצאה, והיא לא נספרת בתקציב.'};
+const billDialogTitle=(kind,editing)=>editing?{income:'עריכת הכנסה קבועה',expense:'עריכת הוצאה קבועה',transfer:'עריכת הפקדה קבועה'}[kind]:{income:'הכנסה קבועה חדשה',expense:'הוצאה קבועה חדשה',transfer:'הפקדה קבועה לחיסכון או ליעד'}[kind];
+const defaultCategory=kind=>{const want=kind==='income'?'משכורת':'חשבונות';return data.categories.includes(want)?want:data.categories[0]||'';};
+const depositSources=()=>data.accounts.filter(a=>DEPOSIT_FROM_KINDS.includes(a.kind));
+const depositGoals=()=>(data.goals||[]).filter(g=>data.accounts.find(a=>a.id===g.accountId)?.kind!=='investment');
+const depositAccounts=()=>data.accounts.filter(a=>DEPOSIT_TO_KINDS.includes(a.kind)).sort((a,b)=>DEPOSIT_TO_KINDS.indexOf(a.kind)-DEPOSIT_TO_KINDS.indexOf(b.kind));
+function depositTarget(v){const [k,id]=String(v.target||'').split(':');return {goal:k==='goal'?(data.goals||[]).find(g=>g.id===id)||null:null,account:k==='acc'?data.accounts.find(a=>a.id===id)||null:null};}
+const autoDepositName=v=>{const t=depositTarget(v);return t.goal?`הפקדה ל${t.goal.name}`:t.account?`הפקדה ל${t.account.name}`:'';};
+// A deposit needs a target and a source; a goal brings its planned monthly amount, an unlinked goal a savings account.
+function withDepositDefaults(v){
+  if(v.kind!=='transfer')return v;
+  const next={...v};let t=depositTarget(next);
+  if(!t.goal&&!t.account){const a=depositAccounts().find(x=>x.kind==='savings'),g=depositGoals()[0];next.target=a?`acc:${a.id}`:g?`goal:${g.id}`:depositAccounts()[0]?`acc:${depositAccounts()[0].id}`:'';t=depositTarget(next);}
+  if(t.goal&&(next.amount===''||next.amount==null)&&t.goal.monthly>0)next.amount=t.goal.monthly;
+  const to=t.account||(t.goal&&data.accounts.find(a=>a.id===t.goal.accountId));
+  if(t.goal&&!to&&next.dest==null)next.dest=depositAccounts().find(a=>a.kind==='savings')?.id||'';
+  const sources=depositSources().filter(a=>a.id!==(to?.id||next.dest));
+  if(!sources.some(a=>a.id===next.from))next.from=sources.find(a=>a.kind==='bank')?.id||sources[0]?.id||'';
+  if(!next.name||next.name===next.autoName)next.name=autoDepositName(next);
+  return next;
+}
+// The form's values as strings, from a stored bill (edit) or from the defaults and a prefill (new). Day 1 by default.
+function billDraft(id,prefill={}){
+  const existing=id?moneyItems('bills').find(x=>x.id===id):null,bank=data.accounts.find(a=>a.kind==='bank')?.id||'';
+  if(existing){
+    const kind=billKind(existing),left=billRemaining(existing);
+    return {id,kind,name:existing.name,amount:existing.amount,frequency:existing.frequency,day:existing.day,startMonth:existing.startMonth||today().slice(0,7),category:existing.category||defaultCategory(kind),accountId:existing.accountId||'',autopay:!!existing.autopay,confirm:existing.confirm??kind==='income',remaining:left==null?'':left,
+      target:existing.goalId?`goal:${existing.goalId}`:existing.toAccountId?`acc:${existing.toAccountId}`:'',from:existing.accountId||bank,dest:existing.goalId?existing.toAccountId||'':undefined,touched:'autopay,confirm',autoName:kind==='transfer'&&existing.name===autoDepositName({target:existing.goalId?`goal:${existing.goalId}`:`acc:${existing.toAccountId}`})?existing.name:''};
+  }
+  const kind=prefill.kind||'expense';
+  return withDepositDefaults({kind,name:'',amount:'',frequency:'monthly',day:1,startMonth:today().slice(0,7),category:defaultCategory(kind),accountId:bank,autopay:kind!=='expense',confirm:kind==='income',remaining:'',target:'',from:bank,touched:'',...prefill});
+}
+function billFormValues(form){
+  const f=new FormData(form),v={id:form.dataset.id||''};
+  for(const [k,value] of f)v[k]=String(value);
+  v.autopay=f.get('autopay')==='on';v.confirm=f.get('confirm')==='on';
+  if(!form.querySelector('[name=dest]'))delete v.dest;
+  return v;
+}
+// Switching the kind keeps what was typed; defaults the user did not touch follow the new kind.
+function switchBillKind(v,kind){
+  const touched=String(v.touched||'').split(','),next={...v,kind};
+  if(!touched.includes('autopay'))next.autopay=kind!=='expense';
+  if(!touched.includes('confirm'))next.confirm=kind==='income';
+  if(!v.category||v.category===defaultCategory(v.kind))next.category=defaultCategory(kind);
+  if(!next.accountId)next.accountId=v.from||data.accounts.find(a=>a.kind==='bank')?.id||'';
+  if(v.kind==='transfer'&&v.name===v.autoName)next.name='';
+  if(kind==='transfer'&&v.accountId&&depositSources().some(a=>a.id===v.accountId))next.from=v.accountId;
+  return withDepositDefaults(next);
+}
+// What will happen, in one sentence that follows the form as it is typed.
+function billNote(v){
+  const amount=Number(v.amount),day=Math.round(Number(v.day)),frequency=freqLabels[v.frequency]?v.frequency:'monthly';
+  if(!(amount>0)||!(day>=1&&day<=31))return '';
+  const first=nextBillDate({frequency,day,startMonth:v.startMonth},today()),when=frequency==='monthly'?`ב־${day} בכל חודש`:`${freqLabels[frequency]}, ב־${day} בחודש`;
+  const firstText=first?` ${v.id?'הפעם הבאה':'הפעם הראשונה'}: ${dateLabel(first)}.`:'',value=amt(amount);
+  if(v.kind==='transfer'){
+    const t=depositTarget(v),from=billAccountName(v.from),linked=t.goal&&data.accounts.find(a=>a.id===t.goal.accountId),to=t.account||linked||(t.goal&&data.accounts.find(a=>a.id===v.dest));
+    if(t.goal&&!to)return `${when} יתווספו ${value} ל״כבר בחיסכון״ של ״${e(t.goal.name)}״. אף חשבון באופק לא משתנה.${firstText}`;
+    if(!to)return '';
+    return `${when} יעברו ${value} מ־${e(from)} ל־${e(to.name)}${t.goal?`, לטובת ״${e(t.goal.name)}״`:''}. זו העברה בין החשבונות שלך — לא הוצאה ולא הכנסה.${firstText}`;
+  }
+  const income=v.kind==='income',account=billAccountName(v.accountId);
+  if(!v.autopay)return `${when} זה יופיע בלוח התשלומים, ותסמן ״${income?'התקבל':'שולם'}״ כש${income?'זה ייכנס':'תשלם'}.${firstText}`;
+  if(!account)return 'כדי שאופק תרשום את זה לבד, בחר חשבון.';
+  return `${when} אופק תרשום ${income?'הכנסה':'הוצאה'} של ${value} ${income?'ל':'מ'}${e(account)}${v.confirm?` ותשאל אותך כמה ${income?'נכנס':'ירד'} בדיוק`:''}.${firstText}`;
+}
+function billFormHTML(id,v){
+  const kind=v.kind,deposit=kind==='transfer',income=kind==='income',t=depositTarget(v),unlinked=!!t.goal&&!data.accounts.some(a=>a.id===t.goal.accountId);
+  const tabs=`<div class="segmented full bill-kinds" role="radiogroup" aria-label="מה מוסיפים?">${BILL_KIND_TABS.map(([k,label,ic])=>`<button type="button" role="radio" aria-checked="${k===kind}" class="${k===kind?'active':''}" data-action="bill-kind:${k}">${icon(ic,15)}<span>${label}</span></button>`).join('')}</div>`;
+  const hidden=`<input type="hidden" name="kind" value="${kind}"><input type="hidden" name="touched" value="${e(v.touched||'')}"><input type="hidden" name="autoName" value="${e(deposit?autoDepositName(v):'')}">`;
+  const when=field(income?'כמה נכנס בכל פעם? (₪)':deposit?'כמה להפקיד בכל פעם? (₪)':'סכום לכל חיוב (₪)',input('amount',v.amount,'number','required min="0.01" step="any" inputmode="decimal"'))
+    +field('באיזה יום בחודש?',input('day',v.day,'number','required min="1" max="31" step="1" inputmode="numeric"'),'בחודש קצר — היום האחרון בחודש')
+    +field('כל כמה זמן?',select('frequency',Object.entries(freqLabels),v.frequency,'data-bill-redraw'))
+    +(v.frequency!=='monthly'?field('חודש שבו היה חיוב',input('startMonth',v.startMonth||today().slice(0,7),'month'),'קובע את המחזור'):`<input type="hidden" name="startMonth" value="${e(v.startMonth||'')}">`);
+  const left=field('כמה תשלומים נשארו? (לא חובה)',input('remaining',v.remaining,'number','min="0" max="120" step="1" inputmode="numeric"'),deposit?'ריק — בלי סוף. למשל: 12 הפקדות ואז עוצרים.':'ריק — בלי סוף. למשל: מנוי שנגמר אחרי 3 חיובים.');
+  let body;
+  if(deposit){
+    const goals=depositGoals(),accounts=depositAccounts();
+    const target=`<select name="target" required data-bill-redraw>${goals.length?`<optgroup label="יעדים">${options(goals.map(g=>[`goal:${g.id}`,g.name]),v.target)}</optgroup>`:''}${accounts.length?`<optgroup label="חשבונות">${options(accounts.map(a=>[`acc:${a.id}`,`${a.name} · ${accountKinds[a.kind]}`]),v.target)}</optgroup>`:''}</select>`;
+    const linkedName=t.goal&&!unlinked?billAccountName(t.goal.accountId):'';
+    body=field('לאן להפקיד?',target,linkedName?`היעד מקושר ל״${linkedName}״ — לשם יעבור הכסף.`:'')
+      +(unlinked?field('לאיזה חשבון הכסף עובר?',select('dest',[...accounts.map(a=>[a.id,a.name]),['','לא לחשבון באופק — רק להוסיף ליעד']],v.dest??'','data-bill-redraw'),`היעד ״${t.goal.name}״ לא מקושר לחשבון, אז הסכום יתווסף גם ל״כבר בחיסכון״ שלו.`):'')
+      +field('מאיזה חשבון?',select('from',depositSources().map(a=>[a.id,a.name]),v.from))
+      +when+field('שם',input('name',v.name,'text','maxlength="80"'))+left;
+  }else{
+    const accounts=trackedAccounts().filter(a=>!income||a.kind!=='credit');
+    body=field('שם',input('name',v.name,'text',`required maxlength="80" placeholder="${income?'למשל: משכורת':'למשל: ארנונה'}"`))+when
+      +field('קטגוריה',select('category',data.categories.includes(v.category)||!v.category?data.categories:[...data.categories,v.category],v.category))
+      +field(income?'נכנס לחשבון':'יורד מחשבון / כרטיס',select('accountId',[['','ללא'],...accounts.map(a=>[a.id,a.name])],v.accountId))+left
+      +`<label class="check-field"><input name="autopay" type="checkbox" data-touch="autopay" ${v.autopay?'checked':''}>${income?'נכנס אוטומטית — אופק תרשום את ההכנסה לבד ביום שבחרת':'חיוב אוטומטי — אופק תרשום אותו לבד ביום החיוב'}</label>`
+      +`<label class="check-field"><input name="confirm" type="checkbox" data-touch="confirm" ${v.confirm?'checked':''}>לשאול אותי כמה בדיוק ${income?'נכנס':'ירד'}</label>`;
+  }
+  return `<form id="bill-form" data-id="${e(id||'')}"><div class="form-error"></div>${tabs}${hidden}<p class="bill-kind-hint">${e(BILL_KIND_HINTS[kind])}</p><div class="form-grid">${body}</div><p class="bill-note" id="bill-note" aria-live="polite">${billNote(v)}</p><div class="form-actions">${submit(id?'שמירה':'הוספה',id?'Save':'Plus')}${btn('ביטול','dialog-close')}</div></form>`;
+}
 function openBillForm(id=null,prefill={}){
-  const existing=id?moneyItems('bills').find(x=>x.id===id):null;
-  const b={name:'',type:'expense',amount:'',frequency:'monthly',day:Number(today().slice(8)),startMonth:today().slice(0,7),category:'חשבונות',accountId:trackedAccounts().find(a=>a.kind==='bank')?.id||'',autopay:false,...prefill,...existing};
-  showDialog(existing?'עריכת תשלום קבוע':'תשלום קבוע חדש',`<form id="bill-form" data-id="${e(id||'')}"><div class="form-error"></div><div class="form-grid">${field('שם',input('name',b.name,'text','required placeholder="למשל: ארנונה"'))}${field('סוג',select('type',[['expense','הוצאה'],['income','הכנסה']],b.type))}${field('סכום לכל חיוב (₪)',input('amount',b.amount,'number','required min="0.01" step="any"'))}${field('תדירות',select('frequency',Object.entries(freqLabels),b.frequency))}${field('יום בחודש',input('day',b.day,'number','required min="1" max="31" step="1"'),'בחודש קצר — היום האחרון בחודש')}${field('חודש שבו היה חיוב',input('startMonth',b.startMonth||today().slice(0,7),'month'),'קובע את המחזור בתשלומים שאינם חודשיים')}${field('קטגוריה',select('category',data.categories,b.category))}${field('חשבון',select('accountId',[['','ללא'],...trackedAccounts().map(a=>[a.id,a.name])],b.accountId))}<label class="check-field"><input name="autopay" type="checkbox" ${b.autopay?'checked':''}>חיוב אוטומטי (הוראת קבע או אשראי)</label></div><div class="form-actions">${submit()}${btn('ביטול','dialog-close')}</div></form>`,true);
+  const v=billDraft(id,prefill);
+  showDialog(billDialogTitle(v.kind,!!id),billFormHTML(id,v),true);
+}
+function redrawBillForm(form,patch={}){
+  const id=form.dataset.id||null,current=billFormValues(form);
+  const v=patch.kind&&patch.kind!==current.kind?switchBillKind(current,patch.kind):withDepositDefaults({...current,...patch});
+  form.outerHTML=billFormHTML(id,v);
+  const title=document.querySelector('dialog .modal-head h2');if(title)title.textContent=billDialogTitle(v.kind,!!id);
+  document.querySelector('dialog')?.setAttribute('aria-label',billDialogTitle(v.kind,!!id));
 }
 function saveBillForm(form){
-  const f=new FormData(form),id=form.dataset.id,name=String(f.get('name')||'').trim(),amount=Number(f.get('amount')),day=Math.round(Number(f.get('day'))),startMonth=String(f.get('startMonth')||'');
-  if(!name)throw Error('יש להזין שם לתשלום.');
-  if(!(amount>0))throw Error('יש להזין סכום חיובי.');
-  if(!(day>=1&&day<=31))throw Error('יום בחודש צריך להיות בין 1 ל־31.');
-  const previous=id?moneyItems('bills').find(x=>x.id===id):null;
-  const bill={paid:[],...previous,id:id||uid(),name,type:f.get('type')==='income'?'income':'expense',amount,currency:'ILS',frequency:String(f.get('frequency')),day,category:String(f.get('category')||''),accountId:String(f.get('accountId')||''),autopay:f.get('autopay')==='on'};
-  if(/^\d{4}-(0[1-9]|1[0-2])$/.test(startMonth))bill.startMonth=startMonth;
-  mutate(next=>{const i=next.bills.findIndex(x=>x.id===bill.id);if(i>=0)next.bills[i]=bill;else next.bills.push(bill);},previous?'התשלום עודכן':'התשלום הקבוע נוסף ללוח',previous?{undo:true}:{});
+  const id=form.dataset.id||null,previous=id?moneyItems('bills').find(x=>x.id===id):null,now=today();
+  const bill=makeBill(data,billFormValues(form),previous,now),kind=billKind(bill),first=nextBillDate(bill,now),day=bill.frequency==='monthly'?`ב־${bill.day} בכל חודש`:`ב־${bill.day} בחודש`;
+  const message=previous?'השינויים נשמרו':kind==='transfer'?`ההפקדה הקבועה נשמרה: ${money(bill.amount)} ${day}${first?` · הראשונה ב־${dateLabel(first)}`:''}`:kind==='income'?`ההכנסה הקבועה נוספה${bill.autopay&&first?` · תירשם לבד ב־${dateLabel(first)}`:''}`:'התשלום הקבוע נוסף ללוח';
+  mutate(next=>{const i=next.bills.findIndex(x=>x.id===bill.id);if(i>=0)next.bills[i]=bill;else next.bills.push(bill);},message,previous?{undo:true}:{});
   closeDialog();
+}
+// "הפקדה חודשית אוטומטית" from a goal or a savings card: the deposit form, preset (the existing one when there is).
+// Also a click action: data-action="deposit-auto:goal:<goalId>" or "deposit-auto:acc:<accountId>".
+export function openRecurringDeposit({goalId='',accountId=''}={}){
+  const existing=depositBillFor(data,{goalId,accountId});
+  if(existing){openBillForm(existing.id);return;}
+  const goal=goalId?(data.goals||[]).find(g=>g.id===goalId):null,account=accountId?data.accounts.find(a=>a.id===accountId):null;
+  openBillForm(null,{kind:'transfer',target:goal?`goal:${goal.id}`:account?`acc:${account.id}`:'',day:1});
+}
+// One line for a goal or a savings card: the standing deposit that feeds it, if any (with its edit action).
+export function recurringDepositLine({goalId='',accountId=''}={}){
+  const b=depositBillFor(data,{goalId,accountId});if(!b)return '';
+  const off=b.active===false?' · מושהית':billEnded(b)?' · הסתיימה':'';
+  return `<div class="bill-standing">${icon('Repeat',14)}<span>הפקדה אוטומטית: ${amt(b.amount)} ${b.frequency==='monthly'?`ב־${b.day} בכל חודש`:`${e(freqLabels[b.frequency])}, ב־${b.day} בחודש`}${off}</span>${textBtn('עריכה','bill-edit:'+b.id)}</div>`;
 }
 function openPayDialog(billId,date){
   const b=moneyItems('bills').find(x=>x.id===billId);if(!b)return;
-  const accounts=trackedAccounts(),income=b.type==='income';
-  showDialog(income?'סימון הכנסה שהתקבלה':'סימון תשלום ששולם',`<form id="bill-pay-form" data-bill="${e(billId)}" data-date="${e(date)}"><div class="form-error"></div><p class="confirm-text">${e(b.name)} · ${dateLabel(date)}</p><div class="form-grid">${field('סכום בפועל (₪)',input('amount',b.amount,'number','required min="0.01" step="any"'))}${field('תאריך',input('date',date>today()?today():date,'date',`required max="${today()}"`))}${accounts.length?field('חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),b.accountId||accounts[0].id)):''}<label class="check-field"><input type="checkbox" name="record" ${accounts.length?'checked':'disabled'}>לרשום כ${income?'הכנסה':'הוצאה'} בתנועות</label></div><div class="form-actions">${submit(income?'התקבל':'שולם','Check')}${btn('ביטול','dialog-close')}</div></form>`);
+  const kind=billKind(b),deposit=kind==='transfer',income=kind==='income',accounts=deposit?depositSources():trackedAccounts();
+  const title=deposit?'סימון הפקדה שבוצעה':income?'סימון הכנסה שהתקבלה':'סימון תשלום ששולם',record=deposit?'לרשום את ההפקדה (העברה בין החשבונות שלך)':`לרשום כ${income?'הכנסה':'הוצאה'} בתנועות`;
+  showDialog(title,`<form id="bill-pay-form" data-bill="${e(billId)}" data-date="${e(date)}"><div class="form-error"></div><p class="confirm-text">${e(b.name)} · ${dateLabel(date)}${deposit?' · '+e(depositPath(b)):''}</p><div class="form-grid">${field(deposit?'כמה הופקד? (₪)':'סכום בפועל (₪)',input('amount',b.amount,'number','required min="0.01" step="any"'))}${field('תאריך',input('date',date>today()?today():date,'date',`required max="${today()}"`))}${accounts.length?field(deposit?'מאיזה חשבון?':'חשבון',select('accountId',accounts.map(a=>[a.id,a.name]),accounts.some(a=>a.id===b.accountId)?b.accountId:accounts[0].id)):''}<label class="check-field"><input type="checkbox" name="record" ${accounts.length?'checked':'disabled'}>${record}</label></div><div class="form-actions">${submit(paidWord(kind),'Check')}${btn('ביטול','dialog-close')}</div></form>`);
 }
 function savePayForm(form){
-  const f=new FormData(form),billId=form.dataset.bill,occurrence=form.dataset.date,amount=Number(f.get('amount')),date=String(f.get('date')||''),record=f.get('record')==='on',accountId=String(f.get('accountId')||'');
-  if(!(amount>0))throw Error('יש להזין סכום חיובי.');
-  if(!validDate(date)||date>today())throw Error('יש לבחור תאריך שאינו בעתיד.');
-  mutate(next=>{
-    const b=next.bills.find(x=>x.id===billId);if(!b)throw Error('התשלום כבר לא קיים.');
-    b.paid=[...new Set([...(b.paid||[]),occurrence])].sort().slice(-36);
-    if(record){
-      if(!accountId)throw Error('יש לבחור חשבון.');
-      const t={id:uid(),type:b.type||'expense',amount,currency:'ILS',fx:next.fx,date,category:b.category||(b.type==='income'?'משכורת':'חשבונות'),subcategory:'',accountId,description:b.name,tags:['תשלום קבוע'],recurring:false};
-      if(!next.categories.includes(t.category))next.categories.push(t.category);
-      applyTransaction(next,t);next.transactions.push(t);
-    }
-  },record?`${billName(billId)} נרשם והיתרה עודכנה`:'סומן בלוח התשלומים');
+  const f=new FormData(form),billId=form.dataset.bill,occurrence=form.dataset.date,record=f.get('record')==='on';
+  const values={record,amount:Number(f.get('amount')),date:String(f.get('date')||''),accountId:String(f.get('accountId')||'')};
+  if(!(values.amount>0))throw Error('יש להזין סכום חיובי.');
+  if(!validDate(values.date)||values.date>today())throw Error('יש לבחור תאריך שאינו בעתיד.');
+  const deposit=isDepositBill(moneyItems('bills').find(x=>x.id===billId));
+  mutate(next=>{markBillPaid(next,billId,occurrence,values,today());},record?(deposit?`ההפקדה נרשמה: ${money(values.amount)} · ${billName(billId)}`:`${billName(billId)} נרשם והיתרה עודכנה`):'סומן בלוח התשלומים',{undo:true});
   closeDialog();
+}
+// The "כמה בדיוק?" actions (§D.4); each one can be undone from the toast.
+function saveConfirmForm(form){
+  const id=form.dataset.tx,t=data.transactions.find(x=>x.id===id);if(!t)throw Error('הרישום כבר לא קיים.');
+  const amount=Number(new FormData(form).get('amount'));if(!(amount>0))throw Error('יש להזין סכום חיובי.');
+  const changed=Math.abs(Math.round(amount*100)/100-t.amount)>.004;
+  if(form.closest('dialog'))closeDialog();
+  mutate(next=>{confirmAutoAmount(next,id,amount);},changed?`עודכן ל־${money(amount,t.currency||'ILS',Number.isInteger(amount)?0:2)}.`:'מעולה — נשמר.',{undo:true});
+}
+function holdAuto(id){
+  const t=data.transactions.find(x=>x.id===id);if(!t)throw Error('הרישום כבר לא קיים.');
+  mutate(next=>{holdAutoBill(next,id);},t.type==='income'?'הורדנו את הרישום. תוכל לסמן ״התקבל״ בלוח התשלומים כשזה ייכנס.':'הורדנו את הרישום. תוכל לסמן ״שולם״ בלוח התשלומים כשזה ירד.',{undo:true});
+}
+function dropAuto(id){mutate(next=>{dropAutoCard(next,id);},'החיוב נמחק. הסכום נשאר כחוב בכרטיס עד החיוב הבא.',{undo:true});}
+function openAutoAmount(id){
+  const t=data.transactions.find(x=>x.id===id&&x.auto);if(!t)throw Error('הרישום כבר לא קיים.');
+  showDialog(confirmTitle(t),`<form id="auto-amount-form" class="confirm-form" data-tx="${e(id)}"><div class="form-error"></div><p class="confirm-text">רשמנו ${amt(t.amount,t.currency||'ILS',Number.isInteger(t.amount)?0:2)} ב־${dateLabel(t.date)}. כמה ${t.type==='income'?'נכנס':'ירד'} בפועל?</p><div class="form-grid">${field('הסכום בפועל',`<span class="currency-input"><input name="amount" type="number" inputmode="decimal" min="0.01" step="any" required value="${e(t.amount)}"><span>${(t.currency||'ILS')==='USD'?'$':'₪'}</span></span>`)}</div><div class="form-actions">${submit('זה הסכום','Check')}${btn('ביטול','dialog-close')}</div></form>`);
 }
 const billName=id=>moneyItems('bills').find(x=>x.id===id)?.name||'התשלום';
 
@@ -333,10 +510,12 @@ function safeCard(){
   const s=safeToSpend(data,today());
   return card(`<div class="row-between"><span class="eyebrow">${icon('Wallet',15)} בטוח לבזבז היום</span>${textBtn('תזרים','navigate:bills')}</div><div class="safe-number" dir="ltr">${money(s.perDay)}</div><small class="muted">${safeDetail(s)}</small>`,'safe-card');
 }
+// "חיובים קרובים" on home; the "כמה בדיוק?" prompts come first in it (§D.4).
 function upcomingCard(){
-  const now=today(),all=scheduledItems(data,now,shiftDate(now,14),now).filter(x=>!x.paid&&!x.onCard),items=all.slice(0,4);
-  const banks=data.accounts.filter(a=>LIQUID_KINDS.includes(a.kind)),after=banks.reduce((s,a)=>s+toILS(a.balance,a.currency,data.fx),0)+all.reduce((s,x)=>s+(x.type==='income'?x.amount:-x.amount),0);
-  return card(`<div class="row-between"><span class="eyebrow">${icon('CalendarDays',15)} חיובים קרובים</span>${textBtn('ללוח','navigate:bills')}</div>${items.length?`<div class="mini-agenda">${items.map(x=>`<div><span class="mini-date">${shortDate(x.date)}</span><span>${e(x.name)}</span><b dir="ltr" class="${x.type==='income'?'positive':''}">${x.type==='income'?'+':'−'}${money(x.amount)}</b></div>`).join('')}</div>${banks.length?`<div class="after-charges"><span>יישאר בעו״ש אחרי החיובים</span><b dir="ltr" class="${after<0?'negative':''}">${money(after)}</b></div>`:''}`:`<p class="muted small">אין תשלומים קבועים בשבועיים הקרובים.</p>${moneyItems('bills').length?'':btn('הוספת תשלום קבוע','bill-new','Plus')}`}`,'upcoming-card');
+  const now=today(),all=scheduledItems(data,now,shiftDate(now,14),now).filter(x=>!x.paid&&!x.onCard),items=all.slice(0,4),confirms=pendingConfirmations(data);
+  const banks=data.accounts.filter(a=>LIQUID_KINDS.includes(a.kind)),after=banks.reduce((s,a)=>s+toILS(a.balance,a.currency,data.fx),0)+all.reduce((s,x)=>s+(x.type==='income'?x.amount:x.type==='transfer'&&x.source==='bill'?x.liquid||0:-x.amount),0);
+  const prompts=confirms.length?`<div class="confirm-list">${confirms.slice(0,2).map(confirmItem).join('')}${confirms.length>2?`<div class="confirm-foot">${textBtn(`ועוד ${confirms.length-2}`,'navigate:bills')}</div>`:''}</div>`:'';
+  return card(`<div class="row-between"><span class="eyebrow">${icon('CalendarDays',15)} חיובים קרובים</span>${textBtn('ללוח','navigate:bills')}</div>${prompts}${items.length?`<div class="mini-agenda">${items.map(x=>`<div><span class="mini-date">${shortDate(x.date)}</span><span>${e(x.name)}</span><b dir="ltr" class="${itemClass(x)}">${itemSign(x)}${money(x.amount)}</b></div>`).join('')}</div>${banks.length?`<div class="after-charges"><span>יישאר בעו״ש אחרי החיובים</span><b dir="ltr" class="${after<0?'negative':''}">${money(after)}</b></div>`:''}`:`<p class="muted small">אין תשלומים קבועים בשבועיים הקרובים.</p>${moneyItems('bills').length?'':btn('הוספת תשלום קבוע','bill-new','Plus')}`}`,'upcoming-card'+(confirms.length?' has-confirm':''));
 }
 function splitMiniCard(){
   const t=splitTotals(data),w=wishlistSummary(data);
@@ -355,6 +534,14 @@ document.addEventListener('click',event=>{
     else if(action==='bill-edit')openBillForm(a);
     else if(action==='bill-pay')openPayDialog(a,b);
     else if(action==='bill-suggest'){const r=(ui.billSuggestions||[])[+a];if(r)openBillForm(null,{name:r.name,amount:Math.round(r.average),category:r.category,day:Number(r.lastDate.slice(8)),autopay:r.automatic});}
+    else if(action==='deposit-auto')openRecurringDeposit(a==='goal'?{goalId:b}:{accountId:b});
+    else if(action==='bill-kind'){const form=button.closest('#bill-form');if(form&&form.querySelector('[name=kind]').value!==a){redrawBillForm(form,{kind:a});document.querySelector(`#bill-form [data-action="bill-kind:${a}"]`)?.focus();}}
+    else if(action==='bill-pause'){const bill=moneyItems('bills').find(x=>x.id===a);if(bill)mutate(next=>{pauseBill(next,a,today());},`״${bill.name}״ הושהה. לא יירשם ולא ייכנס לתחזית עד שתחדש.`,{undo:true});}
+    else if(action==='bill-resume'){const bill=moneyItems('bills').find(x=>x.id===a);if(bill)mutate(next=>{resumeBill(next,a,today());},`״${bill.name}״ חודש. ${isDepositBill(bill)?'ההפקדות':'החיובים'} שהיו בהשהיה לא יירשמו.`,{undo:true});}
+    else if(action==='auto-confirm'){const t=data.transactions.find(x=>x.id===a);if(t)mutate(next=>{confirmAutoAmount(next,a,t.amount);},'מעולה — נשמר.',{undo:true});}
+    else if(action==='auto-hold')holdAuto(a);
+    else if(action==='auto-drop')dropAuto(a);
+    else if(action==='auto-amount')openAutoAmount(a);
     else if(action==='bill-remove'){const bill=moneyItems('bills').find(x=>x.id===a);if(bill)confirm('למחוק את התשלום הקבוע?',`״${bill.name}״ יוסר מלוח התשלומים. תנועות שכבר נרשמו יישארו.`,()=>mutate(next=>{next.bills=next.bills.filter(x=>x.id!==a);},'התשלום נמחק',{undo:true}),true);}
     else if(action==='group-new')openGroupForm();
     else if(action==='group-open'){ui.splitGroup=a;render();window.scrollTo(0,0);}
@@ -381,19 +568,28 @@ document.addEventListener('click',event=>{
     else if(action==='maaser-donate'){if(!data.categories.includes('תרומות'))commit({...data,categories:[...data.categories,'תרומות']},'');openEntity('transaction',null,{type:'expense',category:'תרומות',description:'תרומה'});}
   }catch(err){toast(err.message,true);}
 });
+// The bill form: the kind, the deposit target and the frequency redraw it; the note follows every keystroke.
+const refreshBillNote=form=>{const box=form.querySelector('#bill-note');if(box)box.innerHTML=billNote(billFormValues(form));};
 document.addEventListener('input',event=>{
-  const el=event.target;
+  const el=event.target,billForm=el.closest?.('#bill-form');
+  if(billForm){refreshBillNote(billForm);return;}
   if(el.dataset.buy!=null){ui.buy ||={};ui.buy[el.dataset.buy]=el.value;const box=document.querySelector('#buy-result');if(box)box.innerHTML=buyResultHTML();}
   else if(el.dataset.tool&&el.type!=='checkbox'&&el.tagName!=='SELECT'){setToolValue(el.dataset.tool,el.type==='number'?(el.value===''?'':Number(el.value)):el.value);refreshToolOutput();}
 });
 document.addEventListener('change',event=>{
-  const el=event.target;
+  const el=event.target,billForm=el.closest?.('#bill-form');
+  if(billForm){
+    if(el.dataset.touch){const box=billForm.querySelector('[name=touched]');box.value=[...new Set([...box.value.split(',').filter(Boolean),el.dataset.touch])].join(',');}
+    if(el.dataset.billRedraw!=null){const name=el.name;redrawBillForm(billForm);document.querySelector(`#bill-form [name="${name}"]`)?.focus();}else refreshBillNote(billForm);
+    return;
+  }
   if(el.dataset.tool&&(el.type==='checkbox'||el.tagName==='SELECT')){setToolValue(el.dataset.tool,el.type==='checkbox'?el.checked:el.dataset.numeric!=null?Number(el.value):el.value);if(el.dataset.tool==='loan.cpi')render();else refreshToolOutput();}
   else if(el.dataset.flow){ui[el.dataset.flow]=el.checked;render();}
   else if(el.dataset.toolCat!=null){const v=toolState().maaser,cat=el.dataset.toolCat;v.cats=el.checked?[...new Set([...v.cats,cat])]:v.cats.filter(c=>c!==cat);saveToolState();refreshToolOutput();}
 });
 document.addEventListener('submit',event=>{
-  const form=event.target,handlers={'bill-form':saveBillForm,'bill-pay-form':savePayForm,'group-form':saveGroupForm,'gx-form':saveSplitExpense,'wish-form':saveWishForm};
+  const form=event.target,handlers={'bill-form':saveBillForm,'bill-pay-form':savePayForm,'auto-amount-form':saveConfirmForm,'group-form':saveGroupForm,'gx-form':saveSplitExpense,'wish-form':saveWishForm};
+  if(form.classList?.contains('confirm-form')&&!handlers[form.id]){event.preventDefault();try{saveConfirmForm(form);}catch(err){showFormError(form,err);}return;}
   if(!handlers[form.id])return;
   event.preventDefault();
   try{handlers[form.id](form);}catch(err){showFormError(form,err);}

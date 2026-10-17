@@ -1,5 +1,6 @@
 import {uid,monthOffset,today,applyTransaction,validateData} from './finance.js';
 import {materializeInstallments,materializeCardStatements} from './ledger.js';
+import {materializeBills} from './money.js';
 export const categories=['משכורת','משכורת צבאית','אוכל','מסעדות','קניות בסופר','דלק','רכב','קניות','בילויים','בריאות','כושר','לימודים','חשבונות','מתנות','נסיעות','חיסכון','השקעות','תרומות'];
 export const STORAGE_KEY='ofek-finance-v1';
 export const emptyData=()=>({version:1,demo:false,profile:'',fx:3.65,fxDate:today(),wallets:{ILS:0,USD:0},accounts:[],assets:[],transactions:[],activities:[],snapshots:[],budgets:[],goals:[],categories:[...categories],overallBudget:10000,lastBackup:null,bills:[],groups:[],wishlist:[],installments:[],createdAt:today()});
@@ -20,6 +21,7 @@ export function materializeAll(data,now=today()){
   const d=structuredClone(data);let changed=false;
   changed=recurringInto(d,now)||changed;
   changed=materializeInstallments(d,now)||changed;
+  changed=materializeBills(d,now)||changed;            // autopay bills, the salary and standing deposits (§B.6)
   changed=materializeCardStatements(d,now)||changed;   // must run last: a statement needs every card movement dated before it
   return changed?d:data;
 }
