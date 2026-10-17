@@ -168,7 +168,7 @@
 .goal-live-equation { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .goal-live-equation > span {
   display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--sp-2);
-  border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted);
+  border-radius: var(--r-xs); background: var(--surface); color: var(--text-muted);
   font-size: var(--fs-micro); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums;
   unicode-bidi: plaintext;
 }
@@ -215,7 +215,7 @@
 .snapshot-list b { font-family: var(--font-num); font-size: var(--fs-num-sm); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
 .snapshot-list > div > span:last-child {
   justify-self: end; display: inline-flex; align-items: center; min-height: 24px; padding: 0 var(--sp-2);
-  border-radius: var(--r-pill); font-size: var(--fs-micro); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
+  border-radius: var(--r-xs); font-size: var(--fs-micro); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
 }
 .snapshot-list > div > span.positive:last-child { background: var(--positive-soft); }
 .snapshot-list > div > span.negative:last-child { background: var(--negative-soft); }
@@ -290,7 +290,7 @@
 }
 .benchmark-toggles > .legend-name, .benchmark-toggles > label {
   display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 36px; padding: 0 var(--sp-3);
-  border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-2);
+  border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface-2);
   font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--text);
 }
 .benchmark-toggles > label { cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
@@ -337,7 +337,7 @@
 }
 .update-number {
   grid-row: span 2; display: grid; place-items: center; min-width: 76px; height: 56px; padding: 0 var(--sp-3);
-  border-radius: var(--r-lg); background: var(--accent); color: var(--accent-contrast);
+  border-radius: var(--r-lg); background: var(--accent-grad); color: var(--accent-contrast);
   font-family: var(--font-num); font-size: 17px; font-weight: var(--fw-black); letter-spacing: .02em;
   direction: ltr; font-variant-numeric: tabular-nums; box-shadow: var(--shadow-1);
 }
@@ -582,7 +582,7 @@ html.privacy main :is(.goal-info .goal-details b, .saving-target small, .risk-kp
 
   /* Monthly update */
   .update-intro { grid-template-columns: minmax(0, 1fr); padding-block: 0; }
-  .update-number { grid-row: auto; justify-self: start; height: 34px; min-width: 0; padding: 0 var(--sp-3); border-radius: var(--r-pill); font-size: var(--fs-small); }
+  .update-number { grid-row: auto; justify-self: start; height: 34px; min-width: 0; padding: 0 var(--sp-3); border-radius: var(--r-md); font-size: var(--fs-small); }
   .update-intro h2 { font-size: 20px; margin-block-start: var(--sp-2); }
   .update-asset { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
   .update-asset > .update-value {
@@ -686,7 +686,7 @@ html.privacy main :is(.goal-info .goal-details b, .saving-target small, .risk-kp
 
 /* Performance chart head: the benchmark-edit button and the metric picker sit on one row */
 .section-head > .actions:has(select[name="chartMetric"]) { flex-wrap: nowrap; }
-.section-head > .actions select[name="chartMetric"] { width: auto; min-width: 210px; min-height: 42px; border-radius: var(--r-pill); }
+.section-head > .actions select[name="chartMetric"] { width: auto; min-width: 210px; min-height: 42px; border-radius: var(--r-md); }
 @media (max-width: 760px) {
   .section-head > .actions:has(select[name="chartMetric"]) { flex-wrap: wrap; width: 100%; }
   .section-head > .actions select[name="chartMetric"] { width: 100%; min-height: var(--touch); }

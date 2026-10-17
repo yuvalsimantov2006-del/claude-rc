@@ -184,6 +184,12 @@ export function checkPalette(model,id,theme){
   const cards=S.filter(s=>s.kind==='card');
   for(const [fg,soft] of [['--accent-text','--accent-soft'],['--accent-2','--accent-2-soft'],['--accent-3','--accent-3-soft'],['--positive','--positive-soft'],['--negative','--negative-soft'],['--warning','--warning-soft']])
     for(const s of cards)need(`${fg} on ${soft} over ${s.name}`,col(fg),over(col(soft),s.c));
+  // The opaque panes of the fallbacks (no backdrop-filter, or reduced transparency) and of long tables.
+  for(const n of ['--glass-solid','--glass-strong-solid']){const pane=col(n);
+    for(const fg of ['--text','--text-muted','--text-subtle','--accent-text','--accent-2','--accent-3'])need(`${fg} on ${n}`,col(fg),pane);}
+  // The chosen segment of a plain segmented control (expense / income keep red and green on it), in a dialog.
+  for(const s of S.filter(x=>x.kind==='dialog')){const seg=over(col('--seg-active'),over(col('--glass-tile'),s.c));
+    for(const n of ['--text','--negative','--positive'])need(`${n} on --seg-active over ${s.name}`,col(n),seg);}
   // Text on the accent fills: the solid accent, its hover and every point along the gradient.
   const ink=col('--accent-contrast');
   need('--accent-contrast on --accent',ink,col('--accent'));need('--accent-contrast on --accent-hover',ink,col('--accent-hover'));

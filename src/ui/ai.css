@@ -1,5 +1,5 @@
 /* ============================================================
-   Ofek — AI & settings area ("Graphite")
+   Ofek — AI & settings area (4.2 "Glass")
    Claude copilot (setup hero, chat, proposals, charts, composer), the first-run setup wizard,
    "what's new", and the settings page cards (fx, Claude, sync, versions, app, notifications,
    categories, reset). Tokens only; logical properties only. Frame classes are not restyled.
@@ -10,13 +10,13 @@
   display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: var(--sp-8);
   padding: var(--sp-8); overflow: hidden; isolation: isolate;
 }
-.ai-hero::before { /* the accent edge, as on the home hero */
-  content: ""; position: absolute; inset-block: -1px; inset-inline-start: -1px; width: var(--accent-bar);
-  background: var(--accent); pointer-events: none;
+.ai-hero::before { /* a soft glow of the palette in the corner */
+  content: ""; position: absolute; inset-block-start: -40%; inset-inline-end: -20%; width: 70%; aspect-ratio: 1; z-index: -1;
+  background: radial-gradient(closest-side, var(--accent-soft), transparent); pointer-events: none;
 }
 .ai-hero-copy { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .ai-hero-copy > .eyebrow {
-  width: fit-content; padding: 3px 8px; border-radius: var(--r-pill);
+  width: fit-content; padding: 3px 8px; border-radius: var(--r-xs);
   background: var(--accent-soft); color: var(--accent-text);
 }
 .ai-hero-copy > .eyebrow svg { color: var(--accent-text); }
@@ -67,7 +67,7 @@
 }
 .ai-avatar {
   display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: var(--r-md);
-  background: var(--accent); color: var(--accent-contrast);
+  background: var(--accent-grad); color: var(--accent-contrast);
 }
 .ai-avatar.small { width: 28px; height: 28px; margin-block-start: 2px; }
 .ai-avatar.small svg { width: 15px; height: 15px; }
@@ -82,11 +82,11 @@
 /* Messages */
 .ai-msg { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; }
 .ai-msg.user { justify-content: flex-end; }
-/* The user's message: a neutral square bubble with a hairline; the accent is kept for actions */
+/* The user's message: a tinted rounded bubble in the palette's soft colour */
 .ai-bubble {
   max-width: min(78%, 560px); padding: 10px 16px;
-  border-radius: var(--r-md); border: 1px solid var(--border-strong);
-  background: var(--surface-3); color: var(--text);
+  border-radius: var(--r-lg); border-end-end-radius: var(--r-xs); border: 1px solid color-mix(in srgb, var(--accent-text) 18%, transparent);
+  background: var(--accent-soft); color: var(--text);
   font-size: var(--fs-body); line-height: 1.65; overflow-wrap: anywhere;
 }
 .ai-files { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block-end: var(--sp-2); }
@@ -151,7 +151,7 @@
 .ai-thinking p { margin-block-end: var(--sp-2); }
 .ai-tool {
   align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
-  min-height: 28px; padding: 3px 12px; border-radius: var(--r-pill);
+  min-height: 28px; padding: 3px 12px; border-radius: var(--r-sm);
   background: var(--surface-2); border: 1px solid var(--border);
   font-size: var(--fs-micro); font-weight: var(--fw-semibold); line-height: 1.4; color: var(--text-muted);
 }
@@ -224,7 +224,7 @@
 /* Typing, errors */
 .ai-typing { display: flex; align-items: center; gap: 5px; min-height: 28px; color: var(--text-muted); }
 .ai-typing > span {
-  width: 6px; height: 6px; border-radius: 0; background: var(--accent-vivid); opacity: .35;
+  width: 7px; height: 7px; border-radius: var(--r-round); background: var(--accent-vivid); opacity: .35;
   animation: ai-dot 1.2s var(--ease-in-out) infinite;
 }
 .ai-typing > span:nth-child(2) { animation-delay: .15s; }
@@ -251,15 +251,15 @@
 }
 .ai-orb {
   display: grid; place-items: center; width: 60px; height: 60px; margin-block-end: var(--sp-2);
-  border-radius: var(--r-md); background: var(--accent); color: var(--accent-contrast);
-  outline: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 6px;
+  border-radius: var(--r-lg); background: var(--accent-grad); color: var(--accent-contrast);
+  box-shadow: 0 0 0 6px var(--accent-soft), 0 14px 30px -12px color-mix(in srgb, var(--accent-vivid) 80%, transparent);
 }
 .ai-welcome > h2 { font-size: 23px; line-height: 1.3; font-weight: var(--fw-bold); letter-spacing: -0.01em; text-wrap: balance; }
 .ai-welcome > p { max-width: 52ch; font-size: var(--fs-body); line-height: 1.7; color: var(--text-muted); text-wrap: pretty; }
 .ai-welcome .ai-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin-block-start: var(--sp-3); }
 .ai-welcome .ai-chip {
   display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 var(--sp-4);
-  border: 1px solid var(--border-strong); border-radius: var(--r-pill); background: transparent;
+  border: 1px solid var(--border-strong); border-radius: var(--r-md); background: transparent;
   font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--text);
   transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
@@ -315,11 +315,12 @@
 @keyframes ai-listen { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--negative-vivid) 18%, transparent); } }
 .ai-composer .ai-send {
   display: grid; place-items: center; flex: none; width: 40px; height: 40px; margin-inline-start: 2px;
-  border-radius: var(--r-pill); background: var(--accent); color: var(--accent-contrast);
+  border-radius: var(--r-md); background: var(--accent-grad); color: var(--accent-contrast);
+  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--accent-vivid) 80%, transparent);
   transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
-.ai-composer .ai-send:hover { background: var(--accent-hover); }
-.ai-composer .ai-send:active { background: var(--accent-hover); }
+.ai-composer .ai-send:hover { transform: var(--lift); }
+.ai-composer .ai-send:active { transform: scale(.94); }
 .ai-composer .ai-send:not(.stop) svg { transform: scaleX(-1); }
 .ai-composer .ai-send.stop { background: var(--negative-soft); color: var(--negative); }
 .ai-composer .ai-send.stop:hover { background: color-mix(in srgb, var(--negative) 20%, transparent); }
@@ -454,7 +455,7 @@ button.whats-new-item:hover > svg:last-child { color: var(--accent-text); }
 .whats-new-item:nth-child(6n+4) .whats-new-icon { background: var(--warning-soft); color: var(--warning); }
 .whats-new-item:nth-child(6n+5) .whats-new-icon { background: var(--chart-6-soft); color: color-mix(in srgb, var(--chart-6) 75%, var(--text)); }
 .whats-new-item:nth-child(6n+6) .whats-new-icon { background: var(--info-soft); color: var(--info); }
-.whats-new-item:first-child .whats-new-icon { background: var(--accent); color: var(--accent-contrast); box-shadow: none; }
+.whats-new-item:first-child .whats-new-icon { background: var(--accent-grad); color: var(--accent-contrast); box-shadow: none; }
 dialog.modal:has(.whats-new) .confirm-text { font-size: var(--fs-body); }
 
 /* Category suggested automatically while typing a description (transaction form) */
@@ -470,7 +471,7 @@ dialog.modal:has(.whats-new) .confirm-text { font-size: var(--fs-body); }
 .backup-stats { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block: var(--sp-4) var(--sp-2); }
 .backup-stats > span {
   display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 var(--sp-3);
-  border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border);
   font-size: var(--fs-small); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; color: var(--text);
 }
 .backup-stats > span > svg { color: var(--accent-text); flex: none; }
