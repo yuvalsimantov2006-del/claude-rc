@@ -53,7 +53,7 @@ const settle=()=>page.waitForTimeout(350);
 // Grouped navigation and dashboard row.
 await page.locator('.hero-card').waitFor();
 assert.equal(await page.locator('.hub-nav .hub-item').count(),5,'five hubs');
-assert.match(await page.locator('.hero-card .hero-stats').textContent(),/בטוח לבזבז היום/,'safe-to-spend in the balance hero');
+assert.match(await page.locator('.hero-card .hero-safe').textContent(),/בטוח לבזבז היום/,'safe-to-spend in the balance hero');
 await page.screenshot({path:path.join(shots,'m01-dashboard.png'),fullPage:true});
 
 // Bills & cash-flow.

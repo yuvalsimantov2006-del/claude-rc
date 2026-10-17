@@ -41,22 +41,23 @@ try{
   await page.goto(app);await page.locator('.home-board').waitFor();
   const widgets=()=>page.locator('.home-cell').evaluateAll(cells=>cells.map(c=>c.dataset.widget));
   const defaults=await widgets();
-  assert.deepEqual(defaults,['hero','month','upcoming','recent','goals','investments','spending','budgets'],'calm default home with the balance hero first');
+  // 4.2: the clear home — checking, savings, investments, what I'm worth, this month.
+  assert.deepEqual(defaults,['hero','savings','portfolio','networth','month'],'the clear default home with the checking card first');
   await page.screenshot({path:path.join(shots,'v3-01-home.png'),fullPage:true});
   await page.locator('[data-action="home-edit"]').click();
-  await page.locator('[data-action="home-toggle:spending"]').click();
+  await page.locator('[data-action="home-toggle:month"]').click();
   await page.locator('[data-action="home-toggle:cashflow"]').click();
-  await page.locator('[data-action="home-move:budgets:-1"]').click();
+  await page.locator('[data-action="home-move:networth:-1"]').click();
   let now=await widgets();
-  assert.ok(!now.includes('spending')&&now.at(-1)==='cashflow'&&now.indexOf('budgets')<now.indexOf('investments'),'hide, add and reorder: '+now.join());
+  assert.ok(!now.includes('month')&&now.at(-1)==='cashflow'&&now.indexOf('networth')<now.indexOf('portfolio'),'hide, add and reorder: '+now.join());
   await page.screenshot({path:path.join(shots,'v3-02-home-editor.png')});
   await page.locator('[data-action="home-preset:investor"]').click();
-  assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'preset');
+  assert.deepEqual(await widgets(),['hero','savings','portfolio','networth','investments','worth','goals','free'],'preset');
   // Chromium hands localStorage writes to its storage service asynchronously; under heavy CPU load a reload
   // within a second can still read the previous value. Give it time, and report which case a failure is.
   await page.waitForTimeout(2500);
   await page.reload();await page.locator('.home-board').waitFor();
-  assert.deepEqual(await widgets(),['hero','investments','free','worth','goals','assets'],'layout persists in data.prefs.home (stored order after reload: '+JSON.stringify((await stored(page)).prefs?.home?.order?.slice(0,6))+')');
+  assert.deepEqual(await widgets(),['hero','savings','portfolio','networth','investments','worth','goals','free'],'layout persists in data.prefs.home (stored order after reload: '+JSON.stringify((await stored(page)).prefs?.home?.order?.slice(0,6))+')');
   assert.equal((await stored(page)).prefs.home.order[0],'hero');
   await page.locator('[data-action="home-edit"]').click();await page.locator('[data-action="home-preset:calm"]').click();
   assert.deepEqual(await widgets(),defaults,'calm preset restores the default');

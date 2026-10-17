@@ -45,11 +45,12 @@ export async function run(qa){
   assert.equal(d.bills.find(b=>b.id==='sal').recordedThrough,'2026-10-10');
   // The home hero and the month follow: 13,500 in the bank, income 9,000, the deposit is not an expense.
   assert.match(await page.locator('.hero-balance').textContent(),/13,500/);
-  const monthText=await page.locator('.summary-grid').textContent();
-  assert.match(monthText,/9,000/);assert.doesNotMatch(monthText,/500\s*₪[^]*הוצאות החודש/);
+  // 4.2: the home month card is in · out · left; the deposit is a transfer, never "out".
+  const monthText=await page.locator('.month-card').textContent();
+  assert.match(monthText,/9,000/);assert.doesNotMatch(await page.locator('.month-figures > div').nth(1).textContent(),/500/);
 
   // ---------- 2. Home: "המשכורת נכנסה? כמה בדיוק?" → 8,650 → undo → 9,000 ----------
-  const prompt=page.locator('.upcoming-card .confirm-item',{hasText:'המשכורת נכנסה? כמה בדיוק?'});
+  const prompt=page.locator('.home-board .confirm-item',{hasText:'המשכורת נכנסה? כמה בדיוק?'});   // 4.2: under the checking card
   await prompt.waitFor();
   await shot(qa,page,'v41-I01-home-confirm.png');
   await prompt.locator('input[name=amount]').fill('8650');
@@ -163,7 +164,7 @@ export async function run(qa){
   // ---------- 8. Phone, dark: the prompt, the table and the form fit with 44px targets ----------
   s=await qa.open({data:fixtureI(),now:'2026-10-10T12:00:00Z',width:390,height:844,theme:'dark'});
   page=s.page;await settle(page);
-  await page.locator('.upcoming-card .confirm-item').first().waitFor();
+  await page.locator('.home-board .confirm-item').first().waitFor();
   await s.noOverflow('home with the prompt');
   assert.deepEqual(await tallEnough(page,'.confirm-item .button, .confirm-item input'),[]);
   await shot(qa,page,'v41-I05-phone-home-dark.png',true);
