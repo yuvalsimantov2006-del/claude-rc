@@ -144,8 +144,7 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 .lk-key, .lk-key-empty { width: 64px; height: 64px; }
 .lk-key {
   display: grid; place-items: center; border-radius: var(--r-md);
-  background: var(--card-bg); color: var(--text);
-  -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+  background: var(--glass); color: var(--text);   /* glass without a blur of its own: twelve keys over a still mesh */
   border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow), var(--glass-highlight);
   font-family: var(--font-num); font-size: 26px; font-weight: var(--fw-regular); line-height: 1;
   font-variant-numeric: tabular-nums; cursor: pointer;
@@ -155,7 +154,7 @@ html.locked body > :not(#lock-screen) { visibility: hidden !important; }
 .lk-key:hover { background: var(--hover); }
 .lk-key:active { background: var(--pressed); transform: scale(.95); }
 .lk-key:disabled { opacity: .4; cursor: not-allowed; }
-.lk-key.lk-del, .lk-key.lk-bio { background: transparent; border-color: transparent; color: var(--text-muted); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.lk-key.lk-del, .lk-key.lk-bio { background: transparent; border-color: transparent; color: var(--text-muted); box-shadow: none; }
 .lk-key.lk-bio { color: var(--accent-text); }
 .lk-key.lk-del:hover, .lk-key.lk-bio:hover { background: var(--hover); }
 .lk-keypad.checking { opacity: .6; pointer-events: none; }

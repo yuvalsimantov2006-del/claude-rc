@@ -21,7 +21,7 @@ const firstLetter=()=>e(data.profile?.trim().slice(0,1)||'א');
 
 // ---------- Theme ----------
 const THEME_KEY='ofek-theme';
-// Graphite is dark first: until the user picks a look, Ofek opens dark. An explicit "לפי המכשיר" (system)
+// Until the user picks a look, Ofek opens dark. An explicit "לפי המכשיר" (system)
 // choice still follows the device. scripts/build.mjs paints the same default before the app loads.
 function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark';}catch{return 'dark';}}
 function resolvedTheme(pref=themePref()){
