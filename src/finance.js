@@ -165,3 +165,38 @@ export function validateExtras(d){
   if(d.assets.some(a=>(a.accountId!=null&&typeof a.accountId!=='string')||(a.priceDate!=null&&!validDate(a.priceDate))||(a.priceSource!=null&&typeof a.priceSource!=='string')))throw new Error('נתוני ההשקעות אינם תקינים.');
   if(d.wishlist!=null&&(!Array.isArray(d.wishlist)||!uniqueIds(d.wishlist)||d.wishlist.some(w=>!w.name||!Number.isFinite(w.price)||!(w.price>0)||!validDate(w.added)||!['waiting','bought','skipped'].includes(w.status))))throw new Error('נתוני רשימת המשאלות אינם תקינים.');
 }
+
+// ---------- 4.2 home ----------
+// What the home page shows, each part counted once: checking is the bank accounts only; cash, savings, the
+// restricted deposit and the investments are parts of their own, never inside checking; loans and what the
+// cards owe are taken off. The parts add up to balances(d).net, the home "השווי שלי".
+export function homeSummary(d){
+  const b=balances(d),ofKind=kind=>d.accounts.filter(a=>a.kind===kind).reduce((s,a)=>s+toILS(a.balance,a.currency,d.fx),0);
+  const checking=ofKind('bank'),cash=ofKind('cash');
+  return {checking,cash,savings:b.savings,deposits:b.restricted,saved:b.savings+b.restricted,investments:b.investments,loans:b.debt,cards:b.credit,assets:b.total,liabilities:b.liabilities,net:b.net,
+    parts:[['checking',checking],['cash',cash],['savings',b.savings],['deposits',b.restricted],['investments',b.investments],['loans',-b.debt],['cards',-b.credit]].map(([id,value])=>({id,value}))};
+}
+// The home layout (data.prefs.home: {order,hidden}). 4.2 starts everyone on the clear home below. A layout saved
+// before 4.2 is replaced by it once: prefs.homeVersion marks that, and a layout saved since (it carries the mark)
+// is kept exactly as the user left it. The mark sits beside `home`, so a 4.1 device that saves a layout keeps it.
+export const HOME_VERSION=2;
+export const HOME_DEFAULT_IDS=['hero','savings','portfolio','networth','month'];
+const homeFresh=(allIds,defaults)=>{const rest=allIds.filter(id=>!defaults.includes(id));return {order:[...defaults.filter(id=>allIds.includes(id)),...rest],hidden:rest};};
+export function homeLayoutOf(prefs,allIds,defaults=HOME_DEFAULT_IDS){
+  const saved=prefs?.home;
+  if(!saved||!Array.isArray(saved.order)||!Array.isArray(saved.hidden)||prefs.homeVersion!==HOME_VERSION)return {...homeFresh(allIds,defaults),custom:false};
+  const known=new Set(allIds),order=[...new Set(saved.order)].filter(id=>known.has(id)),missing=allIds.filter(id=>!order.includes(id));
+  // A widget this layout never saw (added in a later version) starts hidden; the checking card always exists.
+  const hero=missing.includes('hero')?['hero']:[],rest=missing.filter(id=>id!=='hero');
+  return {order:[...hero,...order,...rest],hidden:[...saved.hidden.filter(id=>known.has(id)),...rest],custom:true};
+}
+// The prefs to save for a list of visible widgets (in order); everything else is hidden.
+export function homePrefsWith(prefs,visible,allIds){
+  const shown=[...new Set(visible)].filter(id=>allIds.includes(id)),hidden=allIds.filter(id=>!shown.includes(id));
+  return {...(prefs||{}),home:{order:[...shown,...hidden],hidden},homeVersion:HOME_VERSION};
+}
+// The one-time move to the 4.2 home: new prefs for a layout saved before it, or null when there is nothing to do.
+export function migrateHomePrefs(prefs,allIds,defaults=HOME_DEFAULT_IDS){
+  if(!prefs?.home||prefs.homeVersion===HOME_VERSION)return null;
+  return {...prefs,home:homeFresh(allIds,defaults),homeVersion:HOME_VERSION};
+}

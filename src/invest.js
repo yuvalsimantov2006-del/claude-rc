@@ -1,4 +1,4 @@
-import {toILS,assetValue,balances,dietz,portfolioValue,assetProfit,investAccounts,investType,assetContainerId,cashContainerId,containerAssets,containerCash,DEFAULT_CONTAINER_NAME} from './finance.js';
+import {toILS,assetValue,balances,dietz,portfolioValue,assetProfit,investAccounts,investType,assetContainerId,cashContainerId,containerAssets,containerCash,DEFAULT_CONTAINER_NAME,today} from './finance.js';
 import {averageMonth} from './smart.js';
 import {parseNumber} from './xlsx.js';
 
@@ -165,4 +165,44 @@ export function matchHoldings(d,rows,{accountId=null}={}){
     if(matches.at(-1).change!=null&&Math.abs(matches.at(-1).change)>.35)matches.at(-1).flags.push('jump');
   }
   return {matches,unmatched,missing:assets.filter(a=>!used.has(a.id))};
+}
+
+// ---------- 4.2: today's price, the daily update and the per-holding "מחיר היום" ----------
+// Both write a holding exactly the same way (quotes-ui.js): a price-tracked holding gets its price per unit, a
+// value-tracked one (a provident fund typed as a total) its total value; the date it was updated, the trading
+// date of the price and where it came from (the source of a fetched price, or "ידני" when it was typed).
+export const todayPriceField=a=>a.mode==='price'?'currentPrice':'currentValue';
+// value: what was typed or fetched; fetched: the fetch result for this holding ({status:'ok',price,date,source})
+// or nothing. Returns whether the holding changed: an unchanged typed value is not a change. Throws on a bad value.
+export function setTodayPrice(a,value,fetched,now=today()){
+  const v=Number(value),key=todayPriceField(a);
+  if(String(value??'').trim()===''||!Number.isFinite(v)||v<0||(a.mode==='price'&&v===0))throw Error(`יש להזין ${a.mode==='price'?'מחיר':'שווי'} תקין ל״${a.name}״.`);
+  const auto=fetched?.status==='ok'&&Math.abs(fetched.price-v)<1e-9;
+  if(Math.abs(v-a[key])<1e-9&&!auto)return false;
+  a[key]=Math.round(v*1e6)/1e6;a.date=now;a.priceDate=auto?fetched.date:now;a.priceSource=auto?fetched.source:'ידני';
+  return true;
+}
+// The daily update on a copy of the data: values {assetId: typed value}, results Map assetId → fetch result.
+// strict: a bad value throws (on save); otherwise that holding is skipped (the live total while typing).
+export function dailyPricesDraft(d,values,results=new Map(),now=today(),strict=true){
+  const next=structuredClone(d),changes=[];
+  for(const a of next.assets){
+    if(!Object.hasOwn(values,a.id))continue;
+    try{if(setTodayPrice(a,values[a.id],results.get(a.id),now))changes.push(a.id);}catch(err){if(strict)throw err;}
+  }
+  return {next,changes};
+}
+// One holding's price for today: the daily update with that holding alone, so the saved data is identical.
+export function todayPriceDraft(d,assetId,value,fetched=null,now=today()){
+  if(!d.assets.some(a=>a.id===assetId))throw Error('הנכס לא נמצא. ייתכן שנמחק.');
+  const {next,changes}=dailyPricesDraft(d,{[assetId]:value},new Map(fetched?[[assetId,fetched]]:[]),now,true);
+  return {next,changed:changes.length>0};
+}
+// The home "השקעות" tile: the portfolio value, its lifetime gain in ₪ and %, and how fresh the prices are
+// (the latest update, and whether any holding is overdue: a week for market prices, ~5 weeks for typed values).
+export function portfolioGlance(d,now=today()){
+  const list=containerSummary(d),profit=list.reduce((s,c)=>s+c.profit,0),invested=list.reduce((s,c)=>s+c.invested,0);
+  const age=date=>date?Math.round((new Date(now)-new Date(date))/864e5):null,latest=d.assets.map(a=>a.date).filter(Boolean).sort().at(-1)||null;
+  const stale=d.assets.some(a=>{const days=age(a.date);return days==null||days>(a.mode==='value'?35:7);});
+  return {value:portfolioValue(d),profit,invested,return:invested>0?profit/invested:null,count:d.assets.length,latest,days:age(latest),stale,updatedToday:d.assets.filter(a=>a.date===now).length};
 }
