@@ -39,8 +39,9 @@ run("openEntity('goal',data.goals.at(-1));dialogState.v.monthly=1500;saveEntity(
 const savedGoals=storage.get('ofek-finance-v1');
 assert.throws(()=>run("openEntity('goal',data.goals.at(-1));dialogState.v.target=0;saveEntity()"));assert.equal(storage.get('ofek-finance-v1'),savedGoals);run('closeDialog()');
 assert.equal(JSON.parse(savedGoals).goals.at(-1).target,null);
-const zeroCard=run("savingsCard({...data.goals.at(-1),saved:0,monthly:0,accountId:''},0)");
-assert.ok(zeroCard.includes('<span style="width:0%"></span><span style="width:0%"></span>'));
+// A goal with nothing saved and no deposits renders without NaN or negative widths (4.0 savingsCard, 4.1 goalCard).
+const zeroCard=run("(typeof savingsCard==='function'?savingsCard:goalCard)({...data.goals.at(-1),saved:0,monthly:0,accountId:''},0)");
+assert.ok(!/NaN|Infinity|width:\s*-/.test(zeroCard)&&/width:0%/.test(zeroCard));
 console.log('PASS: optional goal target, live forecast input events, linked account balance/read-only behavior, create/edit persistence and JSON backup, fixed target preservation, invalid target cannot alter saved data.');
 run("openEntity('category');dialogState.v.name='חיות מחמד';saveEntity()");assert.ok(run("data.categories.includes('חיות מחמד')"));
 run("openEntity('asset');dialogState.v.name='נכס לקנייה';dialogState.v.currency='ILS';dialogState.v.currentPrice=100;dialogState.v.quantity=0;saveEntity()");assert.equal(run('data.assets.length'),5);
@@ -79,5 +80,25 @@ console.log('PASS: 10 routes render, transaction account balance/search, monthly
   const other=storage.get('ofek-finance-v1');run('undoLast()');assert.equal(storage.get('ofek-finance-v1'),other);assert.ok(lastToast().includes('אי אפשר לבטל'));
   run(`commit(validateData(JSON.parse(${JSON.stringify(changed)})))`);
   console.log('PASS: E13 undo restores the stored data byte for byte and is refused after another save or another tab.');
+}
+// Feature 4 (§B.6) in the bundle: a fixed income and a standing goal deposit are recorded by rematerialize, the
+// "כמה בדיוק?" prompt shows on home, the bills page and the bell, and pause / the three-kind form render.
+{
+  const bal=id=>run(`data.accounts.find(a=>a.id==='${id}').balance`),day=run("Number(shiftDate(today(),-1).slice(8))");
+  const bank=bal('bank'),saving=bal('saving'),income=run('monthlySummary(data,shiftDate(today(),-1).slice(0,7)).income');
+  run(`mutate(next=>{const from=shiftDate(today(),-3);next.bills.push({...makeBill(next,{kind:'income',name:'מלגה',amount:'1000',day:'${day}',frequency:'monthly',category:'משכורת',accountId:'bank',autopay:true,confirm:true}),id:'qa-inc',recordedThrough:from});next.bills.push({...makeBill(next,{kind:'transfer',target:'goal:g1',from:'bank',amount:'500',day:'${day}'}),id:'qa-dep',recordedThrough:from});},'')`);
+  run('rematerialize()');
+  assert.equal(bal('bank'),bank+1000-500);assert.equal(bal('saving'),saving+500);
+  assert.equal(run('monthlySummary(data,shiftDate(today(),-1).slice(0,7)).income'),income+1000);
+  assert.equal(run(`data.transactions.find(t=>t.id==='bill-qa-dep-'+shiftDate(today(),-1)).type`),'transfer');
+  assert.equal(run('rematerialize();data.transactions.length'),run('data.transactions.length'));
+  run("navigate('dashboard')");assert.ok(root.innerHTML.includes('המשכורת נכנסה? כמה בדיוק?'));   // an income in the salary category
+  run("navigate('bills')");assert.ok(root.innerHTML.includes('confirm-card'));assert.ok(root.innerHTML.includes('הפקדה לקרן חירום'));
+  assert.ok(run("currentAlerts().some(a=>a.id.startsWith('confirm-bill-qa-inc'))"));
+  run(`mutate(next=>{confirmAutoAmount(next,pendingConfirmations(next).find(t=>t.auto.ref==='qa-inc').id,1100);},'')`);assert.equal(bal('bank'),bank+1100-500);
+  run(`mutate(next=>{pauseBill(next,'qa-dep',today());},'')`);run("navigate('bills')");assert.ok(root.innerHTML.includes('מושהה'));
+  run("openBillForm()");const form=elements.find(x=>x.tag==='dialog').innerHTML;assert.ok(form.includes('הכנסה קבועה')&&form.includes('הפקדה קבועה')&&form.includes('name="day" type="number" value="1"'));run('closeDialog()');
+  run("openRecurringDeposit({goalId:'g1'})");assert.ok(elements.find(x=>x.tag==='dialog').innerHTML.includes('value="goal:g1" selected'));run('closeDialog()');
+  console.log('PASS: auto-recorded income and goal deposit through rematerialize, "כמה בדיוק?" on home, bills and the bell, pause, the three-kind form.');
 }
 run("loadError='bad-data'");assert.throws(()=>run('commit(emptyData())'));assert.equal(JSON.parse(storage.get('ofek-finance-v1')).snapshots.length,11);run("commit(emptyData(),'explicit restore',true)");assert.equal(run('data.snapshots.length'),0);console.log('PASS: snapshots cannot precede recorded activities; unreadable stored data cannot be overwritten by ordinary saves.');

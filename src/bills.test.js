@@ -265,3 +265,14 @@ test('markBillPaid records a standing deposit early and the date is then handled
   assert.equal(materializeAll(d,'2026-11-01').transactions.length,1,'the 11/01 occurrence is not recorded again');
   assert.equal(materializeBills(structuredClone(d),'2026-11-01'),true);
 });
+
+test('moving the day after this month was recorded does not record the month twice',()=>{
+  const a=materializeAll(fixture([acc('bank','bank',5000)],{bills:[salary()]}),'2026-10-10');
+  const moved=structuredClone(a);moved.bills[0]=makeBill(moved,{kind:'income',name:'משכורת',amount:'9000',day:'15',frequency:'monthly',category:'משכורת',accountId:'bank',autopay:true,confirm:true},moved.bills[0],'2026-10-12');
+  const b=materializeAll(moved,'2026-10-20');
+  assert.deepEqual(b.transactions.map(t=>t.id),['bill-sal-2026-10-10']);assert.ok(b.bills[0].paid.includes('2026-10-15'));assert.equal(bal(b,'bank'),14000);
+  const c=materializeAll(b,'2026-11-15');assert.deepEqual(c.transactions.map(t=>t.id),['bill-sal-2026-10-10','bill-sal-2026-11-15']);
+  // A deposit cannot be put on hold (it has no "כמה בדיוק?").
+  const dep=materializeAll(fixture([acc('bank','bank',4000),acc('sav','savings',0)],{bills:[bill('dep',{kind:'transfer',toAccountId:'sav',amount:500,category:'העברה',recordedThrough:'2026-10-17'})]}),'2026-11-01');
+  assert.throws(()=>holdAutoBill(dep,'bill-dep-2026-11-01'),/אפשר לדחות רק/);
+});

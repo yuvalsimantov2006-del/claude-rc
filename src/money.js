@@ -254,10 +254,12 @@ export function materializeBills(d,now=today()){
     if(!b.recordedThrough){b.recordedThrough=now;changed=true;continue;}
     if(b.recordedThrough>=now)continue;
     if(isDepositBill(b)?depositRoute(d,b).problem:!d.accounts.some(a=>a.id===b.accountId&&TX_KINDS.includes(a.kind)))continue;
-    const to=b.endDate&&b.endDate<now?b.endDate:now;
+    const to=b.endDate&&b.endDate<now?b.endDate:now,step=BILL_STEPS[b.frequency]||1;
+    // Already recorded in this period (the day was moved after the row was written): handled, not recorded twice.
+    const recorded=date=>d.transactions.some(t=>t.auto?.source==='bill'&&t.auto.ref===b.id&&Math.abs(monthsBetween(t.auto.date.slice(0,7),date.slice(0,7)))<step);
     for(const date of billOccurrences(b,shiftDate(b.recordedThrough,1),to)){
       if(!(b.paid||[]).includes(date)&&!(b.waiting||[]).includes(date)){
-        const twin=findManualTwin(d,b,date),id=`bill-${b.id}-${date}`;
+        const twin=findManualTwin(d,b,date)||recorded(date),id=`bill-${b.id}-${date}`;
         if(twin)b.paid=[...new Set([...(b.paid||[]),date])].sort().slice(-36);
         else if(!d.transactions.some(t=>t.id===id)){try{recordBillRow(d,b,date,id,now);}catch{break;}}   // retried next time
       }

@@ -209,7 +209,7 @@ function billFormHTML(id,v){
   let body;
   if(deposit){
     const goals=depositGoals(),accounts=depositAccounts();
-    const target=`<select name="target" required data-bill-redraw>${goals.length?`<optgroup label="יעדים">${options(goals.map(g=>[`goal:${g.id}`,g.name]),v.target)}</optgroup>`:''}${accounts.length?`<optgroup label="חשבונות">${options(accounts.map(a=>[`acc:${a.id}`,`${a.name} · ${accountKinds[a.kind]}`]),v.target)}</optgroup>`:''}</select>`;
+    const target=`<select name="target" required data-bill-redraw>${goals.length?`<optgroup label="יעדים">${options(goals.map(g=>[`goal:${g.id}`,g.name]),v.target)}</optgroup>`:''}${accounts.length?`<optgroup label="חשבונות">${options(accounts.map(a=>[`acc:${a.id}`,a.name.includes(accountKinds[a.kind])?a.name:`${a.name} · ${accountKinds[a.kind]}`]),v.target)}</optgroup>`:''}</select>`;
     const linkedName=t.goal&&!unlinked?billAccountName(t.goal.accountId):'';
     body=field('לאן להפקיד?',target,linkedName?`היעד מקושר ל״${linkedName}״ — לשם יעבור הכסף.`:'')
       +(unlinked?field('לאיזה חשבון הכסף עובר?',select('dest',[...accounts.map(a=>[a.id,a.name]),['','לא לחשבון באופק — רק להוסיף ליעד']],v.dest??'','data-bill-redraw'),`היעד ״${t.goal.name}״ לא מקושר לחשבון, אז הסכום יתווסף גם ל״כבר בחיסכון״ שלו.`):'')
