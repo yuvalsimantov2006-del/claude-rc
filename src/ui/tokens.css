@@ -99,6 +99,8 @@
   --hero-line: rgba(255, 255, 255, .7);
   --hero-btn-solid: #FFFFFF;
   --hero-btn-solid-text: #0B1220;
+  --hero-smoke: color-mix(in srgb, var(--hero-btn-solid-text) 24%, transparent);        /* smoked-glass controls on the hero */
+  --hero-smoke-hover: color-mix(in srgb, var(--hero-btn-solid-text) 34%, transparent);
   --hero-sheen: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .28) 0%, transparent 55%), radial-gradient(90% 80% at 0% 100%, rgba(255, 255, 255, .12) 0%, transparent 60%);
   --hero-orb: rgba(255, 255, 255, .16);
   --hero-pulse: #86EFAC;

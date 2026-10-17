@@ -198,7 +198,8 @@ export function checkPalette(model,id,theme){
   const grad=gradientSamples(resolve('var(--accent-grad)',t));if(!grad)fails.push(`${id}/${theme}: --accent-grad is not a linear-gradient`);
   else grad.forEach((c,i)=>need(`--accent-contrast on --accent-grad @${i*10}%`,ink,c));
   const hero=gradientSamples(resolve('var(--hero-gradient)',t));if(!hero)fails.push(`${id}/${theme}: --hero-gradient is not a linear-gradient`);
-  else for(const n of ['--hero-text','--hero-text-muted'])hero.forEach((c,i)=>need(`${n} on --hero-gradient @${i*10}%`,col(n),c));
+  else{for(const n of ['--hero-text','--hero-text-muted','--hero-text-subtle','--hero-negative'])hero.forEach((c,i)=>need(`${n} on --hero-gradient @${i*10}%`,col(n),c));
+    hero.forEach((c,i)=>need(`--hero-text on --hero-smoke @${i*10}%`,col('--hero-text'),over(col('--hero-smoke'),c)));}
   for(const n of ['--toast-text','--toast-muted','--toast-accent','--toast-ok','--toast-err'])need(`${n} on --toast-bg`,col(n),col('--toast-bg'));
   // Marks (chart series, focus ring) against the card: 3:1 for graphics.
   for(const n of ['--chart-1','--chart-2','--chart-3','--chart-4','--chart-5','--chart-6','--focus-color'])for(const s of cards)need(`${n} vs ${s.name}`,col(n),s.c,GRAPHIC);
