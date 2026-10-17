@@ -174,8 +174,8 @@ export function surfaces(tokens){
 const TEXT=4.5,GRAPHIC=3;
 export function checkPalette(model,id,theme){
   const t=tokensFor(model,id,theme),fails=[],col=n=>colorOf(t,n),S=surfaces(t);
-  let worst=Infinity,count=0;
-  const need=(label,fg,bg,min=TEXT)=>{const r=contrast(fg,bg);count++;worst=Math.min(worst,r);if(r<min-1e-9)fails.push(`${id}/${theme}: ${label} ${r.toFixed(2)} < ${min}`);};
+  let worst=Infinity,worstMark=Infinity,count=0;
+  const need=(label,fg,bg,min=TEXT)=>{const r=contrast(fg,bg);count++;if(min===TEXT)worst=Math.min(worst,r);else worstMark=Math.min(worstMark,r);if(r<min-1e-9)fails.push(`${id}/${theme}: ${label} ${r.toFixed(2)} < ${min}`);};
   const on=(name,kinds,min=TEXT)=>{const fg=col(name);for(const s of S)if(kinds.includes(s.kind))need(`${name} on ${s.name} (${hex(s.c)})`,fg,s.c,min);};
   const all=['page','card','tile','field','bar','dialog'];
   for(const n of ['--text','--text-muted','--text-subtle'])on(n,all);
@@ -202,7 +202,7 @@ export function checkPalette(model,id,theme){
   for(const n of ['--toast-text','--toast-muted','--toast-accent','--toast-ok','--toast-err'])need(`${n} on --toast-bg`,col(n),col('--toast-bg'));
   // Marks (chart series, focus ring) against the card: 3:1 for graphics.
   for(const n of ['--chart-1','--chart-2','--chart-3','--chart-4','--chart-5','--chart-6','--focus-color'])for(const s of cards)need(`${n} vs ${s.name}`,col(n),s.c,GRAPHIC);
-  return {fails,worst,count};
+  return {fails,worst,worstMark,count};
 }
 // Structure: the CSS palettes are exactly the JS list, each with every token in both themes, and the theme blocks
 // never define a palette token (they would fight the palette blocks, which share their specificity).
@@ -222,14 +222,14 @@ export function checkStructure(model,list,defaultId){
 
 export function runCheck(css=fs.readFileSync(path.join(root,'src/ui/tokens.css'),'utf8'),list,defaultId){
   const model=paletteModel(css),errors=checkStructure(model,list,defaultId),rows=[];
-  if(!errors.length)for(const p of list)for(const theme of ['light','dark']){const r=checkPalette(model,p.id,theme);errors.push(...r.fails);rows.push({id:p.id,name:p.name,theme,worst:r.worst,count:r.count});}
+  if(!errors.length)for(const p of list)for(const theme of ['light','dark']){const r=checkPalette(model,p.id,theme);errors.push(...r.fails);rows.push({id:p.id,name:p.name,theme,worst:r.worst,worstMark:r.worstMark,count:r.count});}
   return {errors,rows};
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
   const {APP_PALETTES,DEFAULT_APP_PALETTE}=await import(pathToFileURL(path.join(root,'src/palette.js')).href);
   const {errors,rows}=runCheck(undefined,APP_PALETTES,DEFAULT_APP_PALETTE);
-  for(const r of rows)console.log(`${r.id.padEnd(14)} ${r.theme.padEnd(5)} ${String(r.count).padStart(4)} pairs, lowest ${r.worst.toFixed(2)}:1  ${r.name}`);
+  for(const r of rows)console.log(`${r.id.padEnd(14)} ${r.theme.padEnd(5)} ${String(r.count).padStart(4)} pairs · lowest text ${r.worst.toFixed(2)}:1 · lowest mark ${r.worstMark.toFixed(2)}:1  ${r.name}`);
   if(errors.length){console.error(`\n${errors.length} problem(s):\n`+errors.slice(0,80).join('\n'));process.exit(1);}
   console.log(`\nPASS: ${rows.length/2} palettes × 2 themes, every text pair ≥ ${TEXT}:1 and every mark ≥ ${GRAPHIC}:1 on the composited glass.`);
 }
