@@ -18,7 +18,7 @@ async function newPage({viewport={width:1440,height:1000},tour=false,...options}
   const context=await browser.newContext({viewport,locale:'he-IL',...options});
   // Dollar rate sources are mocked: the app fetches the USD/ILS rate on start.
   await context.route(/api\.frankfurter\.dev|cdn\.jsdelivr\.net|open\.er-api\.com/,route=>{const url=new URL(route.request().url());route.fulfill({status:200,headers:{'content-type':'application/json','access-control-allow-origin':'*'},body:JSON.stringify({base:'USD',quote:'ILS',rate:3.65,date:url.searchParams.get('date')||'2026-10-12'})});});
-  if(!tour)await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.0');}catch{}});
+  if(!tour)await context.addInitScript(()=>{try{localStorage.setItem('ofek-seen-version','4.1');}catch{}});
   const page=await context.newPage();
   page.on('pageerror',err=>errors.push(err.message));
   page.on('console',msg=>{if(msg.type()==='error'&&!expected.test(msg.text()))errors.push(msg.text());});
