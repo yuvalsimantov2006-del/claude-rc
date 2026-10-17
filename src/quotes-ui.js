@@ -1,4 +1,6 @@
-import {money,minusMoney,today,dateLabel,portfolioValue,investAccounts,containerAssets,DEFAULT_CONTAINER_NAME} from './finance.js';
+import {money,minusMoney,pct,today,dateLabel,toILS,assetValue,portfolioValue,investAccounts,containerAssets,DEFAULT_CONTAINER_NAME} from './finance.js';
+import {todayPriceField,dailyPricesDraft,todayPriceDraft} from './invest.js';
+import {parseNumber} from './xlsx.js';
 import {palette,paletteSoft} from './charts.js';
 import {QUOTES_KEY,QUOTE_PROVIDERS,QUOTE_REASONS,quoteRoute,fetchQuotes} from './quotes.js';
 
@@ -16,7 +18,7 @@ function readQuoteSettings(){
 function writeQuoteSettings(v){try{localStorage.setItem(QUOTES_KEY,JSON.stringify(v));return true;}catch{return false;}}
 const daily={run:0,results:new Map(),fx:null,busy:false,reopen:false};
 const dailyGroups=()=>{const list=investAccounts(data);return list.length>1?list.map(a=>[a.name,containerAssets(data,a.id)]).filter(([,x])=>x.length):[['',data.assets]];};
-const dailyField=a=>a.mode==='price'?'currentPrice':'currentValue';
+const dailyField=todayPriceField;
 const dailySign=n=>Math.abs(n)<.5?money(0):n>0?'+'+money(n):minusMoney(n);
 const tradingDay=date=>date&&date!==today()?`מחיר מסחר של ${dateLabel(date)}`:'מחיר של היום';
 
@@ -74,20 +76,15 @@ function applyDailyResult(id,r){
 function refreshDailyProgress(){const el=document.querySelector('#daily-progress');if(el)el.innerHTML=dailyProgress();}
 function refreshDailyTotal(){const form=document.querySelector('#daily-form'),el=form?.querySelector('#daily-total');if(el)el.innerHTML=dailyTotalHTML(form);}
 // The data as it would be saved. strict: throw on a missing or invalid value (on save); otherwise skip it.
+// Each holding is written by dailyPricesDraft (invest.js), the same write the per-holding "מחיר היום" uses.
 function dailyDraft(form,strict=true){
-  const f=new FormData(form),next=structuredClone(data),now=today(),changes=[];
-  const fxRaw=f.get('fx');
-  if(fxRaw!=null&&String(fxRaw).trim()!==''){const r=Number(fxRaw);if(!(r>0)){if(strict)throw Error('יש להזין שער דולר חיובי.');}else if(Math.abs(r-next.fx)>=1e-4){next.fx=r;next.fxDate=now;next.fxSource=daily.fx&&Math.abs(daily.fx.rate-r)<1e-4?daily.fx.source||'':'';changes.push('fx');}}
+  const f=new FormData(form),now=today(),values={};
+  const fxRaw=f.get('fx');let fx=null;
+  if(fxRaw!=null&&String(fxRaw).trim()!==''){const r=Number(fxRaw);if(!(r>0)){if(strict)throw Error('יש להזין שער דולר חיובי.');}else if(Math.abs(r-data.fx)>=1e-4)fx=r;}
   else if(fxRaw!=null&&strict)throw Error('יש להזין שער דולר.');
-  for(const a of next.assets){
-    const raw=f.get('q_'+a.id);if(raw==null)continue;
-    const v=Number(raw),key=dailyField(a);
-    if(String(raw).trim()===''||!Number.isFinite(v)||v<0||(a.mode==='price'&&v===0)){if(strict)throw Error(`יש להזין ${a.mode==='price'?'מחיר':'שווי'} תקין ל״${a.name}״.`);continue;}
-    const r=daily.results.get(a.id),fetched=r?.status==='ok'&&Math.abs(r.price-v)<1e-9;
-    if(Math.abs(v-a[key])<1e-9&&!fetched)continue;
-    a[key]=Math.round(v*1e6)/1e6;a.date=now;a.priceDate=fetched?r.date:now;a.priceSource=fetched?r.source:'ידני';
-    changes.push(a.id);
-  }
+  for(const a of data.assets){const raw=f.get('q_'+a.id);if(raw!=null)values[a.id]=raw;}
+  const {next,changes}=dailyPricesDraft(data,values,daily.results,now,strict);
+  if(fx!=null){next.fx=fx;next.fxDate=now;next.fxSource=daily.fx&&Math.abs(daily.fx.rate-fx)<1e-4?daily.fx.source||'':'';changes.unshift('fx');}
   return strict?{next,changes}:next;
 }
 function saveDaily(form){
@@ -98,6 +95,72 @@ function saveDaily(form){
   closeDialog();
   commit(next,`${assets.length?`עודכנו ${assets.length===1?'נכס אחד':`${assets.length} נכסים`}`:'שער הדולר עודכן'} · שווי התיק ${money(after)} (${dailySign(after-before)})`,false,{undo:true});
   // A monthly update in progress follows the new prices by itself (syncMonthlyDraft in app.js).
+}
+
+// ---------- One holding: "מחיר היום" (4.2) ----------
+// The button beside every holding on the investments page opens a small sheet: the last price and its date, and
+// one big field filled with that price and selected, so typing simply replaces it. A holding with a free source
+// (quoteRoute) fetches today's price exactly as the daily update does and fills it in; typing always wins.
+// Saving is the daily update for that one holding: todayPriceDraft writes the same fields (price or value, the
+// date, the trading date and the source) and it goes through the same commit (undo, no monthly snapshot), so
+// the totals, the goals, the home tiles and the monthly draft all follow.
+const todayOne={run:0,id:null,result:null,reopen:false};
+const todayNoun=a=>a.mode==='price'?'המחיר':'השווי';
+const todayInputText=n=>String(Math.round(Number(n)*1e6)/1e6);
+const todayValueILS=(d,a)=>toILS(assetValue(a),a.currency,d.fx);
+// The typed text as a number, or a Hebrew reason why it is not one: a positive number, at most six decimals.
+function readTodayValue(text,a){
+  const raw=String(text??'').trim(),noun=a.mode==='price'?'מחיר':'שווי';
+  if(!raw)throw Error(`יש להקליד את ה${noun} של היום.`);
+  const n=/^[\d\s.,₪$\u200e\u200f+\-−]+$/.test(raw)?parseNumber(raw):null;
+  if(n==null||!Number.isFinite(n))throw Error(`זה לא נראה כמו ${noun}. מקלידים מספר בלבד, למשל 12.5`);
+  if(!(n>0))throw Error(`ה${noun} צריך להיות גדול מאפס.`);
+  if(n>1e9)throw Error('המספר גדול מדי — כדאי לבדוק אותו.');
+  if(/e-/.test(String(n))||(String(n).split('.')[1]||'').length>6)throw Error('אפשר עד 6 ספרות אחרי הנקודה.');
+  return n;
+}
+function todayPreviewHTML(a,text){
+  const key=todayPriceField(a),before=todayValueILS(data,a);let value=null;
+  try{value=readTodayValue(text,a);}catch{}
+  if(value==null)return `<span>השווי של ${e(a.name)} עכשיו</span><b dir="ltr">${money(before)}</b>`;
+  const after=toILS(a.mode==='price'?Number(a.quantity)*value:value,a.currency,data.fx),move=a[key]>0?value/a[key]-1:null,jump=move!=null&&Math.abs(move)>.25;
+  const moveText=move==null||Math.abs(move)<5e-5?'':` · ${move>0?'+':'−'}${pct(Math.abs(move))}`;
+  return `<span>${jump?'שינוי חריג — כדאי לבדוק · ':''}השווי אחרי העדכון</span><b dir="ltr">${money(after)}</b>${Math.abs(after-before)<.5&&!moveText?'<small class="muted">ללא שינוי</small>':`<small dir="ltr" class="${jump?'warning':after-before>=0?'positive':'negative'}">${dailySign(after-before)}${moveText}</small>`}`;
+}
+function setTodayStatus(form,cls,text){
+  const el=form.querySelector('#today-status');if(!el)return;
+  el.className=`today-status ${cls}`;el.innerHTML=(cls==='busy'?'<span class="daily-spinner" aria-hidden="true"></span>':'')+`<span>${e(text)}</span>`;
+}
+function openTodayPrice(id){
+  const a=data.assets.find(x=>x.id===id);if(!a){toast('הנכס לא נמצא. ייתכן שנמחק.',true);return;}
+  const key=todayPriceField(a),isPrice=a.mode==='price',settings=readQuoteSettings(),route=quoteRoute(a,settings),when=a.priceDate||a.date;
+  const i=Math.max(0,data.assets.indexOf(a)),label=(a.ticker||'').trim().slice(0,5)||a.name.slice(0,2);
+  todayOne.run++;todayOne.id=id;todayOne.result=null;
+  const sub=isPrice?[a.ticker?`<bdi dir="ltr">${e(a.ticker)}</bdi>`:'',`<bdi dir="ltr">${(+a.quantity).toLocaleString('he-IL',{maximumFractionDigits:6})}</bdi> יחידות`].filter(Boolean).join(' · '):`${e(a.type||'שווי כולל')} · לפי הדוח`;
+  const [cls,text]=route.kind==='manual'?['manual',QUOTE_REASONS[route.why]||'מקלידים']:['busy','מושך את המחיר של היום…'];
+  showDialog(`${isPrice?'מחיר היום':'שווי היום'} · ${a.name}`,`<form id="today-form" class="balance-form today-form" data-asset="${e(id)}" novalidate><div class="form-error" id="today-error"></div><div class="today-asset"><span class="ticker-icon${label.length>3?' long':''}" style="color:${palette[i%palette.length]};background:${paletteSoft[i%paletteSoft.length]}">${e(label)}</span><div><b>${e(a.name)}</b><small>${sub}</small></div></div><div class="balance-current"><span>${isPrice?'המחיר האחרון':'השווי האחרון'}${when?` · ${e(dateLabel(when))}`:''}</span><b dir="ltr">${money(a[key],a.currency,isPrice?2:0)}</b></div><label class="balance-amount"><span class="balance-label">${isPrice?'המחיר של היום, ליחידה':'השווי של היום, סך הכול'}</span><span class="balance-input"><input name="price" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" spellcheck="false" value="${e(todayInputText(a[key]))}" aria-label="${e(`${isPrice?'המחיר':'השווי'} של היום: ${a.name}`)}" aria-describedby="today-status today-error"><span class="balance-currency">${a.currency==='USD'?'$':'₪'}</span></span></label><p id="today-status" class="today-status ${cls}" aria-live="polite">${cls==='busy'?'<span class="daily-spinner" aria-hidden="true"></span>':''}<span>${e(text)}</span></p>${route.why==='needs-key'?`<button type="button" class="text-button today-key" data-action="quotes-settings">${icon('KeyRound',15)}חיבור מקור מחירים</button>`:''}<div id="today-preview" class="daily-total today-preview" aria-live="polite">${todayPreviewHTML(a,todayInputText(a[key]))}</div><div class="form-actions">${submit('שמירה','Check')}${btn('ביטול','dialog-close')}</div></form>`);
+  const dialog=document.querySelector('dialog');dialog?.classList?.add('sheet','today-sheet');
+  setTimeout(()=>{const box=dialog?.querySelector?.('[name=price]');if(box&&box.isConnected){box.focus();box.select();}},80);
+  if(route.kind!=='manual')fetchToday(a,settings);
+}
+async function fetchToday(a,settings){
+  const run=todayOne.run,r=(await fetchQuotes([{...a}],settings)).get(a.id)||{status:'error',why:'network'};
+  if(run!==todayOne.run)return;
+  const form=document.querySelector('#today-form');if(!form||form.dataset.asset!==a.id)return;
+  todayOne.result=r;
+  const box=form.querySelector('[name=price]'),[cls,text]=dailyStatus(a,r);
+  if(r.status==='ok'&&box&&!box.dataset.touched){box.value=todayInputText(r.price);form.classList.add('filled');if(document.activeElement===box)box.select();}
+  setTodayStatus(form,cls,text);
+  const preview=form.querySelector('#today-preview');if(preview)preview.innerHTML=todayPreviewHTML(a,box?.value);
+}
+function saveTodayPrice(form){
+  const a=data.assets.find(x=>x.id===form.dataset.asset);if(!a)throw Error('הנכס לא נמצא. ייתכן שנמחק.');
+  const value=readTodayValue(form.querySelector('[name=price]')?.value,a),{next,changed}=todayPriceDraft(data,a.id,value,todayOne.result,today());
+  todayOne.run++;
+  if(!changed){closeDialog();toast(`${todayNoun(a)} של ${a.name} לא השתנה — נשאר ${money(a[todayPriceField(a)],a.currency,a.mode==='price'?2:0)}.`);return;}
+  const before=todayValueILS(data,a),after=todayValueILS(next,next.assets.find(x=>x.id===a.id));
+  closeDialog();
+  commit(next,`${todayNoun(a)} של ${a.name} עודכן · שווי ${money(after)} (${dailySign(after-before)})`,false,{undo:true});
 }
 
 // ---------- The price source (a free personal key, kept on this device only) ----------
@@ -125,12 +188,21 @@ document.addEventListener('click',event=>{
   const action=button.dataset.action;
   try{
     if(action==='daily-update')openDailyUpdate();
-    else if(action==='quotes-settings'){daily.reopen=!!button.closest('#daily-form');openQuoteSettings();}
+    else if(action.startsWith('asset-today:'))openTodayPrice(action.slice('asset-today:'.length));
+    else if(action==='quotes-settings'){daily.reopen=!!button.closest('#daily-form');todayOne.reopen=!!button.closest('#today-form');openQuoteSettings();}
     else if(action==='quotes-test'){const form=button.closest('#quotes-form');if(form)testQuoteKey(form);}
     else if(action==='quotes-clear'){const s=readQuoteSettings();writeQuoteSettings({provider:s.provider,key:''});closeDialog();toast('המפתח הוסר מהמכשיר');render();}
   }catch(err){toast(err.message,true);}
 });
 document.addEventListener('input',event=>{
+  const one=event.target.closest?.('#today-form');
+  if(one){
+    if(event.isTrusted)event.target.dataset.touched='1';
+    const a=data.assets.find(x=>x.id===one.dataset.asset),box=one.querySelector('[name=price]');
+    one.querySelector('#today-error').innerHTML='';box?.removeAttribute('aria-invalid');
+    if(a){const preview=one.querySelector('#today-preview');if(preview)preview.innerHTML=todayPreviewHTML(a,box?.value);}
+    return;
+  }
   const form=event.target.closest?.('#daily-form');if(!form)return;
   if(event.isTrusted&&event.target.name)event.target.dataset.touched='1';
   if(event.target.name==='fx'&&event.isTrusted)setDailyHint(event.target,'שער ידני');
@@ -139,5 +211,6 @@ document.addEventListener('input',event=>{
 document.addEventListener('submit',event=>{
   const form=event.target;
   if(form.id==='daily-form'){event.preventDefault();try{saveDaily(form);}catch(err){const box=form.querySelector('.form-error');if(box)box.innerHTML=notice(err.message,'error');else toast(err.message,true);}}
-  else if(form.id==='quotes-form'){event.preventDefault();const s=quoteFormSettings(form);if(!writeQuoteSettings(s)){form.querySelector('.form-error').innerHTML=notice('לא הצלחנו לשמור במכשיר הזה (האחסון חסום).','error');return;}closeDialog();toast(s.key?`מקור המחירים נשמר: ${QUOTE_PROVIDERS[s.provider].label}`:'נשמר');if(daily.reopen){daily.reopen=false;openDailyUpdate();return;}render();}
+  else if(form.id==='today-form'){event.preventDefault();try{saveTodayPrice(form);}catch(err){form.querySelector('#today-error').innerHTML=notice(err.message,'error');const box=form.querySelector('[name=price]');box?.setAttribute('aria-invalid','true');box?.focus();box?.select();}}
+  else if(form.id==='quotes-form'){event.preventDefault();const s=quoteFormSettings(form);if(!writeQuoteSettings(s)){form.querySelector('.form-error').innerHTML=notice('לא הצלחנו לשמור במכשיר הזה (האחסון חסום).','error');return;}closeDialog();toast(s.key?`מקור המחירים נשמר: ${QUOTE_PROVIDERS[s.provider].label}`:'נשמר');if(daily.reopen){daily.reopen=false;openDailyUpdate();return;}if(todayOne.reopen&&data.assets.some(a=>a.id===todayOne.id)){todayOne.reopen=false;openTodayPrice(todayOne.id);return;}render();}
 });
