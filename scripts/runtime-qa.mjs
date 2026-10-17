@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 // Must match the `files` list in scripts/build.mjs (same order).
-const files=['finance.js','hooks.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','fx.js','quotes.js','ledger.js','money.js','scenario.js','benefits.js','annual.js','backup.js','lock.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','quotes-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','shell-ui.js','setup-ui.js','fx-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','ledger-ui.js','benefits-ui.js','annual-ui.js','backup-ui.js','lock-ui.js','app.js'];
+const files=['finance.js','hooks.js','data.js','icons.js','charts.js','savings.js','smart.js','xlsx.js','invest.js','capture.js','sync.js','fx.js','quotes.js','ledger.js','money.js','scenario.js','benefits.js','annual.js','backup.js','lock.js','palette.js','ai.js','features.js','money-ui.js','goals-ui.js','invest-ui.js','quotes-ui.js','scenario-ui.js','capture-ui.js','sync-ui.js','shell-ui.js','setup-ui.js','fx-ui.js','home-ui.js','mobile-ui.js','polish-ui.js','ledger-ui.js','benefits-ui.js','annual-ui.js','palette-ui.js','backup-ui.js','lock-ui.js','app.js'];
 const source=files.map(f=>fs.readFileSync('src/'+f,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport\s+(?=(const|function|class|let|async))/g,'')).join('\n');
 const storage=new Map(),events={},elements=[],dom=new Map();const root={innerHTML:''};
 function element(tag){return {tag,innerHTML:'',className:'',classList:{add(){},remove(){}},setAttribute(){},addEventListener(){},showModal(){},close(){},remove(){const i=elements.indexOf(this);if(i>=0)elements.splice(i,1);},click(){}};}

@@ -66,12 +66,8 @@
   border-radius: var(--r-round); background: radial-gradient(closest-side, var(--hero-orb), transparent);
 }
 .card.hero-card::after { content: none; }
-/* Controls on the gradient are smoked glass: a dark tint under white text keeps it legible on the lightest
-   stop of every palette (a white tint would wash it out) */
-.card.hero-card {
-  --hero-smoke: color-mix(in srgb, var(--hero-btn-solid-text) 24%, transparent);
-  --hero-smoke-hover: color-mix(in srgb, var(--hero-btn-solid-text) 34%, transparent);
-}
+/* Controls on the gradient are smoked glass (--hero-smoke in tokens.css): a dark tint under white text keeps it
+   legible on the lightest stop of every palette (a white tint would wash it out) */
 .hero-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); align-self: stretch; min-width: 0; }
 .hero-label {
   display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: 40px;
