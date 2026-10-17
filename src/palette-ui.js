@@ -19,8 +19,14 @@ function applyAppPalette(id=readAppPalette()){
 function setAppPalette(id){
   const next=normalizeAppPalette(id),changed=next!==readAppPalette();
   try{localStorage.setItem(APP_PALETTE_KEY,next);}catch{}
-  applyAppPalette(next);
-  for(const el of document.querySelectorAll('.pl-swatch')){const on=el.dataset.palette===next;el.setAttribute('aria-checked',String(on));el.tabIndex=on?0:-1;}
+  const swap=()=>{
+    applyAppPalette(next);
+    for(const el of document.querySelectorAll('.pl-swatch')){const on=el.dataset.palette===next;el.setAttribute('aria-checked',String(on));el.tabIndex=on?0:-1;}
+  };
+  // A short cross-fade between the old and the new colours where the browser can (and motion is welcome).
+  const calm=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(changed&&!calm&&typeof document.startViewTransition==='function'){try{document.startViewTransition(swap);}catch{swap();}}
+  else swap();
   if(changed&&typeof toast==='function')toast(`הצבעים עודכנו · ${appPaletteById(next).name}`);
 }
 

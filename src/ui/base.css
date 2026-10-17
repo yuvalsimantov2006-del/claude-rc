@@ -510,9 +510,9 @@ html.privacy .metric-value .amt, html.privacy .hero-balance .amt { filter: none;
   .subtab { min-height: 40px; padding: 0 var(--sp-3); background: var(--glass-tile); border: 1px solid var(--glass-border); }
   .subtab.active { border-color: transparent; }
   .subtab::after { content: ""; position: absolute; inset: -2px 0; } /* 44px hit area */
-  /* A late tab (4th+) may sit past the inline end: open the strip scrolled to it */
+  /* A late tab (3rd+) may sit past the inline end: open the strip scrolled so it sits in the middle */
   .subtabs { scroll-padding-inline: var(--gutter); }
-  .subtab.active:nth-child(n+4) { scroll-initial-target: nearest; scroll-snap-align: end; }
+  .subtab.active:nth-child(n+3) { scroll-initial-target: nearest; scroll-snap-align: center; }
 
   .page-heading { align-items: flex-end; flex-wrap: nowrap; margin-block-end: var(--sp-4); }
   .page-heading p { font-size: var(--fs-micro); }
