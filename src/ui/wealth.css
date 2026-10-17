@@ -715,7 +715,7 @@ html.privacy main :is(.goal-info .goal-details b, .saving-target small, .risk-kp
 
 .invest-section-head { margin-block: var(--sp-2) 0; align-items: flex-end; }
 .invest-section-head h2 { font-size: var(--fs-h2); }
-.container-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: var(--gap-grid); align-items: start; }
+.container-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: var(--gap-grid); align-items: start; }
 
 .container-card { display: flex; flex-direction: column; gap: var(--sp-4); }
 .container-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); }
@@ -746,6 +746,9 @@ html.privacy main :is(.goal-info .goal-details b, .saving-target small, .risk-kp
   border-block-end: 1px solid var(--border); text-align: start; color: inherit; cursor: pointer;
 }
 .holding-list > .holding-row:last-child { border-block-end: 0; }
+/* One account alone spans the page: its holdings flow in two columns rather than one very wide list */
+.container-grid > .container-card:only-child .holding-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); column-gap: var(--sp-10); }
+.container-grid > .container-card:only-child .holding-list > .holding-row:nth-last-child(2):nth-child(odd) { border-block-end: 0; }
 button.holding-row:hover { background: var(--hover); }
 button.holding-row:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -2px; }
 .holding-row.cash-row { cursor: default; }
