@@ -97,8 +97,7 @@ function saveDaily(form){
   const before=portfolioValue(data),after=portfolioValue(next);
   closeDialog();
   commit(next,`${assets.length?`עודכנו ${assets.length===1?'נכס אחד':`${assets.length} נכסים`}`:'שער הדולר עודכן'} · שווי התיק ${money(after)} (${dailySign(after-before)})`,false,{undo:true});
-  // A monthly update in progress follows the new prices (it would otherwise keep the old ones).
-  if(ui.monthly&&!ui.monthlyDone){for(const id of assets){const a=next.assets.find(x=>x.id===id);if(a)ui.monthly.values[id]=a[dailyField(a)];}if(changes.includes('fx'))ui.monthly.fx=next.fx;}
+  // A monthly update in progress follows the new prices by itself (syncMonthlyDraft in app.js).
 }
 
 // ---------- The price source (a free personal key, kept on this device only) ----------

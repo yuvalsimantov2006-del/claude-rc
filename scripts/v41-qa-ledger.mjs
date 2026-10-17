@@ -420,4 +420,50 @@ export async function runInvest(qa){
   assert.ok(!(await p.evaluate(()=>localStorage.getItem('ofek-finance-v1'))).includes('my-free-key'),'the key is not in the data');
   await s.context.close();
   console.log('invest: daily update (CoinGecko + Finnhub mocked, typed TASE, no snapshot, totals and home follow, undo, key on device) — OK');
+
+  // ---------- Goals: compact cards, one primary action, the menu, "פרטים", "הפקדה חודשית אוטומטית" ----------
+  s=await qa.open({data:fixtureI()});p=s.page;await settle(p);await go(p,'goals');
+  assert.equal(await p.locator('.goal-card').count(),2);
+  const g1=p.locator('.goal-card',{hasText:'קרן חירום'});
+  assert.match(await g1.locator('.goal-amounts').textContent(),/5,000.*מתוך.*30,000/s);
+  assert.match(await g1.locator('.goal-facts').textContent(),/בחודש כדי להגיע בזמן.*צפי הגעה/s);
+  assert.equal(await g1.locator('.goal-actions .button.primary').count(),1,'one primary action');
+  assert.equal(await g1.locator('.goal-menu-list').isVisible(),false,'the menu starts closed');
+  await g1.locator('.goal-menu summary').click();
+  assert.ok(await g1.locator('.goal-menu-list').isVisible());
+  assert.deepEqual(await g1.locator('.goal-menu-item').allTextContents(),['עריכה','הפקדה חודשית אוטומטית','מחיקה']);
+  await p.locator('.goals-head h2').click();
+  assert.equal(await p.locator('.goal-menu[open]').count(),0,'a click outside closes the menu');
+  await g1.locator('[data-action="goal-info:g1"]').click();
+  assert.match(await p.locator('dialog .goal-info').textContent(),/צפוי להיות לך.*כבר בחיסכון.*חשבון מקושר/s);
+  await p.keyboard.press('Escape');
+  await g1.locator('.goal-menu summary').click();
+  await g1.locator('[data-action="goal-auto:g1"]').click();
+  await p.waitForFunction(()=>document.querySelector('dialog')||/לא זמינה/.test(document.querySelector('.toast')?.textContent||''));
+  if(await p.evaluate(()=>typeof openRecurringDeposit==='function'))assert.equal(await p.locator('dialog #bill-form').count(),1,'"הפקדה חודשית אוטומטית" opens the standing-deposit form');
+  if(await p.locator('dialog').count())await p.keyboard.press('Escape');
+  // ---------- Everything connects: 1,000 ₪ of income through the form moves every screen ----------
+  const figure=async(route,selector)=>{await go(p,route);await p.waitForTimeout(1300);return Number((await p.locator(selector).first().textContent()).replace(/[^\d.-]/g,''));};
+  const before={free:await figure('goals','.goals-summary > div:nth-child(3) b'),net:await figure('accounts','.metric:has-text("שווי נקי") .metric-value'),bank:await figure('accounts','.account-card:has-text("עו״ש") .large-number')};
+  await act(p,'open:transaction');
+  await p.locator('#entity-form [data-action="entity-type:income"]').click();
+  await p.locator('#entity-form [name=amount]').fill('1000');
+  await p.locator('#entity-form [name=category]').selectOption('משכורת');
+  await p.locator('#entity-form [name=accountId]').selectOption('bank');
+  await p.locator('#entity-form [type=submit]').click();
+  await p.waitForFunction(()=>!document.querySelector('#entity-form'));
+  const after={free:await figure('goals','.goals-summary > div:nth-child(3) b'),net:await figure('accounts','.metric:has-text("שווי נקי") .metric-value'),bank:await figure('accounts','.account-card:has-text("עו״ש") .large-number')};
+  assert.deepEqual({free:after.free-before.free,net:after.net-before.net,bank:after.bank-before.bank},{free:1000,net:1000,bank:1000},'free money, net worth and the bank card all follow the income');
+  await go(p,'transactions');
+  assert.ok(await p.waitForFunction(()=>/1,000/.test(document.querySelector('#transaction-metrics')?.textContent||''),null,{timeout:4000}).then(()=>true,()=>false),'the month\'s income shows it');
+  await s.context.close();
+  // Phone, both themes: the goals page fits, its controls are ≥ 44px.
+  for(const theme of ['light','dark']){
+    s=await qa.open({data:fixtureI(),width:390,height:844,theme});p=s.page;await settle(p);await go(p,'goals');
+    await s.noOverflow(`goals ${theme}`);
+    assert.deepEqual(await tallEnough(p,'.goal-actions .button, .goal-menu > summary, .goals-head .button, .alloc-actions .text-button'),[],'goal controls ≥ 44px');
+    await shot(qa,p,`v41-I05-${theme}-goals.png`,true);
+    await s.context.close();
+  }
+  console.log('invest: goals (compact card, menu, details, standing deposit), 1,000 ₪ income moves every screen, phone layout — OK');
 }

@@ -18,12 +18,15 @@ function captureState(){
 // Review rows from the parsed items for the chosen target account (§C.3): on a bank account a card-payment line becomes a
 // transfer to its card. `raw` keeps the parsed items so a new target account (or a card added meanwhile) re-reads them.
 const captureCards=()=>data.accounts.filter(a=>a.kind==='credit').map(a=>a.id).join(',');
+// The rows remember the data they were checked against (`dataRef`): when anything is saved meanwhile (a row added
+// by hand, a bill recorded automatically), the review re-checks them, so a new duplicate is never saved twice.
 function prepareCaptureRows(st,previous=[]){
-  st.cards=captureCards();
+  st.cards=captureCards();st.dataRef=data;
   return prepareCapture(data,st.raw||[],{accountId:st.accountId}).map((x,i)=>{
     const old=previous[i];if(!old)return {...x,touched:false};
-    // Keep what the user already edited; the type, card and duplicate status follow the new target.
-    const kept={date:old.date,description:old.description,amount:old.amount,include:old.include,touched:old.touched};
+    // Keep what the user already edited; the type, card and duplicate status follow the new target (and the
+    // inclusion too, unless the user ticked it by hand).
+    const kept={date:old.date,description:old.description,amount:old.amount,include:old.includeTouched?old.include:x.include,includeTouched:!!old.includeTouched,touched:old.touched};
     if(old.touched&&x.type!=='transfer'&&old.type!=='transfer')kept.category=old.category;
     return {...x,...kept};
   });
@@ -100,6 +103,7 @@ function captureReview(st){
 }
 function captureView(){
   const st=captureState();
+  if(st.raw&&st.items.length&&!st.busy&&st.dataRef!==data)st.items=prepareCaptureRows(st,st.items);
   if(st.busy)return card(`<div class="capture-busy"><div class="ai-typing"><span></span><span></span><span></span><small>Claude קורא את המסמך ומחלץ את התנועות…</small></div>${btn('עצירה','capture-stop','Square')}</div>`);
   return `${st.error?`<div class="ai-error">${icon('TriangleAlert',17)}<span>${e(st.error)}</span></div>`:''}${st.items.length?captureReview(st):captureIntro(st)}`;
 }
@@ -162,7 +166,7 @@ document.addEventListener('change',event=>{
   if(el.dataset.capHide!=null){captureState().hideDuplicates=el.checked;render();return;}
   if(!el.dataset.cap)return;
   const st=captureState(),[i,key]=el.dataset.cap.split('.'),item=st.items[+i];if(!item)return;
-  if(key==='include'){item.include=el.checked;render();return;}
+  if(key==='include'){item.include=el.checked;item.includeTouched=true;render();return;}
   if(key==='category'){
     item.category=el.value;item.touched=true;
     const same=st.items.filter(x=>x!==item&&!x.touched&&x.description.trim()===item.description.trim()&&x.category!==el.value);

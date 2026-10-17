@@ -90,3 +90,37 @@ test('asset period return treats purchase/sale as flows across the asset boundar
     assert.equal(snapshot(d,'2026-10-01',{}).holdings[0].accountId,'m');
   });
 }
+
+// ---------- 4.1 "everything connects": one change, every number that depends on it ----------
+{
+  const {freeMoney,effectiveGoalSavings}=await import('./savings.js');
+  const {safeToSpend,cashflowForecast}=await import('./money.js');
+  const {financialContext}=await import('./ai.js');
+  const {containerValue,categorySpend}=await import('./finance.js');
+  const {containerSummary}=await import('./invest.js');
+  const NOW='2026-09-15',MONTH='2026-09';
+  const numbers=d=>{const b=balances(d),s=monthlySummary(d,MONTH);return {net:b.net,cash:b.cash,savings:b.savings,investments:b.investments,free:freeMoney(d).total,income:s.income,expenses:s.expenses,saved:s.saved,rest:categorySpend(d,'מסעדות',MONTH),safeCash:safeToSpend(d,NOW).cash,forecastStart:cashflowForecast(d,{days:30,now:NOW}).start,goal:effectiveGoalSavings(d,d.goals.find(g=>g.id==='g1')),bankGoal:effectiveGoalSavings(d,d.goals.find(g=>g.id==='onBank')),portfolio:portfolioValue(d),broker:containerValue(d,'broker')};};
+  const delta=(a,b)=>Object.fromEntries(Object.keys(a).map(k=>[k,Math.round((b[k]-a[k])*100)/100]).filter(([,v])=>v!==0));
+  const add=(d,t)=>{const row={subcategory:'',description:'',tags:[],recurring:false,currency:'ILS',fx:d.fx,...t};applyTransaction(d,row);d.transactions.push(row);};
+  const fixture=()=>{const d=demoData();d.bills=[];d.goals.push({id:'onBank',name:'טיול',type:'חופשה',target:null,saved:0,date:'2027-09-01',monthly:0,accountId:'bank',allocation:20000});return d;};
+  test('everything connects: 1,000 ₪ of income moves net worth, cash, free money, the month, safe-to-spend and the forecast — nothing else',()=>{
+    const d=fixture(),before=numbers(d);
+    add(d,{id:'inc',type:'income',amount:1000,date:NOW,category:'משכורת',accountId:'bank'});
+    assert.deepEqual(delta(before,numbers(d)),{net:1000,cash:1000,free:1000,income:1000,saved:1000,safeCash:1000,forecastStart:1000});
+    assert.match(financialContext(d,MONTH,NOW),new RegExp(`net_worth: ${Math.round(balances(d).net)} ₪`),'Claude sees the same net worth');
+  });
+  test('everything connects: an expense, a transfer to savings and a price update each move exactly their numbers',()=>{
+    const d=fixture();let before=numbers(d);
+    add(d,{id:'exp',type:'expense',amount:250,date:NOW,category:'מסעדות',accountId:'bank'});
+    assert.deepEqual(delta(before,numbers(d)),{net:-250,cash:-250,free:-250,expenses:250,saved:-250,rest:250,safeCash:-250,forecastStart:-250});
+    before=numbers(d);
+    add(d,{id:'tr',type:'transfer',amount:500,toAmount:500,date:NOW,category:'העברה',accountId:'bank',toAccountId:'saving'});
+    assert.deepEqual(delta(before,numbers(d)),{cash:-500,savings:500,free:-500,goal:500,safeCash:-500,forecastStart:-500},'a transfer is never income or spending; the goal on the savings account grows');
+    before=numbers(d);
+    d.assets.find(a=>a.id==='ta').currentPrice+=10;
+    assert.deepEqual(delta(before,numbers(d)),{net:1000,investments:1000,portfolio:1000,broker:1000},'a price update moves the portfolio, its account and net worth');
+    assert.equal(containerSummary(d)[0].value,containerValue(d,'broker'));
+    d.transactions=d.transactions.filter(t=>t.id!=='exp');applyTransaction(d,{id:'exp',type:'expense',amount:250,currency:'ILS',accountId:'bank'},-1);
+    assert.equal(numbers(d).rest,before.rest-250,'deleting the expense undoes it everywhere');
+  });
+}
