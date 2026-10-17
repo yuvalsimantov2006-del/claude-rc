@@ -178,6 +178,10 @@
   max-width: 100%; font-family: var(--font-num); font-size: 26px; line-height: 1.15; font-weight: var(--fw-bold);
   letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
 }
+@container home-cell (min-width: 230px) {
+  .card.home-tile .home-tile-value { font-size: 30px; }
+  .card.home-tile { padding: var(--sp-5); }
+}
 .home-tile-sub, .home-tile-gain, .home-tile-fresh { max-width: 100%; font-size: var(--fs-micro); line-height: 1.45; color: var(--text-muted); }
 .home-tile-gain { font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
 .home-tile-gain.positive { color: var(--positive); }
