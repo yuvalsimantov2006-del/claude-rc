@@ -71,6 +71,7 @@ function shPageHead(view,ctx){
 }
 function shBanners(){
   const d=getData();let out='';
+  if(storageBlocked())out+=notice('הדפדפן חוסם שמירה (אולי חלון גלישה בסתר). אפשר להסתכל ולנסות, אבל שום דבר לא יישמר אחרי שתסגור.',{tone:'warning',title:'השמירה חסומה'});
   if(store.loadError)out+=notice(store.loadError,{tone:'error',title:'משהו לא בסדר עם הנתונים השמורים',actions:`${button('לשחזור ולגיבוי','',{href:'#settings/backup',variant:'soft',size:'small'})}`});
   if(d.demo)out+=`<div class="demo-banner" role="note">${icon('Sparkles',18)}<span><b>נתוני דוגמה</b> — הכול כאן בדוי, רק כדי לראות איך זה נראה.</span>${button('להתחיל משלי','demo-clear',{size:'small',variant:'soft'})}</div>`;
   return out;

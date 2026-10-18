@@ -214,10 +214,14 @@ function runHandler(fn,args){try{const r=fn(...args);if(r&&typeof r.then==='func
 
 // ---------- The page's store and the helpers every screen uses ----------
 const crHasDom=typeof document!=='undefined'&&!!document.addEventListener;
+// localStorage, or (when the browser blocks it — a private window, blocked site data) a memory stand-in, so the
+// app still works for this visit; storageBlocked() then says so on every page.
+let crMemoryOnly=false;
 function crStorage(){
   try{const s=globalThis.localStorage;const k='noa-probe';s.setItem(k,'1');s.removeItem(k);return s;}
-  catch{const m=new Map();return {getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),key:i=>[...m.keys()][i]??null,get length(){return m.size;}};}
+  catch{crMemoryOnly=true;const m=new Map();return {getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),key:i=>[...m.keys()][i]??null,get length(){return m.size;}};}
 }
+export const storageBlocked=()=>crMemoryOnly;
 const store=crHasDom?createStore(crStorage()):null;
 export function getData(){return store.get();}
 export function findItem(list,id){return (store.get()[list]||[]).find(x=>x.id===id)||null;}

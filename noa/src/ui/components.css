@@ -482,6 +482,7 @@ kbd {
   .stat { padding: var(--sp-3); gap: var(--sp-2); }
   .stat-text b { font-size: 21px; }
   .form-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
+  textarea { resize: none; }
   .card-actions > .btn { flex: 1 1 auto; }
   .hero-number b { font-size: var(--fs-display-sm); }
   /* Every dialog becomes a bottom sheet */
