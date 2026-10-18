@@ -61,7 +61,9 @@ function setPalette(id){
 function setThemePref(pref){
   const next=normalizeThemePref(pref);
   try{localStorage.setItem(THEME_KEY,next);}catch{}
-  lookTransition(()=>{applyLook();for(const b of document.querySelectorAll('[data-theme-choice]'))b.setAttribute('aria-pressed',String(b.dataset.themeChoice===next));});
+  lookTransition(()=>{applyLook();for(const b of document.querySelectorAll('[data-theme-choice]'))b.setAttribute('aria-pressed',String(b.dataset.themeChoice===next));
+    // The top bar's sun/moon follows.
+    const dark=resolvedTheme()==='dark';for(const b of document.querySelectorAll('.top-theme')){b.innerHTML=icon(dark?'Sun':'Moon',19);b.setAttribute('aria-label',dark?'מעבר למראה בהיר':'מעבר למראה כהה');}});
 }
 function toggleTheme(){setThemePref(resolvedTheme()==='dark'?'light':'dark');}
 
