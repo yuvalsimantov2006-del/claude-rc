@@ -2,12 +2,15 @@
 // Only same-origin GET requests are handled; calls to Claude or GitHub are never cached.
 const CACHE='ofek-4.2.0';
 const SHELL=['./','index.html','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/badge-96.png'];
+// Other apps on this site (נועה at noa/) have their own service worker; never answer for their pages or files.
+const OTHER_APPS=['noa/'];
 
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('ofek-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',event=>{
   const request=event.request,url=new URL(request.url);
   if(request.method!=='GET'||url.origin!==self.location.origin)return;
+  if(OTHER_APPS.some(prefix=>url.href.startsWith(new URL(prefix,self.registration.scope).href)))return;
   if(request.mode==='navigate'){
     // Network first so updates arrive right away; the cached copy when offline or slow.
     event.respondWith((async()=>{
