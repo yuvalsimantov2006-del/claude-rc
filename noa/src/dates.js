@@ -132,14 +132,16 @@ export function heAnd(parts) {
   return list.slice(0, -1).join(', ') + ' ' + joined;
 }
 
-// Natural Hebrew countdown for a number of days ahead. Negative → relativePast. opts.precise keeps exact days;
-// opts.prefix replaces 'בעוד' (e.g. 'עוד' for "עוד 12 ימים").
+// Natural Hebrew countdown for a number of days ahead: היום · מחר · מחרתיים · בעוד 3 ימים · בעוד שבוע · בעוד 12 ימים ·
+// בעוד שבועיים · בעוד חודש · בעוד חודש וחצי · בעוד חודשיים · בעוד שנה… Negative → relativePast. opts.precise keeps
+// exact days ("בעוד יומיים", "בעוד 45 ימים"); opts.prefix replaces 'בעוד' (e.g. 'עוד' for "עוד 12 ימים").
 export function countdownText(days, opts = {}) {
   if (days == null || isNaN(days)) return '';
   days = Math.round(days);
   if (days < 0) return relativePast(-days);
   if (days === 0) return 'היום';
   if (days === 1) return 'מחר';
+  if (days === 2 && !opts.precise) return 'מחרתיים';
   const pre = (opts.prefix ?? 'בעוד') + ' ';
   if (opts.precise || days < 30) {
     if (!opts.precise && days % 7 === 0) return pre + heCount(days / 7, 'week');
@@ -159,12 +161,13 @@ function _dtApprox(days) {
   return heCount(Math.round(y), 'year');
 }
 
-// "היום", "אתמול", "לפני יומיים", "לפני 5 ימים", "לפני שבוע", "לפני חודש וחצי", "לפני 3 שנים" (days ago ≥ 0).
+// "היום", "אתמול", "שלשום", "לפני 5 ימים", "לפני שבוע", "לפני שבועיים", "לפני חודש וחצי", "לפני 3 שנים" (days ago ≥ 0).
 export function relativePast(daysAgo) {
   if (daysAgo == null || isNaN(daysAgo)) return '';
   const d = Math.round(Math.abs(daysAgo));
   if (d === 0) return 'היום';
   if (d === 1) return 'אתמול';
+  if (d === 2) return 'שלשום';
   if (d < 7) return 'לפני ' + heCount(d, 'day');
   if (d < 30) return 'לפני ' + heCount(Math.floor(d / 7), 'week');
   return 'לפני ' + _dtApprox(d);
@@ -265,18 +268,20 @@ export function milestones(together, from, horizonDays = 365) {
 // ---------- formatting ----------
 
 // formatDate('2026-06-02', style):
-//  'short' (default) "2 ביוני" · 'year' "2 ביוני 2026" · 'long' "יום ג׳, 2 ביוני 2026" · 'full' "יום שלישי, 2 ביוני 2026"
-//  'weekday' "יום ג׳, 2 ביוני" · 'month' "יוני 2026" · 'numeric' "2.6.2026" · 'auto' = 'short' in ref's year else 'year'.
+//  'short' (default) "2 ביוני" · 'year' "2 ביוני 2026" · 'long' "יום ג׳, 2 ביוני 2026" (Saturday: "שבת, 6 ביוני 2026")
+//  'full' "יום שלישי, 2 ביוני 2026" · 'weekday' "יום ג׳, 2 ביוני" · 'month' "יוני 2026" · 'numeric' "2.6.2026" ·
+//  'auto' = 'short' in ref's year (default today), else 'year'.
 export function formatDate(value, style = 'short', ref) {
   const p = isoParse(value);
   if (!p) return '';
   const dm = p.d + ' ב' + HEB_MONTHS[p.m - 1];
   const wd = new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay();
+  const day = wd === 6 ? 'שבת' : 'יום ' + HEB_WEEKDAYS_SHORT[wd]; // "יום ג׳" … "שבת"
   switch (style) {
     case 'year': return dm + ' ' + p.y;
-    case 'long': return 'יום ' + HEB_WEEKDAYS_SHORT[wd] + ', ' + dm + ' ' + p.y;
+    case 'long': return day + ', ' + dm + ' ' + p.y;
     case 'full': return 'יום ' + HEB_WEEKDAYS[wd] + ', ' + dm + ' ' + p.y;
-    case 'weekday': return 'יום ' + HEB_WEEKDAYS_SHORT[wd] + ', ' + dm;
+    case 'weekday': return day + ', ' + dm;
     case 'month': return HEB_MONTHS[p.m - 1] + ' ' + p.y;
     case 'numeric': return p.d + '.' + p.m + '.' + p.y;
     case 'auto': { const r = isoParse(_dtRef(ref)); return r && r.y === p.y ? dm : dm + ' ' + p.y; }

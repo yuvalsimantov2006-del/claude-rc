@@ -87,11 +87,18 @@ export const SEARCH_SECTIONS = [
   { id: 'memories', label: 'זיכרונות', icon: 'BookHeart' },
 ];
 
-// Route strings: '<tab>' or '<tab>/<kind>/<id>' (the shell maps them to screens).
+// Route strings for the shell's hash router: '<view>' or '<view>/<kind>/<id>'. The view of each list follows
+// core.js itemRoute() when it is loaded (a section may move its items to another view), else the defaults here.
+function _srView(list, fallback) {
+  try { if (typeof itemRoute === 'function') return itemRoute(list) || fallback; } catch (e) { /* not loaded yet */ }
+  return fallback;
+}
 export const SEARCH_ROUTES = {
   profile: () => 'her', sizes: () => 'her/sizes', loveLanguages: () => 'her/love',
-  fact: id => 'her/fact/' + id, person: id => 'her/person/' + id, place: id => 'places/place/' + id,
-  date: id => 'dates/date/' + id, gift: id => 'gifts/gift/' + id, plan: id => 'plans/plan/' + id, memory: id => 'memories/memory/' + id,
+  fact: id => _srView('facts', 'her') + '/fact/' + id, person: id => _srView('people', 'her') + '/person/' + id,
+  place: id => _srView('places', 'places') + '/place/' + id, date: id => _srView('dates', 'dates') + '/date/' + id,
+  gift: id => _srView('gifts', 'gifts') + '/gift/' + id, plan: id => _srView('plans', 'plans') + '/plan/' + id,
+  memory: id => _srView('memories', 'memories') + '/memory/' + id,
 };
 
 // Every searchable record as {section, id, title, subtitle, route, starred, fields:[{text, w}]}.

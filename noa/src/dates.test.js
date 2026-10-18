@@ -154,7 +154,7 @@ test('Hebrew counting: singular, dual and plural forms', () => {
 
 test('countdownText: natural Hebrew for days ahead', () => {
   const cases = {
-    0: 'היום', 1: 'מחר', 2: 'בעוד יומיים', 3: 'בעוד 3 ימים', 6: 'בעוד 6 ימים', 7: 'בעוד שבוע', 8: 'בעוד 8 ימים',
+    0: 'היום', 1: 'מחר', 2: 'מחרתיים', 3: 'בעוד 3 ימים', 6: 'בעוד 6 ימים', 7: 'בעוד שבוע', 8: 'בעוד 8 ימים',
     12: 'בעוד 12 ימים', 14: 'בעוד שבועיים', 21: 'בעוד 3 שבועות', 28: 'בעוד 4 שבועות', 29: 'בעוד 29 ימים',
     30: 'בעוד חודש', 39: 'בעוד חודש', 45: 'בעוד חודש וחצי', 60: 'בעוד חודשיים', 92: 'בעוד 3 חודשים',
     200: 'בעוד 7 חודשים', 340: 'בעוד 11 חודשים', 365: 'בעוד שנה', 548: 'בעוד שנה וחצי', 730: 'בעוד שנתיים', 1100: 'בעוד 3 שנים',
@@ -162,6 +162,8 @@ test('countdownText: natural Hebrew for days ahead', () => {
   for (const [n, text] of Object.entries(cases)) assert.equal(countdownText(+n), text, 'days ' + n);
   assert.equal(countdownText(45, { precise: true }), 'בעוד 45 ימים');
   assert.equal(countdownText(14, { precise: true }), 'בעוד 14 ימים');
+  assert.equal(countdownText(2, { precise: true }), 'בעוד יומיים');
+  assert.equal(countdownText(3, { prefix: 'עוד' }), 'עוד 3 ימים');
   assert.equal(countdownText(12, { prefix: 'עוד' }), 'עוד 12 ימים');
   assert.equal(countdownText(-1), 'אתמול');
   assert.equal(countdownText(null), '');
@@ -170,13 +172,14 @@ test('countdownText: natural Hebrew for days ahead', () => {
 
 test('relativePast: natural Hebrew for days ago', () => {
   const cases = {
-    0: 'היום', 1: 'אתמול', 2: 'לפני יומיים', 5: 'לפני 5 ימים', 7: 'לפני שבוע', 10: 'לפני שבוע', 14: 'לפני שבועיים',
+    0: 'היום', 1: 'אתמול', 2: 'שלשום', 5: 'לפני 5 ימים', 7: 'לפני שבוע', 10: 'לפני שבוע', 14: 'לפני שבועיים',
     21: 'לפני 3 שבועות', 30: 'לפני חודש', 45: 'לפני חודש וחצי', 61: 'לפני חודשיים', 100: 'לפני 3 חודשים',
     366: 'לפני שנה', 500: 'לפני שנה וחצי', 760: 'לפני שנתיים', 1500: 'לפני 4 שנים',
   };
   for (const [n, text] of Object.entries(cases)) assert.equal(relativePast(+n), text, 'days ' + n);
   assert.equal(relativeText('2026-10-11', '2026-10-18'), 'לפני שבוע');
-  assert.equal(relativeText('2026-10-20', '2026-10-18'), 'בעוד יומיים');
+  assert.equal(relativeText('2026-10-20', '2026-10-18'), 'מחרתיים');
+  assert.equal(relativeText('2026-10-16', '2026-10-18'), 'שלשום');
   assert.equal(relativeText('2026-10-18', '2026-10-18'), 'היום');
   assert.equal(relativeText('nope', '2026-10-18'), '');
 });
@@ -286,6 +289,10 @@ test('formatDate styles and month names', () => {
   assert.equal(formatDate('2026-06-02', 'long'), 'יום ג׳, 2 ביוני 2026');
   assert.equal(formatDate('2026-06-02', 'full'), 'יום שלישי, 2 ביוני 2026');
   assert.equal(formatDate('2026-06-02', 'weekday'), 'יום ג׳, 2 ביוני');
+  assert.equal(formatDate('2026-06-06', 'long'), 'שבת, 6 ביוני 2026');
+  assert.equal(formatDate('2026-06-06', 'weekday'), 'שבת, 6 ביוני');
+  assert.equal(formatDate('2026-06-06', 'full'), 'יום שבת, 6 ביוני 2026');
+  assert.equal(formatDate('2026-06-05', 'long'), 'יום ו׳, 5 ביוני 2026');
   assert.equal(formatDate('2026-06-02', 'month'), 'יוני 2026');
   assert.equal(formatDate('2026-06-02', 'numeric'), '2.6.2026');
   assert.equal(formatDate('2026-06-02', 'auto', '2026-01-01'), '2 ביוני');

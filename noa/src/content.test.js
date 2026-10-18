@@ -261,14 +261,17 @@ test('bundle: my files work in one shared scope after stripping import/export', 
     assert.ok(!/\bimport\s*\(/.test(src), f + ': no dynamic import');
     assert.ok(!/^(?:const|let|var)\s+\w+\s*=\s*(?:document|window|localStorage|navigator)\b/m.test(src), f + ': no DOM at top level');
   }
-  const js = ['model.js', ...MINE].map(f => strip(fs.readFileSync(path.join(SRC, f), 'utf8'))).join('\n');
+  // core.js's itemRoute() registry, as the page has it: a section moved people to their own view.
+  const js = 'const itemRoute = list => (list === "people" ? "family" : null);\n' + ['model.js', ...MINE].map(f => strip(fs.readFileSync(path.join(SRC, f), 'utf8'))).join('\n');
   const api = new Function(js + '\nreturn {upcoming, buildICS, searchAll, pickDaily, demoData, GESTURES, hebrewDate, countdownText};')();
   const demo = api.demoData('2026-10-18');
   assert.ok(api.upcoming(demo, '2026-10-18', 30).length > 0);
   assert.ok(api.buildICS(demo, { from: '2026-10-18' }).startsWith('BEGIN:VCALENDAR'));
   assert.ok(api.searchAll(demo, 'סושי').length > 0);
   assert.ok(api.pickDaily(api.GESTURES, '2026-10-18', 'g'));
-  assert.equal(api.countdownText(2), 'בעוד יומיים');
+  assert.equal(api.countdownText(2), 'מחרתיים');
+  assert.equal(api.searchAll(demo, 'מיכל')[0].route, 'family/person/demo-person-mom', 'routes follow itemRoute()');
+  assert.equal(api.searchAll(demo, 'כוסברה')[0].route.split('/')[0], 'her', 'unregistered lists keep the default view');
 });
 
 test('bundle: no top-level name of mine clashes with another file in src/', () => {
