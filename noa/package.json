@@ -1,0 +1,13 @@
+{
+  "name": "noa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "נועה — האפליקציה הזוגית: כל מה שחשוב לדעת עליה ולעשות בשבילה, שמור רק במכשיר.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test src/*.test.js",
+    "palette": "node scripts/palette-check.mjs",
+    "qa": "node scripts/qa.mjs"
+  }
+}
