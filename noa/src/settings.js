@@ -36,8 +36,8 @@ function stHomeCard(ctx){
 function stAboutCard(){
   const v=typeof NOA_VERSION!=='undefined'?NOA_VERSION:'';
   return card(`<p class="card-lead">אפליקציה פרטית, רק שלך. אין חשבון, אין שרת ואין מעקב: הכול נשמר בדפדפן של הטלפון הזה (והתמונות באחסון שלו). קישורים למפות או לאתרים נפתחים רק כשאתה לוחץ עליהם.</p>
-    <div class="card-actions">${button('התקנה למסך הבית','install-app',{icon:'Smartphone',size:'small',variant:'soft',cls:'install-btn'})}${button('גלריית רכיבים','',{href:'#gallery',size:'small',variant:'ghost'})}</div>
-    <p class="card-note subtle">גרסה ${esc(v)} · אייקונים: Lucide (ISC) · גופן עברי: SIL OFL</p>`,{title:'על האפליקציה',icon:'Info',tone:'2',id:'about'});
+    <div class="card-actions install-row">${button('התקנה למסך הבית','install-app',{icon:'Smartphone',size:'small',variant:'soft'})}</div>
+    <p class="card-note subtle"><span>גרסה ${esc(v)} · אייקונים: Lucide (ISC) · גופן עברי: SIL OFL · <a href="#gallery">גלריית רכיבים</a></span></p>`,{title:'על האפליקציה',icon:'Info',tone:'2',id:'about'});
 }
 registerSettingsCard({id:'profile',order:10,render:stProfileCard});
 registerSettingsCard({id:'look',order:20,render:stLookCard});

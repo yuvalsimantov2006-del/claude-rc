@@ -253,7 +253,7 @@ function formFields(fields,values={},fid=`frm${++uiFormSeq}`){return fields.map(
 function uiField(f,v,fid,values){
   const id=uiFieldId(fid,f.name),err=`${id}-err`,hint=f.hint?`<small class="field-hint" id="${id}-hint">${esc(f.hint)}</small>`:'';
   const described=`aria-describedby="${err}${f.hint?` ${id}-hint`:''}"`;
-  const wrap=(control,extra='')=>`<div class="field${f.full||['textarea','chips','multichips','photos','emoji','section','tags','custom'].includes(f.type)?' full':''}${extra}" data-field="${esc(f.name)}"${f.show?' data-conditional':''}>${control}${hint}<small class="field-error" id="${err}" aria-live="polite"></small></div>`;
+  const wrap=(control,extra='')=>`<div class="field${f.full||['textarea','chips','multichips','photos','emoji','section','tags','custom','switch','stars'].includes(f.type)?' full':''}${extra}" data-field="${esc(f.name)}"${f.show?' data-conditional':''}>${control}${hint}<small class="field-error" id="${err}" aria-live="polite"></small></div>`;
   const label=`<label class="field-label" for="${id}">${esc(f.label||'')}${f.required?'<span class="req" aria-hidden="true"> *</span>':f.optionalNote===false?'':''}</label>`;
   const common=`id="${id}" name="${esc(f.name)}" ${described}${f.required?' aria-required="true"':''}${f.autofocus?' autofocus':''}`;
   const val=v==null?'':v;

@@ -61,22 +61,22 @@ async function requestPersist(){
   try{if(!navigator.storage?.persist)return null;const ok=await navigator.storage.persist();bkState.persist=ok?'granted':'denied';bkRefresh();return ok;}catch{return null;}
 }
 function bkRefresh(){const el=document.querySelector('.backup-card');if(el)el.outerHTML=backupCard();}
-const bkMb=b=>`${(Math.max(0,b)/1048576).toLocaleString('he-IL',{maximumFractionDigits:1,minimumFractionDigits:b>0&&b<1048576?1:0})} MB`;
+const bkMb=b=>b<0.1*1048576?'פחות מ־<bdi dir="ltr">0.1 MB</bdi>':`<bdi dir="ltr">${(b/1048576).toLocaleString('en-US',{maximumFractionDigits:1})} MB</bdi>`;
 function backupCard(){
-  const d=getData(),due=backupDue(d,todayISO()),last=d.prefs?.lastBackup;
+  const d=getData(),due=backupDue(d,todayISO()),last=d.prefs?.lastBackup,fresh=due.days!=null&&!due.due;
   const lastText=last?`הגיבוי האחרון: ${fmtDate(last.slice(0,10),{year:true})} (${fmtRelative(last.slice(0,10))})`:'עוד לא שמרת גיבוי.';
   const persist=bkState.persist==='granted'?`${icon('ShieldCheck',16)}<span>הדפדפן לא ימחק את הנתונים גם כשחסר מקום.</span>`:bkState.persist==='denied'?`${icon('TriangleAlert',16)}<span>הדפדפן עלול למחוק נתונים כשחסר מקום. גיבוי שומר עליך.</span>${button('בקשת אחסון קבוע','backup-persist',{size:'small',variant:'ghost'})}`:'';
   const prev=store.prev();
-  const body=`<div class="backup-status${due.due?' due':''}">${icon(due.due?'TriangleAlert':'CircleCheck',18)}<span>${esc(lastText)}${due.due?' כדאי לגבות עכשיו.':''}</span></div>
+  const body=`<div class="backup-status${due.due?' due':fresh?'':' none'}">${icon(due.due?'TriangleAlert':fresh?'CircleCheck':'Info',18)}<span>${esc(lastText)}${due.due?' כדאי לגבות עכשיו.':''}</span></div>
     <div class="setting-rows"><label class="switch-row"><span><b>כולל תמונות</b><small>הקובץ יהיה גדול יותר, אבל הזיכרונות יחזרו עם התמונות.</small></span><input type="checkbox" class="switch" data-change="backup-photos" ${bkState.withPhotos?'checked':''}></label></div>
     <div class="card-actions">${button('הורדת גיבוי','backup-export',{icon:'Download',variant:'primary'})}${button('שחזור מקובץ','backup-import',{icon:'Upload'})}</div>
-    ${persist?`<p class="card-note persist">${persist}</p>`:''}${bkState.quota?`<p class="card-note subtle">${icon('HardDrive',14)} בשימוש כ־${bkMb(bkState.usage)} מתוך ${bkMb(bkState.quota)}.</p>`:''}
+    ${persist?`<p class="card-note persist">${persist}</p>`:''}${bkState.quota?`<p class="card-note subtle">${icon('HardDrive',14)}<span>בשימוש: ${bkMb(bkState.usage)} מתוך ${bkMb(bkState.quota)} שהדפדפן מקצה.</span></p>`:''}
     <div class="setting-rows divided">
       <div class="action-row"><span><b>שחזור השמירה הקודמת</b><small>${prev?`מה שהיה לפני השינוי האחרון: ${esc(countsLine(counts(prev)))}`:'אין עדיין שמירה קודמת.'}</small></span>${button('שחזור','backup-prev',{size:'small',disabled:!prev})}</div>
       <div class="action-row"><span><b>טעינת נתוני דוגמה</b><small>כדי לראות איך הכול נראה. מנקים בלחיצה.</small></span>${button('טעינה','demo-load',{size:'small'})}</div>
       <div class="action-row danger"><span><b>מחיקת כל הנתונים</b><small>הכול נמחק מהמכשיר, כולל התמונות. אין דרך לבטל.</small></span>${button('מחיקה','reset-all',{size:'small',variant:'danger'})}</div>
     </div>`;
-  return card(body,{title:'גיבוי ושחזור',sub:'הנתונים נשמרים רק במכשיר הזה. קובץ גיבוי הוא הדרך לשמור עליהם.',icon:'ShieldCheck',tone:'2',cls:'backup-card',id:'backup',actions:due.due?badge('כדאי לגבות','warning'):badge('מוגן','positive',{icon:'Check'})});
+  return card(body,{title:'גיבוי ושחזור',sub:'הנתונים נשמרים רק במכשיר הזה. קובץ גיבוי הוא הדרך לשמור עליהם.',icon:'ShieldCheck',tone:'2',cls:'backup-card',id:'backup',actions:due.due?badge('כדאי לגבות','warning'):fresh?badge('מגובה','positive',{icon:'Check'}):''});
 }
 async function exportBackup(){
   const d=getData();let photos=null;

@@ -26,9 +26,9 @@ for(const id of Object.keys(SB_PAGES))registerView({...navSection(id),stub:true,
 // ---------- Working quick-add forms ----------
 const sbOpts=list=>list.map(x=>({id:x.id,label:x.label,icon:x.icon,emoji:x.emoji}));
 const SB_REMIND=[{id:'1',label:'יום לפני'},{id:'3',label:'3 ימים'},{id:'7',label:'שבוע'},{id:'14',label:'שבועיים'},{id:'30',label:'חודש'}];
-const SB_MOODS=['🥰','😍','😂','🥹','🌅','✨','🎉','😌','💛','😅'].map(e=>({id:e,label:e,emoji:e}));
+const SB_MOODS=(typeof MOODS!=='undefined'&&Array.isArray(MOODS)?MOODS:['🥰','😂','🥹','🌅','✨','🎉','😌','😅'].map(e=>({emoji:e,label:e}))).map(m=>({id:m.emoji,label:m.label,emoji:m.emoji}));
 registerQuickAdd({id:'fact',label:'משהו עליה',hint:'מה היא אוהבת, מה לא',icon:'Heart',order:10,stub:true,run:()=>openForm({title:`משהו על ${herName()}`,submitLabel:'שמירה',
-  fields:[{name:'title',label:'מה?',required:true,maxLength:120,placeholder:'למשל: הפוך על שיבולת שועל',autofocus:true},
+  fields:[{name:'title',label:'מה?',required:true,maxLength:120,placeholder:'למשל: הפוך על שיבולת שועל, בלי סוכר',autofocus:true},
     {name:'sentiment',label:'מה היא מרגישה כלפי זה',type:'chips',options:sbOpts(SENTIMENTS),required:true},
     {name:'category',label:'קטגוריה',type:'select',options:sbOpts(FACT_CATEGORIES),required:true},
     {name:'details',label:'פרטים',type:'textarea',rows:2,placeholder:'איך, איפה, מתי…'},

@@ -60,6 +60,7 @@ function hmNextUp(ctx){
     return card(emptyState({icon:'CalendarHeart',title:'מה התאריך הבא?',text:`הוסף את יום ההולדת של ${ctx.her} ותאריכים חשובים — ותמיד תדע מה מתקרב.`,compact:true,actions:button('הוספת יום הולדת','home-set-birthday',{icon:'Cake',variant:'primary',size:'small'})}),{cls:'next-card'});
   }
   const rest=list.filter(it=>it!==main).slice(0,4);
+  for(const it of [main,...rest])if(it)hmState.shown?.add(it.date+'|'+it.title);
   const big=main?(()=>{
     const n=main.daysLeft,word=n===0?'היום':n===1?'מחר':'';
     const sub=[main.subtitle,fmtDate(main.date,{weekday:true,year:false})].filter(Boolean).join(' · ');
@@ -113,18 +114,21 @@ function hmGestureList(){
   if(typeof SMALL_GESTURES!=='undefined'&&Array.isArray(SMALL_GESTURES))return SMALL_GESTURES;
   return [];
 }
-function hmPick(list,key){
+// The same pick all day (content.js pickDaily: a seeded daily shuffle); `skip` steps to the next one.
+function hmPick(list,today,salt,skip=0){
   if(!list.length)return null;
-  if(typeof pickDaily==='function'){try{const r=pickDaily(list,key);if(r)return r;}catch{}}
-  let h=0;for(const ch of String(key))h=(h*31+ch.charCodeAt(0))>>>0;return list[h%list.length];
+  if(typeof pickDaily==='function'){try{const r=pickDaily(list,today,salt,{skip});if(r)return r;}catch{}}
+  let h=skip;for(const ch of String(today+salt))h=(h*31+ch.charCodeAt(0))>>>0;return list[(h+skip)%list.length];
 }
 function hmGesture(ctx){
   const all=hmGestureList();if(!all.length)return '';
   const done=ctx.data.gestures?.done||{};
-  const fresh=all.filter(g=>!done[g.id]);const pool=fresh.length?fresh:all;
-  const g=hmPick(pool,`${ctx.today}#${hmState.gestureSkip}`);if(!g)return '';
+  let g=null;
+  if(typeof gestureOfDay==='function'){try{g=gestureOfDay(ctx.data,ctx.today,hmState.gestureSkip);}catch{}}
+  if(!g){const fresh=all.filter(x=>!done[x.id]);g=hmPick(fresh.length?fresh:all,ctx.today,'gesture',hmState.gestureSkip);}
+  if(!g)return '';
   const doneToday=done[g.id]===ctx.today;
-  const effort=g.effort?`<span class="effort" aria-label="מאמץ ${g.effort} מתוך 3">${'●'.repeat(g.effort)}<i>${'●'.repeat(3-g.effort)}</i></span>`:'';
+  const effort=g.effort?badge(['','רגע קטן','קצת מאמץ','שווה את המאמץ'][Math.min(3,g.effort)]||'',g.effort>2?'tone-3':'neutral',{cls:'effort'}):'';
   return card(`<p class="gesture-text">${esc(g.text||g.title)}</p><div class="card-actions">${doneToday?badge('עשית את זה היום 💛','love'):button('עשיתי','gesture-done:'+g.id,{icon:'Check',variant:'primary',size:'small'})}${button('רעיון אחר','gesture-next',{icon:'Shuffle',size:'small',variant:'ghost'})}${effort}</div>`,
     {title:'רעיון קטן להיום',icon:'Sparkles',tone:'1',cls:'gesture-card'});
 }
@@ -133,7 +137,7 @@ function hmGesture(ctx){
 function hmRemember(ctx){
   const starred=(ctx.data.facts||[]).filter(f=>f.starred&&f.title);
   if(!starred.length)return '';
-  const f=hmPick(starred,`fact-${ctx.today}#${hmState.factSkip}`);
+  const f=hmPick(starred,ctx.today,'fact',hmState.factSkip);
   const s=typeof SENTIMENTS!=='undefined'?SENTIMENTS.find(x=>x.id===f.sentiment):null;
   const cat=typeof FACT_CATEGORIES!=='undefined'?FACT_CATEGORIES.find(c=>c.id===f.category):null;
   const line=f.sentiment==='never'||f.sentiment==='dislike'?`${ctx.her} לא אוהבת`:f.sentiment==='love'?`${ctx.her} אוהבת`:'';
@@ -157,7 +161,7 @@ function hmOnThisDay(ctx){
 // ---------- Milestones ----------
 function hmMilestones(ctx){
   const p=ctx.data.profile;if(!p.together||typeof milestones!=='function')return '';
-  const ms=milestones(p.together,ctx.today,400).filter(m=>m.daysLeft>0).slice(0,3);
+  const ms=milestones(p.together,ctx.today,400).filter(m=>m.daysLeft>0&&!hmState.shown?.has(m.date+'|'+m.title)).slice(0,3);
   if(!ms.length)return '';
   const rows=ms.map(m=>listRow({id:m.key,icon:m.kind==='anniversary'?'Heart':m.kind==='monthiversary'?'CalendarHeart':'Sparkles',tone:m.kind==='anniversary'?'1':'2',title:m.title,sub:fmtDate(m.date,{weekday:true}),meta:countdownChip(m.daysLeft)}));
   return card(listOf(rows),{title:'אבני דרך',sub:'נספרות לבד מהתאריך שבו התחלתם',icon:'Sparkles',tone:'2',cls:'milestones-card'});
@@ -166,6 +170,7 @@ function hmMilestones(ctx){
 // ---------- Counts ----------
 function hmStats(ctx){
   const c=counts(ctx.data);
+  if(!c.facts&&!c.places&&!c.memories&&!c.giftIdeas)return '';
   const tiles=[{icon:'Heart',value:c.facts,label:'דברים עליה',tone:'1',href:'#her'},{icon:'MapPin',value:c.places,label:'מקומות',tone:'2',href:'#places'},{icon:'BookHeart',value:c.memories,label:'זיכרונות',tone:'3',href:'#memories'},{icon:'Gift',value:c.giftIdeas,label:'רעיונות למתנה',tone:'1',href:'#gifts'}];
   return `<div class="stats-row" aria-label="במספרים">${tiles.map(statTile).join('')}</div>`;
 }
@@ -188,19 +193,35 @@ registerHomeCard({id:'onthisday',order:25,size:'half',render:hmOnThisDay,label:'
 registerHomeCard({id:'gift',order:30,size:'half',render:hmGiftNudge,label:'תזכורת מתנה'});
 registerHomeCard({id:'gesture',order:40,size:'half',render:hmGesture,label:'רעיון קטן להיום'});
 registerHomeCard({id:'remember',order:50,size:'half',render:hmRemember,label:'זוכר?'});
+registerHomeCard({id:'milestones',order:55,size:'half',render:hmMilestones,label:'אבני דרך'});
 registerHomeCard({id:'stats',order:60,size:'full',render:hmStats,label:'במספרים'});
-registerHomeCard({id:'milestones',order:70,size:'half',render:hmMilestones,label:'אבני דרך'});
 registerHomeCard({id:'backup',order:95,size:'full',render:()=>typeof backupReminderCard==='function'?backupReminderCard():'',fixed:true});
 
+// Full cards span the page; each run of half cards between them becomes two balanced columns on wide screens
+// (greedy by size, so no holes), and simply stacks in its original order on a phone.
 function homeView(ctx){
   const hidden=new Set(ctx.data.prefs?.homeHidden||[]);
-  const parts=[];
+  hmState.shown=new Set();
+  const out=[];let run=[];
+  const flush=()=>{
+    if(!run.length)return;
+    const cols=[[],[]],weight=[0,0];
+    for(const r of run){const k=weight[0]<=weight[1]?0:1;cols[k].push(r);weight[k]+=r.w;}
+    // One DOM for both layouts: on a phone the columns become display:contents and `order` restores the sequence.
+    out.push(`<div class="home-cols">${cols.map(c=>`<div class="home-col">${c.map(r=>r.html.replace('<div class="home-slot',`<div style="order:${r.i}" class="home-slot`)).join('')}</div>`).join('')}</div>`);
+    run=[];
+  };
+  let i=0;
   for(const c of homeCards()){
     if(hidden.has(c.id)&&!c.fixed)continue;
     let html='';try{html=c.render(ctx)||'';}catch(err){try{console.error(`home card ${c.id}:`,err);}catch{}}
-    if(html)parts.push(`<div class="home-slot ${c.size==='half'?'half':'full'}" data-card="${esc(c.id)}">${html}</div>`);
+    if(!html)continue;
+    const slot=`<div class="home-slot ${c.size==='half'?'half':'full'}" data-card="${esc(c.id)}">${html}</div>`;
+    if(c.size==='half')run.push({html:slot,w:200+html.replace(/<[^>]+>/g,'').length+(html.match(/class="row[ "]/g)||[]).length*60,i:i++});
+    else{flush();out.push(slot);}
   }
-  return `<div class="home-grid">${parts.join('')}</div>`;
+  flush();
+  return `<div class="home-grid">${out.join('')}</div>`;
 }
 registerView({id:'home',title:'בית',icon:'House',nav:'tab',order:10,hideHead:true,render:homeView,
   afterRender(main,ctx){

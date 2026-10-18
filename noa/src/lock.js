@@ -196,13 +196,13 @@ function lockCard(){
   const rec=lkRead(),on=!!rec;
   const veil=veilEnabled();
   let body=`<div class="setting-rows"><label class="switch-row"><span><b>הסתרת תוכן ברקע</b><small>כשעוברים לאפליקציה אחרת, המסך מטושטש — גם בתצוגת האפליקציות האחרונות.</small></span><input type="checkbox" class="switch" data-change="lock-veil" ${veil?'checked':''}></label></div>`;
-  if(!on)body+=lockSupported()?`<p class="card-note">קוד של 4–6 ספרות בכל פתיחה. נשמרת רק "חותמת" של הקוד, אף פעם לא הקוד עצמו.</p><div class="card-actions">${button('הגדרת קוד נעילה','lock-setup',{icon:'KeyRound',variant:'primary'})}</div>`:notice('הנעילה זמינה כשהאפליקציה נפתחת בכתובת מאובטחת (https) או מקובץ במכשיר.',{tone:'warning'});
+  if(!on)body+=lockSupported()?`<p class="card-note"><span>קוד של 4–6 ספרות בכל פתיחה. נשמרת רק "חותמת" של הקוד, אף פעם לא הקוד עצמו.</span></p><div class="card-actions">${button('הגדרת קוד נעילה','lock-setup',{icon:'KeyRound',variant:'primary'})}</div>`:notice('הנעילה זמינה כשהאפליקציה נפתחת בכתובת מאובטחת (https) או מקובץ במכשיר.',{tone:'warning'});
   else{
     body+=`<div class="setting-rows"><label class="select-row"><span><b>נעילה אוטומטית</b><small>אחרי כמה זמן בלי שימוש</small></span><select data-change="lock-minutes" aria-label="נעילה אוטומטית">${[[0,'מיד כשיוצאים'],[1,'אחרי דקה'],[5,'אחרי 5 דקות'],[15,'אחרי 15 דקות'],[30,'אחרי 30 דקות']].map(([v,l])=>`<option value="${v}"${rec.minutes===v?' selected':''}>${l}</option>`).join('')}</select></label>
       <label class="switch-row"><span><b>טביעת אצבע או זיהוי פנים</b><small>${lkState.bio?'בנוסף לקוד. הקוד תמיד עובד.':'לא זמין בדפדפן או במכשיר הזה.'}</small></span><input type="checkbox" class="switch" data-change="lock-bio" ${rec.bio?'checked':''} ${lkState.bio||rec.bio?'':'disabled'}></label></div>
       <div class="card-actions">${button('נעילה עכשיו','lock-now',{icon:'Lock'})}${button('החלפת קוד','lock-change',{icon:'KeyRound'})}${button('כיבוי הנעילה','lock-off',{variant:'danger'})}</div>`;
   }
-  body+=`<p class="card-note subtle">${icon('Info',14)} הנעילה מסתירה את המסך ממי שמחזיק את הטלפון. היא לא מצפינה את הנתונים.</p>`;
+  body+=`<p class="card-note subtle">${icon('Info',14)}<span>הנעילה מסתירה את המסך ממי שמחזיק את הטלפון. היא לא מצפינה את הנתונים.</span></p>`;
   return card(body,{title:'פרטיות ונעילה',sub:'כי היא עלולה להרים את הטלפון — ורשימת המתנות היא הפתעה 🤫',icon:'Lock',tone:'3',cls:'lock-card',actions:on?badge('פעילה','positive',{icon:'Check'}):badge('כבויה','neutral')});
 }
 function lkRefreshCard(){const el=document.querySelector('.lock-card');if(el)el.outerHTML=lockCard();}

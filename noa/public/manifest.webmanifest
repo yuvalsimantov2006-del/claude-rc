@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "נועה",
+  "short_name": "נועה",
+  "description": "כל מה שחשוב לדעת עליה ולעשות בשבילה: מה היא אוהבת, תאריכים, מקומות, מתנות, תוכניות וזיכרונות. נשמר רק במכשיר.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FCF0F3",
+  "theme_color": "#FFF5F8",
+  "categories": ["lifestyle", "productivity"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "הוספה מהירה", "short_name": "הוספה", "url": "./?quick=1", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "רעיון למתנה", "short_name": "מתנה", "url": "./?quick=1&add=gift", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "תאריכים", "short_name": "תאריכים", "url": "./#dates", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

@@ -72,7 +72,7 @@ function shPageHead(view,ctx){
 function shBanners(){
   const d=getData();let out='';
   if(store.loadError)out+=notice(store.loadError,{tone:'error',title:'משהו לא בסדר עם הנתונים השמורים',actions:`${button('לשחזור ולגיבוי','',{href:'#settings/backup',variant:'soft',size:'small'})}`});
-  if(d.demo)out+=`<div class="demo-banner" role="note">${icon('Sparkles',18)}<span><b>אלה נתוני דוגמה.</b> הכול כאן בדוי — כדי לראות איך זה נראה.</span>${button('ניקוי והתחלה שלי','demo-clear',{size:'small',variant:'primary'})}</div>`;
+  if(d.demo)out+=`<div class="demo-banner" role="note">${icon('Sparkles',18)}<span><b>נתוני דוגמה</b> — הכול כאן בדוי, רק כדי לראות איך זה נראה.</span>${button('להתחיל משלי','demo-clear',{size:'small',variant:'soft'})}</div>`;
   return out;
 }
 // The context every view's render(ctx) receives.
@@ -142,7 +142,7 @@ function openMoreSheet(){
   const {more}=shNavViews(),active=currentRoute().view;
   const tile=(label,ic,attrs,on=false)=>`<${attrs.startsWith('href')?'a':'button type="button"'} class="more-tile${on?' active':''}" ${attrs}>${icon(ic,22)}<span>${esc(label)}</span></${attrs.startsWith('href')?'a':'button'}>`;
   const dark=resolvedTheme()==='dark',locked=typeof lockEnabled==='function'&&lockEnabled();
-  openDialog({title:'עוד',cls:'more-sheet',body:`<div class="more-tiles">${more.map(v=>tile(v.navLabel||v.title,v.icon,`href="#${v.id}"`,active===v.id)).join('')}</div>
+  openDialog({title:'עוד',cls:'more-sheet',body:`<div class="more-tiles sections">${more.map(v=>tile(v.navLabel||v.title,v.icon,`href="#${v.id}"`,active===v.id)).join('')}</div>
     <div class="more-tiles small">${tile('הגדרות','Settings','href="#settings"',active==='settings')}${tile('חיפוש','Search','data-action="search"')}${tile('צבעים','Palette','data-action="open-palette"')}${tile(dark?'מראה בהיר':'מראה כהה',dark?'Sun':'Moon','data-action="theme-toggle"')}${locked?tile('נעילה עכשיו','Lock','data-action="lock-now"'):''}</div>`});
 }
 function openQuickAdd(){
@@ -153,7 +153,7 @@ function openQuickAdd(){
 // Global search: one field, results grouped by section as he types (search.js does the matching).
 function openSearch(initial=''){
   if(UI_DLG.stack.some(x=>x.el.classList.contains('search-sheet')))return;
-  const el=openDialog({title:'חיפוש',cls:'search-sheet',labelHidden:true,focus:'.search-input input',
+  const el=openDialog({title:'חיפוש בכל מקום',cls:'search-sheet',focus:'.search-input input',
     body:`<div class="search-input">${icon('Search',20)}<input type="search" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="מה מחפשים? אוכל, מקום, שם, תאריך…" aria-label="חיפוש בכל האפליקציה" value="${esc(initial)}"></div><div class="search-results" aria-live="polite"></div>`});
   if(!el)return;
   const input=el.querySelector('input'),box=el.querySelector('.search-results');
