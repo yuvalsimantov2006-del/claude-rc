@@ -1,9 +1,8 @@
 /* ============================================================
    נועה — settings (cards, the colour picker, the .ics box) and the #gallery page. Tokens only; logical properties.
    ============================================================ */
-.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap-grid); align-items: start; }
+.settings-grid { display: flex; flex-direction: column; gap: var(--gap-grid); max-width: 860px; }
 .settings-slot { min-width: 0; }
-.settings-slot[data-card="look"], .settings-slot[data-card="backup"], .settings-slot[data-card="reminders"] { grid-column: 1 / -1; }
 .profile-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .look-theme { display: flex; flex-direction: column; gap: var(--sp-2); margin-block-end: var(--sp-4); max-width: 460px; }
 .look-card .field-label { display: block; margin-block-end: var(--sp-2); }
@@ -53,7 +52,6 @@ html:not(.can-install) .install-row { display: none; }
 .gl-icons small { font-size: 10px; color: var(--text-subtle); direction: ltr; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 @media (max-width: 900px) {
-  .settings-grid { grid-template-columns: minmax(0, 1fr); }
   .gl-cards { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {

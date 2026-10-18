@@ -217,14 +217,29 @@ function homeView(ctx){
     let html='';try{html=c.render(ctx)||'';}catch(err){try{console.error(`home card ${c.id}:`,err);}catch{}}
     if(!html)continue;
     const slot=`<div class="home-slot ${c.size==='half'?'half':'full'}" data-card="${esc(c.id)}">${html}</div>`;
-    if(c.size==='half')run.push({html:slot,w:200+html.replace(/<[^>]+>/g,'').length+(html.match(/class="row[ "]/g)||[]).length*60,i:i++});
+    if(c.size==='half')run.push({html:slot,w:180+html.replace(/<[^>]+>/g,'').length*.8+(html.match(/class="row[ "]/g)||[]).length*95+(html.includes('next-main')?140:0),i:i++});
     else{flush();out.push(slot);}
   }
   flush();
   return `<div class="home-grid">${out.join('')}</div>`;
 }
+// On wide screens, re-balance each pair of columns by the cards' real heights (the first guess is by text length).
+function hmBalance(main){
+  if(!matchMedia('(min-width: 901px)').matches)return;
+  for(const box of main.querySelectorAll('.home-cols')){
+    const cols=[...box.children];if(cols.length!==2)continue;
+    const slots=[...box.querySelectorAll('.home-slot')].sort((a,b)=>(+a.style.order||0)-(+b.style.order||0));
+    const h=[0,0],gap=parseFloat(getComputedStyle(cols[0]).rowGap)||16;
+    const sizes=slots.map(s=>s.getBoundingClientRect().height+gap);
+    // The split with the most even columns (few cards: try them all); the first card always starts the first column.
+    let best=null;const n=slots.length;
+    if(n<=12)for(let m=0;m<(1<<n);m+=2){const t=[0,0];for(let i=0;i<n;i++)t[(m>>i)&1]+=sizes[i];const d=Math.abs(t[0]-t[1]);if(!best||d<best.d)best={m,d};}
+    slots.forEach((s,i)=>{const k=best?(best.m>>i)&1:(h[0]<=h[1]?0:1);cols[k].append(s);h[k]+=sizes[i];});
+  }
+}
 registerView({id:'home',title:'בית',icon:'House',nav:'tab',order:10,hideHead:true,render:homeView,
   afterRender(main,ctx){
+    hmBalance(main);
     // A milestone, an anniversary or her birthday today: a little confetti, once a day.
     if(main.querySelector('.home-hero.celebrating')){
       let seen='';try{seen=localStorage.getItem('noa-celebrated')||'';}catch{}

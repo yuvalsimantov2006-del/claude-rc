@@ -61,8 +61,8 @@ hr { border: 0; border-block-start: 1px solid var(--border); margin-block: var(-
 /* ---------- Brand mark (shell.js brandMark): the heart on the palette gradient ---------- */
 .brand-mark { display: block; border-radius: 30%; box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--accent-vivid) 80%, transparent); }
 .brand-mark .bm-s1 { stop-color: var(--chart-1); }
-.brand-mark .bm-s2 { stop-color: var(--chart-3); }
-.brand-mark .bm-s3 { stop-color: var(--chart-2); }
+.brand-mark .bm-s2 { stop-color: color-mix(in srgb, var(--chart-1) 45%, var(--chart-3)); }
+.brand-mark .bm-s3 { stop-color: var(--chart-3); }
 .brand-mark .bm-heart { fill: var(--hero-text); fill-opacity: .96; }
 .brand-mark .bm-shine { fill: none; stroke: var(--chart-1); stroke-opacity: .55; stroke-width: 2; stroke-linecap: round; }
 
