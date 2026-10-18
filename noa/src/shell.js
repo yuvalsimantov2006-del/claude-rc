@@ -110,12 +110,20 @@ function renderApp(){
 const SH_AFTER_RENDER=[];
 // Run something after every render (e.g. to hydrate a custom widget): onAfterRender((mainEl, ctx)=>{})
 function onAfterRender(fn){SH_AFTER_RENDER.push(fn);}
-// Keep keyboard focus on "the same" control across a re-render (e.g. the heart you just pressed).
+// Keep keyboard focus on "the same" control across a re-render (the heart you just pressed, the filter field you are
+// typing in — with its caret), matched by data-action / data-input / data-change / id / href.
 function shFocusKey(){
   const a=document.activeElement;if(!a||a===document.body||!shState.root?.contains(a))return null;
-  return a.dataset.action?`[data-action="${CSS.escape(a.dataset.action)}"]`:a.id?`#${CSS.escape(a.id)}`:a.getAttribute('href')?`[href="${CSS.escape(a.getAttribute('href'))}"]`:null;
+  const attr=['action','input','change'].find(k=>a.dataset?.[k]);
+  const sel=attr?`[data-${attr}="${CSS.escape(a.dataset[attr])}"]`:a.id?`#${CSS.escape(a.id)}`:a.getAttribute('href')?`[href="${CSS.escape(a.getAttribute('href'))}"]`:null;
+  if(!sel)return null;
+  let caret=null;try{if(typeof a.selectionStart==='number')caret=[a.selectionStart,a.selectionEnd];}catch{}
+  return {sel,caret};
 }
-function shRestoreFocus(sel){if(!sel)return;const el=shState.root.querySelector(sel);if(el)try{el.focus({preventScroll:true});}catch{}}
+function shRestoreFocus(key){
+  if(!key)return;const el=shState.root.querySelector(key.sel);if(!el)return;
+  try{el.focus({preventScroll:true});if(key.caret&&typeof el.setSelectionRange==='function')el.setSelectionRange(key.caret[0],key.caret[1]);}catch{}
+}
 function shRouteChanged(force=false){
   const prev=shState.route,next=parseRoute();
   shState.route=next;

@@ -64,6 +64,17 @@ function subTabs(items,active,o={}){
   return `<nav class="subtabs" aria-label="${esc(o.label||'תתי־עמודים')}">${items.map(x=>`<a class="subtab${x.id===active?' active':''}" href="${esc(x.href)}"${x.id===active?' aria-current="page"':''}>${x.icon?icon(x.icon,16):''}<span>${esc(x.label)}</span>${x.count?`<b>${esc(x.count)}</b>`:''}</a>`).join('')}</nav>`;
 }
 
+// A search field for filtering a list inside a page: searchBox('חיפוש במקומות…', plState.q, 'pl-q')
+// → <input data-input="pl-q">; register onChange('pl-q', v=>…) (fires on every keystroke).
+function searchBox(placeholder,value,inputAction,o={}){
+  return `<label class="search-box${o.cls?' '+o.cls:''}">${icon('Search',18)}<input type="search" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="${esc(placeholder)}" aria-label="${esc(o.label||placeholder)}" value="${esc(value||'')}" data-input="${esc(inputAction)}"></label>`;
+}
+// A compact inline select (sorting, a filter): selectBox([{id,label}], value, 'pl-sort', {label:'מיון', icon:'ArrowUpDown'})
+// → <select data-change="pl-sort">; register onChange('pl-sort', v=>…).
+function selectBox(options,value,changeAction,o={}){
+  return `<label class="select-box${o.cls?' '+o.cls:''}">${o.icon?icon(o.icon,16):''}<select data-change="${esc(changeAction)}" aria-label="${esc(o.label||'')}">${options.map(x=>`<option value="${esc(x.id)}"${String(x.id)===String(value)?' selected':''}>${esc(x.label)}</option>`).join('')}</select></label>`;
+}
+
 // ---------- Lists ----------
 // listRow({id, icon, tone, emoji, thumbHtml, title, sub, meta:html, action, href, heart:{list,on}, actions:html, cls, done})
 // The row's main area is one button (or link); the heart and extra actions sit beside it, never nested.
@@ -128,7 +139,8 @@ function openDialog(o={}){
   const inner=`${head}<div class="modal-body">${o.body||''}</div>${o.foot?`<div class="modal-foot">${o.foot}</div>`:''}`;
   el.innerHTML=o.form?`<form class="modal-form" novalidate>${inner}</form>`:inner;
   document.body.append(el);
-  const entry={el,o,opener:document.activeElement instanceof HTMLElement?document.activeElement:null,closed:false};
+  const act=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  const entry={el,o,opener:act,openerKey:act?.dataset?.action?`[data-action="${CSS.escape(act.dataset.action)}"]`:act?.id?`#${CSS.escape(act.id)}`:null,closed:false};
   UI_DLG.stack.push(entry);
   try{el.showModal();}catch{el.setAttribute('open','');}
   try{history.pushState({noaDlg:UI_DLG.stack.length},'');}catch{}
@@ -158,8 +170,9 @@ function closeDialog(el,{result,fromHistory=false}={}){
     try{x.el.close();}catch{}x.el.remove();
     try{x.o.onClose?.(x===entry?result:undefined);}catch(err){try{console.error(err);}catch{}}
   }
-  const back=entry.opener;
-  if(back&&back.isConnected&&!UI_DLG.stack.length)try{back.focus({preventScroll:true});}catch{}
+  // Focus goes back to what opened the dialog — or to its twin after a re-render replaced it.
+  const back=entry.opener?.isConnected?entry.opener:entry.openerKey?document.querySelector(`#root ${entry.openerKey}`):null;
+  if(back&&!UI_DLG.stack.length)try{back.focus({preventScroll:true});}catch{}
   else if(UI_DLG.stack.length)try{UI_DLG.stack.at(-1).el.querySelector('h2')?.focus({preventScroll:true});}catch{}
   if(!fromHistory&&(history.state?.noaDlg||0)>UI_DLG.stack.length){UI_DLG.ignorePop+=1;try{history.go(-gone.length);}catch{UI_DLG.ignorePop=0;}}
 }

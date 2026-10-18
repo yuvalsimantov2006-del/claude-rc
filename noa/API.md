@@ -185,6 +185,7 @@ Every helper returns a string. Text parameters are escaped for you; parameters n
 | `badge(text, tone='accent'|'tone-2'|'tone-3'|'love'|'positive'|'warning'|'negative'|'neutral'|'star', {icon, emoji})` | small label |
 | `chip(label, {action, active, emoji, icon, count, tone, href})` · `chipRow(chips, {wrap, label})` · `filterChips(options, value, action)` | filters (horizontal scroll, never widens the page) |
 | `segmented(options, value, action, {full, href:id=>'#…'})` | tab switch |
+| `searchBox(placeholder, value, inputAction)` · `selectBox(options, value, changeAction, {label, icon})` | in-page filter field (fires `onChange` on every keystroke) and compact sort/filter select; put them in a `<div class="toolbar">` |
 | `subTabs(items, activeId)` | section sub-pages |
 | `listRow({id, icon, tone, emoji, thumbHtml, title, sub, subHtml, meta, action|href, heart:{list,on}, actions, done})` · `listOf(rows)` | list rows (main area is one button/link; heart & actions beside it) |
 | `emptyState({icon, title, text, actions, compact})` | friendly empty state with one clear action |

@@ -1,6 +1,7 @@
 // נועה — #gallery: every shared component in its states, for the section lanes (and for screenshots). Hidden from the
 // navigation; reachable from settings → "גלריית רכיבים". Nothing here touches the data. Private helpers: "gl".
 
+const glState={q:''};
 function glBlock(title,html,note=''){return `<section class="gl-block"><h2 class="gl-title">${esc(title)}</h2>${note?`<p class="gl-note">${esc(note)}</p>`:''}<div class="gl-demo">${html}</div></section>`;}
 const GL_FORM_FIELDS=[
   {name:'title',label:'טקסט (חובה)',required:true,placeholder:'למשל: סושי'},
@@ -27,7 +28,8 @@ function galleryView(){
       ${filterChips([{id:'a',label:'היא אוהבת'},{id:'b',label:'אני אוהב'},{id:'c',label:'שנינו'},{id:'d',label:'רוצים לנסות'}],'c','gl-toast')}
       <div class="gl-row">${segmented([{id:'list',label:'רשימה',icon:'List'},{id:'cal',label:'לוח שנה',icon:'CalendarDays'}],'list','gl-toast')}</div>
       ${segmented([{id:'1',label:'רעיונות',count:4},{id:'2',label:'נקנו',count:1},{id:'3',label:'ניתנו'}],'2','gl-toast',{full:true})}
-      ${subTabs([{id:'a',label:'עובדות',icon:'Heart',href:'#gallery'},{id:'b',label:'המידות שלה',icon:'Ruler',href:'#gallery'},{id:'c',label:'אנשים',icon:'Users',href:'#gallery',count:6}],'a')}`,'badge(text, tone) · chip(label, {active, emoji, icon, count}) · chipRow · filterChips · segmented · subTabs'),
+      <div class="toolbar">${searchBox('חיפוש ברשימה…',glState.q,'gl-q')}${selectBox([{id:'rating',label:'לפי דירוג'},{id:'recent',label:'לפי ביקור אחרון'}],'rating','gl-sort',{label:'מיון',icon:'ArrowUpDown'})}</div>
+      ${subTabs([{id:'a',label:'עובדות',icon:'Heart',href:'#gallery'},{id:'b',label:'המידות שלה',icon:'Ruler',href:'#gallery'},{id:'c',label:'אנשים',icon:'Users',href:'#gallery',count:6}],'a')}`,'badge(text, tone) · chip(label, {active, emoji, icon, count}) · chipRow · filterChips · segmented · searchBox · selectBox (.toolbar) · subTabs'),
     glBlock('כרטיסים',`<div class="gl-cards">${card('<p class="card-lead">כרטיס זכוכית רגיל עם כותרת, אייקון ופעולה.</p>',{title:'כותרת',sub:'שורת משנה',icon:'Gift',tone:'2',actions:iconButton('Ellipsis','עוד','gl-toast')})}${card(`<p class="hero-kicker">כרטיס ראשי</p><p class="hero-number"><b dir="ltr">642</b><span>ימים</span></p><p class="hero-line">על הגרדיאנט של הפלטה</p>`,{hero:true})}${card(emptyState({icon:'MapPin',title:'עוד אין כאן מקומות',text:'מצב ריק ידידותי, עם פעולה אחת ברורה.',actions:button('הוספת מקום','gl-toast',{icon:'Plus',variant:'primary'})}))}</div>`,'card(bodyHtml, {title, sub, icon, tone, actions, hero}) · emptyState({icon, title, text, actions})'),
     glBlock('שורות ורשימות',listOf([
       listRow({id:'r1',icon:'Utensils',tone:'1',title:'סושי — ניגירי סלמון',sub:'אוכל · אוהבת',meta:badge('❤️ אוהבת','love'),action:'gl-toast',heart:{list:'gallery',on:true}}),
@@ -56,6 +58,8 @@ registerView({id:'gallery',title:'גלריית רכיבים',icon:'LayoutGrid',n
   }});
 if(typeof document!=='undefined'&&document.addEventListener){
   onAction('gl-toast',()=>toast('זו הודעה קצרה 💛'));
+  onChange('gl-q',v=>{glState.q=v;renderApp();});   // re-renders on every keystroke; focus and caret survive
+  onChange('gl-sort',v=>toast(`מיון: ${v}`));
   onAction('gl-toast-undo',()=>toast('הפריט נמחק',{action:{label:'ביטול',run:()=>toast('בוטל ✓')}}));
   onAction('gl-toast-error',()=>toast('משהו לא הסתדר — נסה שוב',{error:true}));
   onAction('gl-confetti',(a,el)=>celebrate(el));
