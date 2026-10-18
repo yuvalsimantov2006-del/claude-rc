@@ -138,8 +138,8 @@ openForm({
     {name:'remindDays', label:'להזכיר לי', type:'multichips', numeric:true, options:[{id:'1',label:'יום לפני'},{id:'7',label:'שבוע'}]},
     {name:'mood', label:'איך זה הרגיש', type:'emoji', options:MOODS.map(m=>({id:m.emoji,label:m.label,emoji:m.emoji}))},
     {name:'photos', label:'תמונות', type:'photos', max:12},
-    {name:'due', label:'עד מתי', type:'date', min:todayISO(), show:v=>v.type==='task'},   // conditional field
-    {name:'price', label:'מחיר', type:'price', min:0, validate:(v,all)=>v>5000?'זה הרבה… בטוח?':null},
+    {name:'due', label:'עד מתי', type:'date', half:true, min:todayISO(), show:v=>v.type==='task'},   // conditional
+    {name:'price', label:'מחיר', type:'price', half:true, min:0, validate:(v,all)=>v>5000?'זה הרבה… בטוח?':null},
   ],
   onSubmit(values){ saveItem('places', {...place, ...values}); },   // return false (or throw) to keep it open
   onDelete: place ? () => removeItem('places', place.id, {message:'המקום נמחק'}) : null, deleteLabel:'מחיקה',
@@ -150,7 +150,8 @@ Field types: `text` (default) `textarea` `number` `price` (₪) `date` (with a "
 it) `select` `chips` (one) `multichips` (several; `numeric:true` → numbers) `stars` (0–5) `switch` `tags` (comma
 separated → array) `url` `tel` `email` `password` `photos` (ids; uploads resize into IndexedDB) `emoji` `hidden`
 `section` (a sub-heading) `custom` (`html(values)` + `read(form)`). Options: `required, requiredMessage, placeholder,
-hint, min, max, maxLength, rows, full, integer, validate(value, values)→message|null, show(values)→bool, autofocus,
+hint, min, max, maxLength, rows, half (sit beside the next half field on wide screens; default = a full row), integer,
+validate(value, values)→message|null, show(values)→bool, autofocus,
 dir, inputmode, sub (switch)`. Values come back cleaned: trimmed strings, numbers or `null`, arrays, booleans,
 dates as 'YYYY-MM-DD' or `null`. Validation messages are Hebrew and inline under each field.
 

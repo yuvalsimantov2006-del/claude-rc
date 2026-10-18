@@ -37,8 +37,8 @@ registerQuickAdd({id:'fact',label:'משהו עליה',hint:'מה היא אוהב
 registerQuickAdd({id:'place',label:'מקום',hint:'שהיא אוהבת, שאתם רוצים לנסות',icon:'MapPin',order:20,stub:true,run:()=>openForm({title:'מקום חדש',
   fields:[{name:'name',label:'שם המקום',required:true,maxLength:80,autofocus:true},
     {name:'lovedBy',label:'של מי?',type:'chips',options:sbOpts(PLACE_LOVED_BY),required:true},
-    {name:'kind',label:'סוג',type:'select',options:sbOpts(PLACE_KINDS),required:true},
-    {name:'area',label:'אזור',placeholder:'תל אביב, הצפון…'},
+    {name:'kind',label:'סוג',type:'select',options:sbOpts(PLACE_KINDS),required:true,half:true},
+    {name:'area',label:'אזור',placeholder:'תל אביב, הצפון…',half:true},
     {name:'notes',label:'הערות',type:'textarea',rows:2}],
   values:{lovedBy:'her',kind:'restaurant'},onSubmit:v=>{saveItem('places',{...v,address:'',link:'',rating:0,priceLevel:0,visits:[]});}})});
 registerQuickAdd({id:'date',label:'תאריך',hint:'יום הולדת, אירוע, יום שנה',icon:'CalendarHeart',order:30,stub:true,run:()=>openForm({title:'תאריך חשוב',
@@ -52,8 +52,8 @@ registerQuickAdd({id:'gift',label:'רעיון למתנה',hint:'"היא אמרה
   fields:[{name:'title',label:'מה?',required:true,maxLength:120,autofocus:true},
     {name:'heard',label:'היא אמרה שהיא רוצה את זה',type:'switch',sub:'אשמור את התאריך של היום'},
     {name:'occasion',label:'לאיזה אירוע?',placeholder:'יום הולדת, סתם כי בא לי…'},
-    {name:'price',label:'מחיר משוער',type:'price',min:0},
-    {name:'whereToBuy',label:'איפה קונים',placeholder:'חנות, אתר…'}],
+    {name:'price',label:'מחיר משוער',type:'price',min:0,half:true},
+    {name:'whereToBuy',label:'איפה קונים',placeholder:'חנות, אתר…',half:true}],
   values:{},onSubmit:v=>{saveItem('gifts',{title:v.title,status:'idea',occasion:v.occasion,price:v.price,whereToBuy:v.whereToBuy,link:'',heardOn:v.heard?todayISO():null,givenOn:null,reaction:null});}})});
 registerQuickAdd({id:'plan',label:'משימה / רעיון',hint:'לזכור, לתכנן, להפתיע',icon:'ListChecks',order:50,stub:true,run:()=>openForm({title:'משימה או רעיון',
   fields:[{name:'title',label:'מה?',required:true,maxLength:120,autofocus:true},

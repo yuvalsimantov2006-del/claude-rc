@@ -89,7 +89,7 @@
 @media (max-width: 900px) {
   .home-grid { grid-template-columns: minmax(0, 1fr); }
   .home-slot.half { grid-column: 1 / -1; }
-  .home-cols { display: flex; flex-direction: column; }
+  .home-cols { display: flex; flex-direction: column; align-items: stretch; }
   .home-col { display: contents; }
 }
 @media (max-width: 760px) {

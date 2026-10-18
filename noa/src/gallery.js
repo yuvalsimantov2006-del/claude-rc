@@ -4,8 +4,8 @@
 function glBlock(title,html,note=''){return `<section class="gl-block"><h2 class="gl-title">${esc(title)}</h2>${note?`<p class="gl-note">${esc(note)}</p>`:''}<div class="gl-demo">${html}</div></section>`;}
 const GL_FORM_FIELDS=[
   {name:'title',label:'טקסט (חובה)',required:true,placeholder:'למשל: סושי'},
-  {name:'price',label:'מחיר',type:'price',min:0},
-  {name:'date',label:'תאריך',type:'date'},
+  {name:'price',label:'מחיר (חצי שורה)',type:'price',min:0,half:true},
+  {name:'date',label:'תאריך (חצי שורה)',type:'date',half:true},
   {name:'kind',label:'בחירה מרשימה',type:'select',options:[{id:'a',label:'מסעדה'},{id:'b',label:'בית קפה'}]},
   {name:'sentiment',label:'צ׳יפים — בחירה אחת',type:'chips',options:[{id:'love',label:'אוהבת',emoji:'❤️'},{id:'like',label:'מחבבת',emoji:'👍'},{id:'neutral',label:'ככה־ככה',emoji:'😐'},{id:'dislike',label:'לא אוהבת',emoji:'👎'},{id:'never',label:'בשום אופן',emoji:'🚫'}]},
   {name:'remind',label:'צ׳יפים — כמה',type:'multichips',options:[{id:'1',label:'יום לפני'},{id:'7',label:'שבוע'},{id:'30',label:'חודש'}],numeric:true},

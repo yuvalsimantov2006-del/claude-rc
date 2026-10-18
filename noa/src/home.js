@@ -188,7 +188,7 @@ function hmStartHere(ctx){
 registerHomeCard({id:'hero',order:10,size:'full',render:hmHero,fixed:true});
 registerHomeCard({id:'start',order:12,size:'full',render:hmStartHere,fixed:true});
 registerHomeCard({id:'reminders',order:15,size:'full',render:hmReminders});
-registerHomeCard({id:'next',order:20,size:'full',render:hmNextUp,label:'מה מתקרב'});
+registerHomeCard({id:'next',order:20,size:'half',render:hmNextUp,label:'מה מתקרב'});
 registerHomeCard({id:'onthisday',order:25,size:'half',render:hmOnThisDay,label:'ביום הזה'});
 registerHomeCard({id:'gift',order:30,size:'half',render:hmGiftNudge,label:'תזכורת מתנה'});
 registerHomeCard({id:'gesture',order:40,size:'half',render:hmGesture,label:'רעיון קטן להיום'});

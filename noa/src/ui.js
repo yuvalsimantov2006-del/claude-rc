@@ -212,7 +212,8 @@ const uiErrText=err=>err&&/[֐-׿]/.test(err.message||'')?err.message:(console.e
 //   onDelete(), deleteLabel, cls, wide}) → {dialog, form}. Fields:
 //   {name, label, type:'text'|'textarea'|'number'|'price'|'date'|'select'|'chips'|'multichips'|'stars'|'switch'|'tags'|
 //    'url'|'tel'|'photos'|'emoji'|'hidden'|'section'|'custom', required, placeholder, hint, options:[{id,label,emoji,icon}],
-//    min, max, maxLength, rows, full, numeric (multichips → numbers), validate(value, values)→'הודעה'|null,
+//    min, max, maxLength, rows, half (two short fields side by side on wide screens; default is a full row),
+//    numeric (multichips → numbers), validate(value, values)→'הודעה'|null,
 //    show(values)→bool, autofocus, dir, inputmode, html(values) + read(form) for 'custom'}
 // Validation is inline and in Hebrew: on submit, then live as he fixes things. values come back cleaned: trimmed
 // strings, numbers or null, arrays for chips/tags/photos, booleans for switches.
@@ -253,7 +254,7 @@ function formFields(fields,values={},fid=`frm${++uiFormSeq}`){return fields.map(
 function uiField(f,v,fid,values){
   const id=uiFieldId(fid,f.name),err=`${id}-err`,hint=f.hint?`<small class="field-hint" id="${id}-hint">${esc(f.hint)}</small>`:'';
   const described=`aria-describedby="${err}${f.hint?` ${id}-hint`:''}"`;
-  const wrap=(control,extra='')=>`<div class="field${f.full||['textarea','chips','multichips','photos','emoji','section','tags','custom','switch','stars'].includes(f.type)?' full':''}${extra}" data-field="${esc(f.name)}"${f.show?' data-conditional':''}>${control}${hint}<small class="field-error" id="${err}" aria-live="polite"></small></div>`;
+  const wrap=(control,extra='')=>`<div class="field${f.half&&!['textarea','chips','multichips','photos','emoji','section','tags','custom','switch','stars'].includes(f.type)?'':' full'}${extra}" data-field="${esc(f.name)}"${f.show?' data-conditional':''}>${control}${hint}<small class="field-error" id="${err}" aria-live="polite"></small></div>`;
   const label=`<label class="field-label" for="${id}">${esc(f.label||'')}${f.required?'<span class="req" aria-hidden="true"> *</span>':f.optionalNote===false?'':''}</label>`;
   const common=`id="${id}" name="${esc(f.name)}" ${described}${f.required?' aria-required="true"':''}${f.autofocus?' autofocus':''}`;
   const val=v==null?'':v;
